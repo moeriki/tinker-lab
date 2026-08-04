@@ -4,7 +4,7 @@
 import economy from '../content/economy.js';
 import { all, get, run, transact, setting, setSetting } from './db.js';
 import { getGame, listGames, hintsFor } from './content.js';
-import { huntIsComplete, reachedStep } from './progress.js';
+import { reachedStep } from './progress.js';
 
 export const GAME_ENDED_AT = 'game_ended_at';
 
@@ -52,16 +52,48 @@ export const standings = () =>
     order by score desc, t.created_at asc
   `);
 
+/**
+ * The score that currently holds the last podium place -- the bar to clear. With fewer teams than
+ * places it is the last team's score, because with two teams both of them really are in the top
+ * three.
+ */
+function podiumLine(board) {
+  return board[economy.podiumSize - 1]?.score ?? board.at(-1)?.score ?? 0;
+}
+
+/**
+ * The one comparative signal a team ever gets. Deliberately vague: no rank, no other team's
+ * score, no distance to the podium -- the showdown is where the reveal happens, and the host has
+ * the true board at /admin.
+ *
+ * Three bands, and only the first is a rank:
+ *
+ *   podium   scored something, and at or above the third-place score
+ *   chasing  within `podiumGap` of that score
+ *   rest     further back than that
+ *
+ * Band 2 is proximity, not a slice of the field, because rank alone lies about a near-tie: if
+ * third has 60, a team on 59 is close whether they are fourth or eleventh.
+ *
+ * The `score > 0` clause is what keeps 20:05 honest. Without it the whole party sits at zero, the
+ * podium line is zero, and every team is told they are amazing for having done nothing. With it
+ * they all sit in "you have a chance", which is exactly true -- and the first team to score
+ * anything at all is genuinely leading, so they get the podium immediately.
+ *
+ * Ties take the better band. Ordering breaks them on `created_at`, which is arbitrary -- telling
+ * a team they missed the podium on identical points because they arrived later is a worse error
+ * than occasionally showing four teams "top 3".
+ */
 export function standingsMessage(teamId) {
   const board = standings();
-  const position = board.findIndex((row) => row.id === teamId);
-  if (position < 0) return economy.standingsBands.at(-1).message;
+  const me = board.find((row) => row.id === teamId);
+  if (!me) return economy.standingsBands.rest;
 
-  const fraction = (position + 1) / board.length;
-  return (
-    economy.standingsBands.find((band) => fraction <= band.topFraction) ??
-    economy.standingsBands.at(-1)
-  ).message;
+  const line = podiumLine(board);
+
+  if (me.score > 0 && me.score >= line) return economy.standingsBands.podium;
+  if (line - me.score < economy.podiumGap) return economy.standingsBands.chasing;
+  return economy.standingsBands.rest;
 }
 
 // --- hints ---------------------------------------------------------------------------------
@@ -154,14 +186,44 @@ export function reopenGame() {
   return transact(() => setSetting(GAME_ENDED_AT, null));
 }
 
+// --- hunts ---------------------------------------------------------------------------------
+
+/**
+ * Bank the points for every step this team has reached. Hunts pay per accepted scan rather than
+ * all at the finish, because they are the two tiles a team can pay a hint for and still fail --
+ * partial credit is what makes buying that hint a rational move instead of a gamble. A team
+ * stranded on step 2 of three keeps what they walked for.
+ *
+ * One row per step, `source_id` being the step number, so this upserts and is safe to call on
+ * every scan and again from /admin/rescore. It re-awards every reached step rather than only the
+ * newest, which self-heals a step whose award was never written -- from a crash mid-scan, or
+ * from step points being edited in content after the party started.
+ */
+export function awardHuntProgress(teamId, game) {
+  if (game.kind !== 'hunt') return 0;
+
+  const reached = reachedStep(teamId, game);
+
+  for (let step = 1; step <= reached; step += 1) {
+    award({
+      teamId,
+      gameId: game.id,
+      kind: 'hunt',
+      points: game.steps[step - 1]?.points ?? 0,
+      reason: `step ${step}`,
+      sourceId: step,
+    });
+  }
+
+  return reached;
+}
+
 /** Re-run content scoring over existing player data. Manual awards are never touched. */
 export function rescore() {
   return transact(() => {
     for (const team of all('select id from teams')) {
       for (const game of listGames()) {
-        if (game.kind === 'hunt' && huntIsComplete(team.id, game)) {
-          award({ teamId: team.id, gameId: game.id, kind: 'hunt', points: game.points ?? 0 });
-        }
+        awardHuntProgress(team.id, game);
       }
     }
     if (gameIsOver()) runResolvers();

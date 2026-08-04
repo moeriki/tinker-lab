@@ -46,6 +46,7 @@ import { huntIsComplete, isUnlocked, reachedStep, recordScan, scanIsInOrder, unl
 import {
   allSubmissionsFor,
   award,
+  awardHuntProgress,
   endGame,
   gameIsOver,
   gameScore,
@@ -176,9 +177,8 @@ async function handleScan({ req, res, params }) {
   // docs/adr/0007-one-home-assistant-webhook.md.
   fireWebhook(getStep(game, step)?.webhook, { team: team.name, game: game.id, step });
 
-  if (huntIsComplete(team.id, game)) {
-    award({ teamId: team.id, gameId: game.id, kind: 'hunt', points: game.points ?? 0 });
-  }
+  // Every step banks as it is reached, not the whole hunt at the finish -- see awardHuntProgress.
+  awardHuntProgress(team.id, game);
 
   // Step 1 is an unlock; every step after it is a step transition, and they look different.
   return redirect(res, gamePath(game.id, { step, moment: step === 1 ? 'unlock' : 'step' }));

@@ -6,6 +6,7 @@ import { readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
+import economy from '../content/economy.js';
 import { CONTENT_DIR } from './config.js';
 import { all } from './db.js';
 
@@ -113,6 +114,27 @@ function validate() {
     }
     if (game.kind === 'hunt' && !game.steps?.length) {
       problems.push(`hunt "${game.id}" has no steps`);
+    }
+    // Hunts bank per step, so the points live on the step and not on the game. A hunt that still
+    // declares a single `points` is written against the old all-at-the-finish scheme.
+    if (game.kind === 'hunt') {
+      if (typeof game.points === 'number') {
+        problems.push(`hunt "${game.id}" declares game-level points; hunts pay per step`);
+      }
+      for (const [index, step] of (game.steps ?? []).entries()) {
+        if (typeof step.points !== 'number') {
+          problems.push(`hunt "${game.id}" step ${index + 1} declares no points`);
+        }
+      }
+      // Every tile is worth the same flat budget, so a perfect score is exactly 100. A hunt is
+      // the one kind whose total is knowable at boot -- answer and tally games spend theirs
+      // inside check/resolve, where only the ticket that wrote them can check the arithmetic.
+      const budget = (game.steps ?? []).reduce((sum, step) => sum + (step.points ?? 0), 0);
+      if (budget > economy.tilePoints) {
+        problems.push(
+          `hunt "${game.id}" pays ${budget} across its steps, over the ${economy.tilePoints}-point tile budget`,
+        );
+      }
     }
 
     if (game.judging && !DECLARED_JUDGING.includes(game.judging)) {

@@ -84,7 +84,7 @@ A unit of play, defined entirely in `content/games/<id>.js`. Three **kinds**:
 | --- | --- | --- |
 | `answer` | hero + form, **one** submission, editable until game end | `check()` on submit, or `resolve()` at game end |
 | `tally` | hero + form, **many** submissions (one point per photo) | per submission |
-| `hunt` | the current step's hero and hints, **no form** | auto-awarded on the final step |
+| `hunt` | the current step's hero and hints, **no form** | auto-awarded **per step**, as each is reached |
 
 ### Tile
 
@@ -121,10 +121,15 @@ once granted. One tile is unlocked during onboarding by whichever code they arri
 ### Hunt and step
 
 A **hunt** is one game with an ordered list of **steps**. Each step has its own hero text
-(deliberately vague — *"Nothing happens?"*), its own hints, and optionally a **webhook** to fire.
-Each step is bound to one code slug.
+(deliberately vague — *"Nothing happens?"*), its own **points**, its own hints, and optionally a
+**webhook** to fire. Each step is bound to one code slug.
 
 Steps are **1-based** in content and in the database.
+
+**Points live on the step, never on the hunt**, and bank as each step is reached — `2 + 3 + 5`
+across three steps, back-loaded so finishing pays. A hunt that declares a game-level `points` is
+a boot error. Partial credit is what makes buying a hint on a hunt rational rather than a
+gamble: these are the two tiles where a team can pay and still fail.
 
 A team's position is **derived**: the longest *contiguous* run of steps whose slugs they have an
 accepted scan for. There is no progress column. Progression is strictly sequential — stumbling on
@@ -173,6 +178,45 @@ duplicates — which is what makes `/admin/rescore` safe. See
 [ADR-0002](docs/adr/0002-points-are-a-ledger.md).
 
 > Not "score" — a **score** is the sum of awards, not a stored thing.
+
+### The economy
+
+The numbers live in `content/economy.js`. The scale is deliberately fine-grained — **the atom is
+1 point, every tile is worth 10, a perfect score is exactly 100** — because that is what makes a
+3-point hint land: three bingo squares, 30% of a tile in the moment, 3% of the night by 01:00.
+
+**Every tile is flat 10**, and a game spends that budget however its own shape wants: per square,
+per photo, per step, plus a completion bonus where the units don't divide evenly (Human Bingo's
+nine squares, the photo scavenger's six prompts). `economy.tilePoints` is the contract the
+per-game tickets author against; only hunts can have it checked at boot, since answer and tally
+games spend theirs inside `check()` and `resolve()`.
+
+**Finding a code pays nothing.** Points mean *you played the game*, never *you walked past it* —
+so a team that scans everything and submits nothing scores 0. Hunts are the deliberate exception,
+because there the walking **is** the mechanic.
+
+**Scores may go negative.** Hints are the only debit, and nothing clamps: `score = SUM(awards)`
+stays literally true, with no special case in the tile, the header or the showdown.
+See [ADR-0011](docs/adr/0011-the-tile-is-the-unit-of-value.md).
+
+### Standing
+
+The vague message in the dashboard header, and the **only** comparative signal a team ever gets —
+no rank, no other team's score, no distance to the podium. Three **bands**, and only the first is
+a rank:
+
+| band | who is in it |
+| --- | --- |
+| `podium` | score at or above the **third-place** score |
+| `chasing` | within `podiumGap` (30) of it — three tiles, catchable |
+| `rest` | further back than that |
+
+Band 2 is **proximity, not a slice of the field**: if third has 60, a team on 59 is close whether
+they are fourth or eleventh. Ties take the better band, and before anyone has scored the whole
+party is `chasing` — there is no podium made of zeroes.
+
+> Not "rank", not "leaderboard". A team has a **standing**, which is one of three sentences. The
+> true board exists only at `/admin`, and the numbers only ever come out at the showdown.
 
 ### Hint reveal
 
