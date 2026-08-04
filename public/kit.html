@@ -279,13 +279,65 @@
         </div>
       </section>
 
+      <!-- ============================== PHOTOS ============================= -->
+      <section class="sect" id="photos">
+        <h2 class="sect__h">13. Photos — the camera and the shots</h2>
+        <p class="sect__note">Two of the ten tiles are photo tiles, so this is the half of the site nobody could look at without a phone, a party and a real submission behind it. All of it is <code>shoot()</code>, <code>shot()</code> and <code>shots()</code> from <code>src/render.js</code> — the same calls a game page makes.</p>
+
+        <h3 class="sect__sub">The camera</h3>
+        <p class="sect__note">Not a <code>.btn</code>. The file input is hidden by clipping inside its own label — never <code>display: none</code>, which would take it off the keyboard — and the label is the target. The face is the only thing that varies: the scavenger wears its prompt on it, so tapping the thing you have to photograph is what opens the camera.</p>
+        <div class="stack">
+          <!--@shoot-->
+          <!--@shoot face="take another"-->
+          <!--@shoot face="Both hosts in one shot"-->
+          <!--@shoot face="retake"-->
+        </div>
+
+        <h3 class="sect__sub">One shot</h3>
+        <p class="sect__note">A square that taps through to the full picture. The thumbnail is the one the camera already embedded in the file's EXIF — about 7KB against a 1.2MB photo, which is what keeps a tile full of them cheap on house wifi.</p>
+        <div class="shots">
+          <!--@shot src="/img/kit-shot.jpg"-->
+          <!--@shot label="image/heic"-->
+        </div>
+        <p class="sect__note">
+          The yellow one is the <strong>download tile</strong>, and it is the reason this section
+          matters more than it looks: it fires when a phone sends a format the browser will not
+          draw — HEIC, off an iPhone — and until now it could not be seen without owning one.
+          It names the format and downloads rather than showing a broken
+          <code>&lt;img&gt;</code> or opening a blank page.
+        </p>
+
+        <h3 class="sect__sub">The strip</h3>
+        <p class="sect__note">What a plain <code>photo: true</code> game renders under its hero. Neither photo tile on today's roster takes this path — both pay per unit and compose their own stage — so this is what a photo game that declares no <code>units</code> gets for free.</p>
+        <!--@shots cells="/img/kit-shot.jpg|/img/kit-shot.jpg|image/heic|/img/kit-shot.jpg" anim="anim-correct"-->
+        <p class="sect__note">
+          Only the newest one carries the arrival animation; the rest of the strip stays put.
+        </p>
+
+        <p class="sect__note">
+          The picture is <code>public/img/kit-shot.jpg</code>, the only image this page commits: a
+          strip needs something in it, and <code>/uploads/</code> is player data that does not
+          exist on a fresh checkout. It is 160×120 and ~7KB — the size and shape of a real EXIF
+          thumbnail — and it is a drawing, because <strong>this repository is public</strong> and
+          nothing in the house belongs in it.
+        </p>
+        <p class="sect__note">
+          Still hand-written and still owed: <code>.prompts</code> / <code>.prompt</code>, the
+          scavenger's checklist, which is a page composition rather than a primitive — every row
+          of it is a form posting to <code>/g/:id/submit</code>, and render.js renders no form
+          action anywhere.
+        </p>
+      </section>
+
       <footer class="kit-foot">
         <p class="aside">That is the whole kit. If a page needs something that is not on this page, the page is wrong or the kit is incomplete — say which.</p>
         <p class="aside">
-          The scorebar, the tiles, the heroes, the fields, the modal and the window frame above are rendered by
+          The scorebar, the tiles, the heroes, the fields, the modal, the window frame, the camera
+          and the shots above are rendered by
           <code>src/render.js</code> — the same calls the site makes, so they cannot be out of date.
-          The starburst, the speech bubble, the stamp, the marquee, the status bar
-          and the three standing colours are written by hand here, because no page builds them yet.
+          The starburst, the speech bubble, the stamp, the marquee, the status bar, the scavenger's
+          prompt list and the three standing colours are written by hand here or not shown at all,
+          because no page builds them out of a component yet.
           <strong>That list is the design the site still owes.</strong> Building one means moving its
           markup into <code>render.js</code> and leaving a marker here in the same change.
         </p>

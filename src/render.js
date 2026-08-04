@@ -260,6 +260,81 @@ export function field({ label, name, type = 'text', value = '', rows = 0, attrs 
 }
 
 /**
+ * The camera. The big dashed target that opens a phone's camera, and the only control on the site
+ * that is not a `.btn`.
+ *
+ * The `<input>` is a real file input, hidden by clipping inside its own label, because the native
+ * one is unstylable across browsers. Never `display: none` -- that would take it out of the tab
+ * order and off the keyboard entirely (see `.shoot__input` in app.css).
+ *
+ * `name="photo"` and `accept`/`capture` are fixed here rather than passed in: `/g/:id/submit`
+ * reads exactly that field name, and a caller free to rename it could produce a control that
+ * looks right and posts nothing. What varies is only the `face` -- the words on it -- because the
+ * scavenger wears its prompt there ("Both hosts in one shot") and everything else says some
+ * flavour of "take a photo".
+ *
+ * There is no `<form>` here on purpose. render.js renders no form action anywhere: which route a
+ * control posts to is a page's business, not the design system's. Every caller wraps this.
+ */
+export function shoot({ face = 'take a photo' }) {
+  return `<label class="shoot">
+      <input class="shoot__input" type="file" name="photo" accept="image/*" capture="environment">
+      <span class="shoot__face">${escape(face)}</span>
+    </label>`;
+}
+
+/**
+ * One photo, back to whoever sent it: a small square that taps through to the full thing.
+ *
+ * Two states, and which one you get is decided by whether the caller could find something to
+ * render. `src` is the cheap EXIF thumbnail where the camera embedded one and the full file where
+ * it did not, so a tile full of photos costs kilobytes rather than megabytes (#10).
+ *
+ * With no `src` there is nothing this browser will draw, which today means HEIC off an iPhone
+ * (`displayFor` in photos.js). That gets `.shot--dl`: a yellow tile naming the format, and a
+ * `download` link rather than an `<img>` that would break or a plain link that would open a blank
+ * page. This branch was the admin gallery's alone until #41 -- the team-facing strip used to say
+ * "sent ✓" and link straight at bytes the phone refuses, which looks like it worked and does not.
+ * One component, so there is one answer to what an unrenderable photo looks like.
+ *
+ * `anim` is a class from the closed vocabulary in `src/moments.js`, and only the photo that just
+ * arrived carries one.
+ */
+export function shot({ href = '', src = '', label = 'file', anim = '' }) {
+  return src
+    ? `<a class="shot${anim}" href="${escape(href)}">
+        <img class="shot__img" src="${escape(src)}" alt="" loading="lazy">
+      </a>`
+    : `<a class="shot shot--dl${anim}" href="${escape(href)}" download>
+        <span class="shot__none">${escape(label)}<br>tap to open</span>
+      </a>`;
+}
+
+/**
+ * The strip of them, with a count above it. What a plain `photo: true` game renders under its
+ * hero -- every photo this team has sent to it, newest last.
+ *
+ * A game that pays per unit does NOT use this: the scavenger's prompt list and the portrait
+ * gallery each compose their own stage out of `shot()` directly, because a flat strip cannot say
+ * which prompts are still open. So today's roster reaches this through neither photo tile; it is
+ * what a photo game that declares no `units` gets for free.
+ *
+ * Each entry is `{ href, src, label }` -- already resolved by the caller, because deciding which
+ * of a submission's three photo columns to point at is database knowledge and this file has none.
+ */
+export function shots(photos = [], newestAnim = '') {
+  if (!photos.length) return '';
+
+  // Only the photo that just arrived moves; the rest of the strip stays put.
+  const cells = photos
+    .map((photo, index) => shot({ ...photo, anim: index === photos.length - 1 ? newestAnim : '' }))
+    .join('');
+
+  return `<p class="statusline">you've sent ${photos.length}</p>
+          <div class="shots">${cells}</div>`;
+}
+
+/**
  * The window frame, straight off the invite. Anything that wants to feel like a document: the
  * rules, and later the results and the handoff.
  *

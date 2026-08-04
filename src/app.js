@@ -95,6 +95,9 @@ import {
   notFound,
   rulesList,
   scorebar,
+  shoot,
+  shot,
+  shots,
   stub,
   tile,
   win,
@@ -589,48 +592,33 @@ const SUBMIT_PROBLEMS = {
 };
 
 /**
+ * What `shot()` needs to draw one submission: which of the three photo columns to point at, and
+ * what to call the format when there is nothing to point at. This mapping is the whole reason
+ * render.js takes resolved entries rather than rows -- it is database knowledge, and render.js
+ * has none.
+ */
+const photoCell = (submission) => ({
+  href: `/uploads/${submission.photo_path}`,
+  src: displayFor(submission).src ?? '',
+  label: submission.photo_mime ?? 'file',
+});
+
+/** The one cell, shared by the strip, the prompt checklist and the admin gallery. */
+const shotCell = (submission, anim = '') => shot({ ...photoCell(submission), anim });
+
+/**
  * A team's own photos, back to them. Thumbnails are the extracted EXIF ones where the camera
  * embedded any, so reopening a tile with six photos on it costs kilobytes and not megabytes.
  */
-function photoStrip(submissions, newestAnim = '') {
-  const withPhotos = submissions.filter((submission) => submission.photo_path);
-  if (!withPhotos.length) return '';
-
-  const cells = withPhotos
-    .map((submission, index) => {
-      const display = displayFor(submission);
-      const href = `/uploads/${escape(submission.photo_path)}`;
-      const inside = display.src
-        ? `<img class="shot__img" src="${escape(display.src)}" alt="" loading="lazy">`
-        : '<span class="shot__none">sent ✓</span>';
-      // Only the photo that just arrived moves; the rest of the strip stays put.
-      const moving = index === withPhotos.length - 1 ? newestAnim : '';
-      return `<a class="shot${moving}" href="${href}">${inside}</a>`;
-    })
-    .join('');
-
-  return `<p class="statusline">you've sent ${withPhotos.length}</p>
-          <div class="shots">${cells}</div>`;
-}
-
-/** The one thumbnail-or-fallback cell, shared by the strip and the prompt checklist. */
-function shotCell(submission, extraClass = '') {
-  const display = displayFor(submission);
-  const inside = display.src
-    ? `<img class="shot__img" src="${escape(display.src)}" alt="" loading="lazy">`
-    : '<span class="shot__none">sent ✓</span>';
-  return `<a class="shot${extraClass}" href="/uploads/${escape(submission.photo_path)}">${inside}</a>`;
-}
+const photoStrip = (submissions, newestAnim = '') =>
+  shots(submissions.filter((submission) => submission.photo_path).map(photoCell), newestAnim);
 
 /** The camera control, posting one unit of one game. `unit` is null where the units are anonymous. */
 function shootForm(game, { unit = null, face, primary = true, body = null }) {
   return `<form class="stack stack--tight" method="post" action="/g/${escape(game.id)}/submit"
                 enctype="multipart/form-data">
             ${unit === null ? '' : `<input type="hidden" name="unit" value="${Number(unit)}">`}
-            <label class="shoot">
-              <input class="shoot__input" type="file" name="photo" accept="image/*" capture="environment">
-              <span class="shoot__face">${escape(face)}</span>
-            </label>
+            ${shoot({ face })}
             ${body ?? ''}
             <button class="btn ${primary ? 'btn--primary' : ''}" ${gameIsOver() ? 'disabled' : ''}>send</button>
           </form>`;
@@ -787,11 +775,9 @@ function showGame({ req, res, params, url }) {
                    ${wantsPhoto ? 'enctype="multipart/form-data"' : ''}>
                ${
                  wantsPhoto
-                   ? `<label class="shoot">
-                        <input class="shoot__input" type="file" name="photo"
-                               accept="image/*" capture="environment">
-                        <span class="shoot__face">${mine.some((s) => s.photo_path) ? 'take another' : 'take a photo'}</span>
-                      </label>`
+                   ? shoot({
+                       face: mine.some((s) => s.photo_path) ? 'take another' : 'take a photo',
+                     })
                    : ''
                }
                <input class="input" name="body"
@@ -1231,19 +1217,8 @@ function adminGame({ req, res, params }) {
 
   const cards = submissions
     .map((submission) => {
-      const display = submission.photo_path ? displayFor(submission) : null;
-
-      let media = '';
-      if (display?.src) {
-        media = `<a class="shot" href="/uploads/${escape(submission.photo_path)}">
-                   <img class="shot__img" src="${escape(display.src)}" alt="" loading="lazy">
-                 </a>`;
-      } else if (display) {
-        // HEIC on Android, or anything else this browser may refuse. Never a broken <img>.
-        media = `<a class="shot shot--dl" href="/uploads/${escape(submission.photo_path)}" download>
-                   <span class="shot__none">${escape(submission.photo_mime ?? 'file')}<br>tap to open</span>
-                 </a>`;
-      }
+      // The same cell a team sees on the game page, including the download tile a HEIC gets.
+      const media = submission.photo_path ? shotCell(submission) : '';
 
       const judging =
         mode === 'manual'

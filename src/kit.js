@@ -17,13 +17,33 @@
 // place is `kit.html`, and the ticket that first builds it into a page moves it here in the same
 // change, so a second copy is never created.
 
-import { field, hero, hintModal, rulesList, scorebar, tile, win } from './render.js';
+import {
+  field,
+  hero,
+  hintModal,
+  rulesList,
+  scorebar,
+  shoot,
+  shot,
+  shots,
+  tile,
+  win,
+} from './render.js';
 
 /** `<!--@name key="value" bare-key-->` */
 const MARKER = /<!--@([\w-]+)((?:\s+[\w-]+(?:="[^"]*")?)*)\s*-->/g;
 const ATTR = /([\w-]+)(?:="([^"]*)")?/g;
 
 const num = (value, fallback = 0) => (value === undefined ? fallback : Number(value));
+
+/**
+ * The one committed image on this page. A real photo strip points at `/uploads/`, which is player
+ * data and empty on a fresh checkout, so the photo section needs a file of its own or it demos an
+ * empty box. It is 160x120 and ~7KB, deliberately the size and shape of the EXIF thumbnails the
+ * app actually serves (#10 measured 6.5KB), and deliberately a drawing -- this repository is
+ * public and nothing in the house belongs in it.
+ */
+const SAMPLE_SHOT = '/img/kit-shot.jpg';
 
 /**
  * One adapter per primitive, mapping the marker's flat bag of strings onto the function's real
@@ -56,6 +76,30 @@ const RENDERERS = {
 
   hintmodal: (a) =>
     hintModal({ notice: a.notice ?? 'paid', cost: num(a.cost, 3), backHref: a.href ?? '#modal' }),
+
+  shoot: (a) => shoot({ face: a.face ?? 'take a photo' }),
+
+  // A cell with a `src` is a thumbnail; one without is the download tile, and its `label` is the
+  // format it names. Both are the same call -- which branch you get is decided by whether there
+  // was anything to draw, exactly as it is on a game page.
+  shot: (a) => shot({ href: a.href ?? SAMPLE_SHOT, src: a.src ?? '', label: a.label ?? 'file' }),
+
+  // The strip takes a LIST, and a marker attribute is one flat string, so the cells are pipe
+  // separated the way `win` flattens its rules. A cell that starts with `/` is a thumbnail path;
+  // anything else is a mime type and gets the download tile. Every cell taps through to the
+  // sample image, since the kit has no uploads behind it.
+  shots: (a) =>
+    shots(
+      (a.cells ?? '')
+        .split('|')
+        .filter(Boolean)
+        .map((cell) =>
+          cell.startsWith('/')
+            ? { href: cell, src: cell }
+            : { href: SAMPLE_SHOT, src: '', label: cell },
+        ),
+      a.anim ? ` ${a.anim}` : '',
+    ),
 
   // `/rules` was the first page to render the window frame, so it moved out of kit.html and into
   // render.js in the same change -- the rule this file's header states. The body is a rules list

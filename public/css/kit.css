@@ -55,6 +55,18 @@
   font-size: 0.92rem;
 }
 
+/* A section that ships more than one component needs to say which is which. Kit chrome, like
+   .sect__h -- it is not a primitive and no page renders one. */
+.sect__sub {
+  margin: 1.4rem 0 0;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  border-bottom: var(--edge-1) solid var(--c-ink);
+}
+
 /* -------------------------------- swatches --------------------------------- */
 
 .swatches {

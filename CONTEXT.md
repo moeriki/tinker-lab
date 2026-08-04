@@ -249,7 +249,9 @@ A submission also carries the **unit** it claims (below), or `NULL` where its ga
 Stored **exactly as the camera produced it** — no conversion, no resizing. `photo_mime` is
 sniffed from magic bytes, never the filename; `photo_thumb` is the JPEG the camera embedded in
 EXIF, and is **null** whenever there wasn't one. A format the browser may refuse (HEIC on
-anything but Safari) gets a download tile rather than a broken `<img>`. See
+anything but Safari) gets a download tile — `.shot--dl` — rather than a broken `<img>`, and gets
+it **everywhere a photo is shown**: one `shot()` in `render.js` renders every photo cell on the
+site, so there is one answer to what an unrenderable photo looks like. See
 [ADR-0008](docs/adr/0008-photos-are-stored-as-they-arrive.md).
 
 Filenames are self-describing — `0007-yarn-20260814T2134-a3f9.jpg` is team, game, when, random —
@@ -518,11 +520,17 @@ Where the app renders a component, that place is a function in `src/render.js`, 
 through a marker comment — `@tile state="unlocked" title="Longest Yarn"` — which `src/kit.js` swaps
 for the real output. The kit holds no copy, so it cannot show something the site does not do.
 
-Where the app does **not** render it yet — the window frame, the starburst, the speech bubble, the
-stamp, the marquee, the status bar, the three `.standing--*` colours — the markup is hand-written in
+Where the app does **not** render it yet — the starburst, the speech bubble, the stamp, the
+marquee, the status bar, the three `.standing--*` colours — the markup is hand-written in
 `kit.html` and that page is its only home. Those sections are the design the site still owes.
 Building one into a page means **moving** its markup into `render.js` and leaving a marker behind in
 the same change, so a second copy is never created.
+
+The `.prompt` / `.prompts` checklist is the one thing the app renders that `/kit` still does not
+show. It is a page **composition** rather than a primitive — every row is a form posting to
+`/g/:id/submit`, and `render.js` renders no form action anywhere — so demoing it would mean the
+kit inventing a route. The camera (`shoot`) and the photo cells (`shot`, `shots`) it is built out
+of are on the kit, in §13.
 
 `GET /healthz` is the container health check and the pre-party liveness probe — JSON, no cookie
 required, `503` if the database is unreachable. It reports nothing about teams or scores, being
