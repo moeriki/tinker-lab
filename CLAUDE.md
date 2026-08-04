@@ -1,5 +1,18 @@
 # CLAUDE.md
 
+## Session isolation — read this first
+
+Several sessions work this repo at once. **If your session will write a file here, take your own
+worktree first** — `EnterWorktree(name: "ticket-<n>-<slug>")`, named after the ticket you claimed.
+
+The shared checkout at `/Users/moeriki/Projects/moeriki/bday-games` is always on `main` and always
+clean; agents read there and never commit, check out, or leave files dirty in it. Land work by
+rebasing onto `origin/main` and pushing — **no pull requests** — then remove the worktree and delete
+the branch. A branch may only outlive your session if an open ticket names it, and filing that
+ticket is your job, not the human's.
+
+See `docs/agents/worktrees.md`.
+
 ## Agent skills
 
 ### Issue tracker
