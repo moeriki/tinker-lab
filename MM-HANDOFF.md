@@ -8,8 +8,11 @@ Source: <https://github.com/moeriki/tinker-lab> (public). Everything below refer
 checkout.
 
 You own the server, DNS, Docker and Home Assistant. This document is what you need from us, and
-what we need from you. There is an **analysis request at the bottom** — that part is not
-instructions, it's us asking for your read on things we could not determine from outside.
+what we need from you.
+
+**Revised 4 August** against your analysis of the real setup — the Home Assistant sections now
+describe this house rather than a documented one. What's still outstanding is the short list at
+the bottom.
 
 ---
 
@@ -93,6 +96,12 @@ cd bday
 There is no registry and no published image. `docker compose` builds from this checkout, so
 shipping a fix is `git pull && docker compose up -d --build`.
 
+**The image has now been built and run** (4 August, under Podman) — it starts, migrates, serves
+every route below, persists across a restart, and `scripts/backup.js` works inside the container.
+So a build failure on your host would point at the host, not at this checkout. One difference you
+may notice: Podman ignores the `HEALTHCHECK` line because it defaults to the OCI image format.
+Docker honours it, so `docker ps` will show a health column and Podman won't.
+
 ### 2. Configure
 
 ```bash
@@ -140,7 +149,44 @@ absent and that is correct.
 
 ### 5. Put it behind TLS
 
-The container binds `127.0.0.1:3040` on the host. Point your proxy at that.
+The container publishes on `127.0.0.1:3040` by default. Point your proxy at that.
+
+**You run Nginx Proxy Manager, so start here.** Add a Proxy Host:
+
+| Field | Value |
+| --- | --- |
+| Domain Names | `bday.moeriki.com` |
+| Scheme | `http` |
+| Forward Hostname / IP | `192.168.129.201` (the Unraid host — **not** `127.0.0.1`, see below) |
+| Forward Port | `3040` |
+| Block Common Exploits | on |
+| Websockets Support | off — the admin page polls over ordinary requests |
+| SSL | Request a new Let's Encrypt certificate, Force SSL on |
+
+Then, under the Advanced tab, raise the upload ceiling — guests upload phone photos and the
+1 MB nginx default rejects them, which looks like a broken game rather than a broken proxy:
+
+```nginx
+client_max_body_size 25M;
+```
+
+**NPM is at `192.168.128.2` and the host is `192.168.129.201` — different subnets.** So NPM is
+almost certainly a separate network namespace and cannot reach the host's loopback. If
+`bday.moeriki.com` answers **502** while `curl 127.0.0.1:3040/healthz` works *on* the host, that
+is exactly this. The fix is one line in `.env`, no file editing:
+
+```
+BIND_ADDR=192.168.129.201
+```
+
+then `docker compose up -d`. Confirm with `curl 192.168.129.201:3040/healthz` from anywhere on
+the LAN.
+
+DNS: `bday.moeriki.com` needs an A record pointing at whatever public address already serves
+`ha.moeriki.com`, since NPM terminates both.
+
+<details>
+<summary>Caddy or plain nginx instead</summary>
 
 Caddy:
 
@@ -169,6 +215,10 @@ server {
 }
 ```
 
+Both assume the proxy shares a namespace with the host; if not, use the LAN IP as above.
+
+</details>
+
 **The body-size limit matters.** Guests upload photos from their phones as part of the games, and
 a modern phone photo is comfortably over the 1 MB nginx default. An upload rejected by the proxy
 looks like a broken game to the guest. 25 MB is a sane ceiling.
@@ -179,8 +229,11 @@ No WebSocket support is needed — the admin page polls over ordinary requests.
 
 ```bash
 curl -s https://bday.moeriki.com/healthz
-# {"ok":true,"games":8,"uptime":42,"node":"v26.6.0"}
+# {"ok":true,"games":0,"uptime":42,"node":"v26.5.1"}
 ```
+
+**`"games":0` is expected right now** and is not a fault — the game roster is still being written,
+and the number climbs as games land. `"ok":true` is the part that matters.
 
 `/healthz` touches the database on purpose: a process that is listening but cannot read its own
 file is not healthy. It reports `503` if the database is unreachable. It deliberately exposes
@@ -244,28 +297,60 @@ costs you a YAML branch and costs us nothing.
   variables:
     team: "{{ trigger.json.get('team', 'unknown') }}"
     node: "{{ trigger.json.get('node', 'unknown') }}"
+    # Which room this hunt node lives in. Extend as the hunt design names more nodes;
+    # the default keeps an unmapped node visible rather than silent.
+    lamp: >-
+      {% set rooms = {
+           'hall-mirror': 'light.living_room_living_room',
+           'attic-lamp':  'light.living_room_living_room'
+         } %}
+      {{ rooms.get(node, 'light.living_room_living_room') }}
   actions:
     - action: logbook.log
       data:
         name: "Birthday hunt"
         message: "Team {{ team }} scanned node {{ node }}"
+
+    # Capture the room exactly as it is, so a light that was already on goes back to
+    # what it was rather than being switched off.
+    - action: scene.create
+      data:
+        scene_id: bday_hunt_restore
+        snapshot_entities:
+          - "{{ lamp }}"
+
     - repeat:
         count: 3
         sequence:
           - action: light.turn_on
             target:
-              entity_id: light.party_lamp      # <-- your light entity
+              entity_id: "{{ lamp }}"
             data:
               brightness_pct: 100
+              rgb_color: [255, 140, 0]     # one warm "something happened" flash
           - delay: "00:00:00.4"
           - action: light.turn_off
             target:
-              entity_id: light.party_lamp      # <-- your light entity
+              entity_id: "{{ lamp }}"
           - delay: "00:00:00.4"
+
+    - action: scene.turn_on
+      target:
+        entity_id: scene.bday_hunt_restore
 ```
 
+- **Snapshot and restore, not turn-off.** `scene.create` with `snapshot_entities` captures the
+  room's current state; `scene.turn_on` at the end puts it back. Turning the light off would be
+  wrong whenever the room light was already on — which, at a party, is most of the time.
 - `mode: queued` matters — the default `single` silently drops concurrent triggers, and
-  simultaneous scans are exactly our case.
+  simultaneous scans are exactly our case. **You wanted to debounce instead** so that three teams
+  scanning within five seconds don't produce nine back-to-back flash cycles; that's yours to
+  write and the site needs no change for it — the webhook fires on every scan regardless, and the
+  automation decides whether to act. The cheap version is `mode: single` with
+  `max_exceeded: silent`, which drops overlapping scans rather than merging them.
+- **One flash, not per-team colours.** Teams are pairs and there will be ten to fifteen of them,
+  which is well past the point where colour-coding reads as anything but muddy. `team` is still
+  in the payload if you want it for TTS or the logbook.
 - `.get('team', ...)` rather than `.team`: a payload missing a key would otherwise throw, and you
   would never see it, because of the `200 OK` behaviour.
 - **Do not add `GET`** to `allowed_methods`. Link-preview bots and browser prefetch would fire
@@ -273,6 +358,26 @@ costs you a YAML branch and costs us nothing.
 - The UI route works too: Settings → Automations & scenes → Create automation → Add trigger →
   *Webhook*. `local_only` and the allowed methods hide behind the gear menu beside the Webhook ID
   field, and the copy button gives you the fully-qualified URL.
+
+### 2b. The lights that are actually in play
+
+Confirmed against the house — 34 Hue bulbs over the Hue Bridge, sub-second response, so a flash
+reads as instant.
+
+| Room | Entity | Bulbs | Use for the hunt |
+| --- | --- | --- | --- |
+| Living room | `light.living_room_living_room` | 10, colour + native Hue effects, dynamics | The main event — where guests are |
+| Dining | `light.dining_dining` | 2, colour. Has *Game Night* and *Candlelight Dinner* scenes | Adjacent, good second stop |
+| Patio | `light.patio_patio` | 3 outdoor, colour. Has *Amber bloom* and *Campfire* | Only if the hunt goes outside |
+| Kitchen | `light.kitchen_kitchen` | 5, **colour temperature only** | No colour flash — brightness only |
+| Bathroom, bedroom | — | — | Private. Not hunt stops. |
+
+Also available, and the hunt design will give you hooks for both if you want them:
+
+- **The Podfather** (HomePod, living room) — `tts.speak` / `tts.cloud_say`. Announcing *"Team The
+  Ice People found the hall mirror"* is ambient feedback the lights can't give.
+- **`notify.mobile_app_moerikiphoneair`** — so the host can watch scan activity without watching
+  the lamps.
 
 ### 3. What we send
 
@@ -294,7 +399,7 @@ a few tries, and re-triggering means walking back to the code.
 ```bash
 curl -i -X POST -H "Content-Type: application/json" \
   -d '{"team":"test","node":"hall-mirror","event":"scan"}' \
-  http://<HA_INTERNAL_HOST>:8123/api/webhook/<WEBHOOK_ID>
+  http://192.168.129.36:8123/api/webhook/<WEBHOOK_ID>
 ```
 
 Expect `200 OK` **and the lamp to actually flash.**
@@ -303,29 +408,37 @@ The only signal HA gives you that doesn't lie is this inversion — `GET` is not
 `allowed_methods`, so:
 
 ```bash
-curl -i -X GET http://<HA_INTERNAL_HOST>:8123/api/webhook/<WEBHOOK_ID>
+curl -i -X GET http://192.168.129.36:8123/api/webhook/<WEBHOOK_ID>
 # 405 Method Not Allowed  ->  registered. Good.
 # 200 OK                  ->  NOT registered: wrong id, automation disabled, or not reloaded.
 ```
+
+This is the probe worth putting on a timer through the party — a `200` means the automation has
+gone away and nobody would otherwise notice.
 
 Worth re-running on party day before guests arrive.
 
 ### 5. Hand the URL back
 
+Confirmed for this house — Home Assistant is HAOS in a QEMU VM, not a container:
+
 ```
-HA_WEBHOOK_URL=http://<HA_INTERNAL_HOST>:8123/api/webhook/<WEBHOOK_ID>
+HA_WEBHOOK_URL=http://192.168.129.36:8123/api/webhook/<WEBHOOK_ID>
 ```
 
-`<HA_INTERNAL_HOST>` must be an **internal** address — the Docker service name for Home Assistant,
-the host's LAN IP (`192.168.x.x` / `10.x.x.x`), or `127.0.0.1` under host networking.
+Because HA is a VM there is no shared Docker network and no service name — the LAN IP is the
+whole answer, and it's simpler than the container-to-container case this originally assumed.
+Docker NAT rewrites the site's source address to the Unraid host's LAN IP
+(`192.168.129.201`), which is RFC1918, so `local_only: true` accepts it.
 
-**Not the public hostname, and not via Tailscale.** `local_only: true` accepts only loopback,
+**Not `ha.moeriki.com`, and not via Tailscale.** `local_only: true` accepts only loopback,
 RFC1918 and link-local source addresses. A public IP or a Tailscale CGNAT address
-(`100.64.0.0/10`) is rejected — silently, with a `200 OK`. Docker bridge addresses
-(`172.17–172.31.x.x`) are private and pass fine, which is why the default setup works.
+(`100.64.0.0/10`) is rejected — silently, with a `200 OK`.
 
-If Home Assistant runs under Docker here, uncomment the `networks:` blocks in
-`docker-compose.yml` so you can use the service name instead of an IP.
+Going direct to `192.168.129.36:8123` also **bypasses Nginx Proxy Manager entirely**, which is
+what we want: no `X-Forwarded-For` is added, so the 400 that an unconfigured proxy would cause
+cannot happen. (NPM at `192.168.128.2` does have `use_x_forwarded_for: true` with
+`trusted_proxies: [192.168.128.2]`, but that only governs external traffic to `ha.moeriki.com`.)
 
 Please do **not** expose `/api/webhook/` through the proxy serving `bday.moeriki.com`, and do not
 create a DNS record for Home Assistant. This call is server-to-server; guests' phones never talk
@@ -396,61 +509,32 @@ A restart is cheap and safe. Teams keep their cookies, and the database is untou
 
 ---
 
-## Analysis request: the treasure-hunt lights
+## Analysis request: answered
 
-Everything above about Home Assistant comes from documentation and source. **None of it has been
-run against this house.** You have the instance, the lights, the network and the containers, and
-you'll be the one operating it on the night. This is a request for your analysis — answer in
-prose where a list would lose the nuance, and if you think the approach is wrong, say so.
+MM's analysis came back on **4 August** and is recorded in full on
+[Get MM's answers on the treasure-hunt lights](https://github.com/moeriki/tinker-lab/issues/16).
+The questions that were here are gone because they have answers; the sections above have been
+corrected to match the real house rather than the documented one.
 
-**Does the plan survive contact with the real setup?**
+**The approach survived.** HA is Core 2026.7.4 — the exact version everything was verified
+against. The webhook stays: no HA token in the party site, no MQTT broker, no auth surface.
 
-1. What HA version are you running? Our findings are verified against Core 2026.7.4. Older than
-   2024.2 and the `local_only` default differs and the YAML may need the legacy `platform:`
-   spelling.
-2. Is webhook-over-REST-API the right call here? We chose it so the site never holds an HA token.
-   If you'd rather we called the REST API, or used MQTT, or `POST /api/events/`, say so now — it's
-   a small change today and a bigger one on the 13th.
-3. Is anything wrong with our "container POSTs to HA on the same host" assumption? We concluded
-   `local_only: true` is safe because Docker bridge addresses are RFC1918. Host networking, a
-   macvlan, HA OS in a VM, a proxy in front, or Tailscale anywhere in the path could break that —
-   and we'd rather hear it from you than discover it through a silent `200 OK`.
+Two things were wrong and are now fixed above: `light.party_lamp` never existed (§2 now targets
+the real Hue group entities and snapshots the room instead of switching it off), and Home
+Assistant does not run under Docker here, so there is no shared network and no service name (§5
+now gives the VM's LAN IP outright).
 
-**What can the lights actually do?**
+### Still owed, in the order they hurt
 
-4. Which lights are realistically in play, and where? A lamp flashing in an empty room achieves
-   nothing — the hunt is physical, through the house.
-5. Are they colour-capable, and do they support `flash`? If your bulbs have native effects, your
-   automation will be better than ours. Please write it the way you'd actually want it.
-6. How fast do they respond? If there's a 3-second lag we should design the hunt around a
-   sustained colour change rather than a flash.
-7. What should happen afterwards? Our example turns the light off at the end, which is wrong if
-   the room light was already on. Do you want to snapshot and restore the scene?
-
-**How do you see it behaving on the night?**
-
-8. Concurrency — several teams may scan within seconds. We set `mode: queued, max: 25`. Will
-   queued flashes read as chaos? Would you rather debounce, rate-limit, or merge them?
-9. Per-team effects — we pass `team` so each team could get its own colour. In a house where
-   everyone sees the same lamp, is that worth it, or is one "something happened" effect better?
-10. Do you want to drive anything beyond lights? TTS on a speaker, a media player, a phone
-    notification. The payload gives you team and node, so anything HA can do is on the table —
-    tell us and we'll make sure the hunt design gives you the hooks.
-11. What's your failure plan? If HA restarts or an automation gets disabled, the site carries on
-    silently and nobody notices. Anything you'd want to monitor or be alerted about mid-party?
-
-**Operational**
-
-12. Is HA behind a reverse proxy? If so we need to know whether `use_x_forwarded_for` and
-    `trusted_proxies` are configured — a stray `X-Forwarded-For` on an unconfigured setup turns
-    our call into a 400.
-13. One webhook or several? We assume one, branching on `node`. If you'd rather have one
-    automation per node — easier to disable individually — we'll switch to one env var per node.
-14. When can you test end-to-end? We'd like a confirmed-working lamp at least a day before the
-    party, not on the day.
-
-**And the one that matters most**
-
-15. **What have we got wrong?** We researched this from the docs without touching the instance.
-    If something about this house — the lights, the network, how you run things — makes part of
-    the above naive, we'd rather rewrite it now than at 20:00 on the 14th.
+1. **A confirmed end-to-end lamp flash, by 13 August.** Not on the day. `GET` → 405 proves the
+   webhook is registered; only a human watching a lamp proves the path. Tracked as
+   [Confirm the treasure-hunt lights fire end-to-end](https://github.com/moeriki/tinker-lab/issues/17).
+2. **A test deploy, as soon as you can — serving nothing but the style kit is fine.** We would
+   rather see something real at `https://bday.moeriki.com` now than discover DNS, the certificate
+   or a 502 on the night. The full checklist is
+   [Test deploy to bday.moeriki.com](https://github.com/moeriki/tinker-lab/issues/19); the
+   likeliest snag is NPM being unable to reach the host's loopback, fixed with one line in `.env`.
+3. **The debounce**, if you want it — three teams scanning within five seconds otherwise queue
+   nine flash cycles. Yours to write; the site needs no change either way.
+4. **Monitoring**, if you want it — the `GET` → 405 probe on a timer, alerting you when it starts
+   answering 200, means a disabled automation gets noticed mid-party instead of never.

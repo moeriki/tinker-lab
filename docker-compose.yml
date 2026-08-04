@@ -13,22 +13,28 @@ services:
       - .env
 
     ports:
-      # Host port 3040 -> container. Bound to loopback because the reverse proxy terminating TLS
-      # for bday.moeriki.com is what should be reachable, not this. Drop the 127.0.0.1 prefix
-      # only if the proxy runs in a different network namespace and cannot reach loopback.
-      - '127.0.0.1:3040:3040'
+      # Host port 3040 -> container. Defaults to loopback so the reverse proxy terminating TLS
+      # for bday.moeriki.com is what's reachable, not this.
+      #
+      # CHECK THIS FIRST IF THE SITE 502s. Nginx Proxy Manager is at 192.168.128.2 and the
+      # Unraid host is 192.168.129.201 -- different subnets, so NPM is probably a separate
+      # namespace and CANNOT reach this host's loopback. Fix it in .env, not here:
+      #
+      #   BIND_ADDR=192.168.129.201     # or 0.0.0.0 if the LAN is trusted
+      #
+      # Only bday.moeriki.com should be proxied. Do not expose HA's /api/webhook/ through it.
+      - '${BIND_ADDR:-127.0.0.1}:3040:3040'
 
     volumes:
       # THE DIRECTORY, never the .sqlite file. Bind-mounting the file alone breaks WAL, and it
       # breaks silently. See docs/adr/0004-sqlite-via-node-sqlite.md.
       - ./data:/data
 
-    # If Home Assistant runs under Docker on this host, adding the site to its network lets
-    # HA_WEBHOOK_URL use the service name (http://homeassistant:8123/...) instead of an IP.
-    # Uncomment both blocks if so.
+    # Home Assistant is NOT a Docker container here -- it is HAOS in a QEMU VM at
+    # 192.168.129.36, confirmed by MM. So there is no shared Docker network and no service
+    # name to use: HA_WEBHOOK_URL takes the VM's LAN IP directly.
     #
-    # networks:
-    #   - homeassistant
-# networks:
-#   homeassistant:
-#     external: true
+    #   HA_WEBHOOK_URL=http://192.168.129.36:8123/api/webhook/<WEBHOOK_ID>
+    #
+    # Docker NAT rewrites this container's source address to the host's LAN IP
+    # (192.168.129.201), which is RFC1918, so HA's local_only: true accepts it.
