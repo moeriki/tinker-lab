@@ -4,6 +4,7 @@
 import { readFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 
+import rulesCopy from '../content/rules.js';
 import {
   ADMIN_COOKIE,
   ADMIN_SECRET,
@@ -802,29 +803,52 @@ async function revealHint({ req, res, params }) {
   return redirect(res, gamePath(game.id, { step, hint: hintNoticeFor(revealed, hintCost()) }));
 }
 
+/**
+ * The rules. Copy lives in `content/rules.js`; this function owns exactly one thing the copy
+ * cannot -- whether rule 4 is on the page yet.
+ *
+ * Rule 4 is appended to the same list, with no marker of any kind. That is deliberate: MISSION.md
+ * asks for a rule that "should only appear once they actually stumbled upon it", and announcing
+ * the arrival would undo the stumble. It also makes the 404 page's "there is no rule 4 either"
+ * retroactively false, which is free and worth having.
+ */
 function showRules({ req, res }) {
   const team = currentTeam(req);
+
+  // Where the hint modal's "What?" button lands, so it has to actually answer the question.
+  const discovered = team && hasDiscoveredHintCost(team.id);
+  const rules = discovered ? [...rulesCopy.rules, rulesCopy.hintRule(hintCost())] : rulesCopy.rules;
+
+  // The statusline is the kit's gag slot, and it is the one place the page acknowledges rule 4 --
+  // by counting it, and never by mentioning it. Rule 3 is the only enforced rule until a hint has
+  // been bought; after that rule 4 is enforced too, and rather more literally, since it is the
+  // only rule on the page the ledger can execute.
+  const status = `${rules.length} rule(s) · ${discovered ? 2 : 1} of them enforced`;
 
   return html(
     res,
     layout({
-      title: 'The rules',
+      title: rulesCopy.title,
       bar: team ? teamBar(team) : '',
+      showClose: true,
       body: `
-        <p><strong>Copy not written yet.</strong> Owned by: the rules page and score bands fog.</p>
-        <ul>
-          <li>Have fun</li>
-          <li>Be nice</li>
-          <li>The bedroom is off limits</li>
-          ${
-            // The hidden line, unlocked by the team's first reveal -- and where the hint modal's
-            // "What?" button lands, so it has to actually answer the question.
-            team && hasDiscoveredHintCost(team.id)
-              ? `<li>Hints cost you ${hintCost()} points. You knew that.</li>`
-              : ''
-          }
-        </ul>
-        <p><a href="/">close</a></p>
+        <div class="win">
+          <div class="win__bar">
+            <span class="win__icon" aria-hidden="true">📄</span>
+            <span class="win__title">${escape(rulesCopy.filename)}</span>
+            <span class="win__btns">
+              <span class="win__btn" aria-hidden="true">_</span>
+              <span class="win__btn" aria-hidden="true">□</span>
+              <a class="win__btn win__btn--x" href="/" aria-label="close">×</a>
+            </span>
+          </div>
+          <div class="win__body">
+            <ol class="rules">${rules.map((rule) => `<li>${escape(rule)}</li>`).join('')}</ol>
+            <p class="statusline mono">${escape(status)}</p>
+          </div>
+        </div>
+        <h2 class="shout">${escape(rulesCopy.pointsTitle)}</h2>
+        ${rulesCopy.points.map((para) => `<p>${escape(para)}</p>`).join('')}
       `,
     }),
   );

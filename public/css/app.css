@@ -539,6 +539,8 @@ code {
   place-items: center;
   background: var(--c-gray);
   color: #000;
+  /* the close one is a real link on a real page, and there is no global anchor reset */
+  text-decoration: none;
   border: 1px solid #000;
   border-top-color: #fff;
   border-left-color: #fff;

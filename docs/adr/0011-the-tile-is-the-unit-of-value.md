@@ -67,7 +67,7 @@ the showdown is where the reveal happens.
   it self-heals a step whose award was never written.
 - Before any team has scored, there is no podium: the whole party sits in *chasing*, which is
   exactly true at 20:05. A podium made of zeroes would tell a team who has done nothing that they
-  are amazing.
+  are amazing. **Amended — see below.**
 - Ties take the better band. Ordering breaks them on `created_at`, and telling a team they missed
   the podium on identical points because they arrived later is a worse error than occasionally
   showing four teams "top 3".
@@ -102,3 +102,34 @@ tile is 10" stops being true, to reward walking past a thing rather than doing i
 
 **Showing the podium line, or a live rank.** Both make band 2 actionable, and both are a
 leaderboard — which is the thing the three vague bands exist *instead of*.
+
+## Amendment: a fourth band, `fresh`
+
+**Date:** 2026-08-05 · **Ticket:** [Rules page copy and the three band messages](https://github.com/moeriki/tinker-lab/issues/37)
+
+The consequence above reasoned about **20:05** and got it right: with the `score > 0` guard the
+whole party sits in *chasing*, which is exactly true, and the first team to score anything leads
+immediately.
+
+It did not reason about **22:30**. The roster ([#7](https://github.com/moeriki/tinker-lab/issues/7))
+locked that *nothing may assume a moment when everyone is present* — teams join until game end. So
+a team that walks in at 22:30 has a score of zero while third place is on forty-something. The gap
+exceeds `podiumGap`, they land in *rest*, and **"Your effort is appreciated" becomes the first
+sentence they ever read on the site** — a verdict on a team that has not yet had the chance to make
+any effort at all.
+
+So `standingsMessage` now tests `score === 0` **first** and returns a fourth band, `fresh`. Three
+things follow.
+
+- **Zero is a fact, not a position.** The board already knows it for free; the thresholds were
+  scoring it as though it were a rank, which is what produced the wrong answer.
+- **`fresh` cannot say "welcome".** A team can play the resolve games hard for two hours and still
+  hold zero, because those are not scored until game end. The line has to be true for them and for
+  the team that walked in a minute ago, which is why it reads *"Nothing on the board yet. That is a
+  state, not a verdict."* rather than anything about arriving.
+- **A negative score is deliberately not `fresh`** and keeps falling through to *rest*. Hints are
+  the only debit, so a team below zero has spent something.
+
+Everything this ADR decided about the other three bands is unchanged, and both properties it was
+protecting survive: there is still no podium made of zeroes, and the first team to score anything
+still leads immediately.

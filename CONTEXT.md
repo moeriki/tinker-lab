@@ -289,20 +289,29 @@ See [ADR-0011](docs/adr/0011-the-tile-is-the-unit-of-value.md).
 ### Standing
 
 The vague message in the dashboard header, and the **only** comparative signal a team ever gets —
-no rank, no other team's score, no distance to the podium. Three **bands**, and only the first is
+no rank, no other team's score, no distance to the podium. Four **bands**, and only the second is
 a rank:
 
 | band | who is in it |
 | --- | --- |
+| `fresh` | exactly zero — nothing on the board, whatever the reason |
 | `podium` | score at or above the **third-place** score |
 | `chasing` | within `podiumGap` (30) of it — three tiles, catchable |
 | `rest` | further back than that |
 
-Band 2 is **proximity, not a slice of the field**: if third has 60, a team on 59 is close whether
-they are fourth or eleventh. Ties take the better band, and before anyone has scored the whole
-party is `chasing` — there is no podium made of zeroes.
+`fresh` is tested first and it takes precedence over the thresholds entirely. Zero is not a
+position on the board, so it is not scored like one: at 20:05 it holds the whole party, and at
+22:30 it holds the team that has just walked in — who would otherwise fall into `rest` and be
+told their effort was appreciated as the first sentence they ever read. It is **not** "welcome",
+because a team can play the resolve games hard for two hours and still be on zero until game end.
+A **negative** score is not `fresh`: hints are the only debit, so that team has spent something
+and belongs in `rest`.
 
-> Not "rank", not "leaderboard". A team has a **standing**, which is one of three sentences. The
+Band 3 is **proximity, not a slice of the field**: if third has 60, a team on 59 is close whether
+they are fourth or eleventh. Ties take the better band, and the first team to score anything at
+all leads immediately — there is no podium made of zeroes.
+
+> Not "rank", not "leaderboard". A team has a **standing**, which is one of four sentences. The
 > true board exists only at `/admin`, and the numbers only ever come out at the showdown.
 
 ### Hint reveal

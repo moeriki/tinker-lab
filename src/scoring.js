@@ -66,19 +66,26 @@ function podiumLine(board) {
  * score, no distance to the podium -- the showdown is where the reveal happens, and the host has
  * the true board at /admin.
  *
- * Three bands, and only the first is a rank:
+ * Four bands, and only the second is a rank:
  *
+ *   fresh    exactly zero -- nothing on the board, whatever the reason
  *   podium   scored something, and at or above the third-place score
  *   chasing  within `podiumGap` of that score
  *   rest     further back than that
  *
- * Band 2 is proximity, not a slice of the field, because rank alone lies about a near-tie: if
+ * Band 3 is proximity, not a slice of the field, because rank alone lies about a near-tie: if
  * third has 60, a team on 59 is close whether they are fourth or eleventh.
  *
- * The `score > 0` clause is what keeps 20:05 honest. Without it the whole party sits at zero, the
- * podium line is zero, and every team is told they are amazing for having done nothing. With it
- * they all sit in "you have a chance", which is exactly true -- and the first team to score
- * anything at all is genuinely leading, so they get the podium immediately.
+ * `fresh` is tested first, and it is the amendment ADR-0011 did not make. That ADR reasoned only
+ * about 20:05, where the `score > 0` guard put the whole party in "chasing" -- exactly true, and
+ * fine. The case it missed is 22:30: teams join all night by design (#7), so a team that has just
+ * walked in sits on zero while third place is on forty-something. The gap exceeds `podiumGap`,
+ * they fall into `rest`, and the harshest line on the site becomes the first sentence they ever
+ * read. Zero is a distinct fact the board knows for free, so it gets its own line -- which also
+ * frees `rest` to be genuinely rude, since everyone left in it has played and is behind.
+ *
+ * A negative score is deliberately NOT `fresh`. Hints are the only debit, so a team below zero
+ * has spent something, and they fall through to `rest` where they belong.
  *
  * Ties take the better band. Ordering breaks them on `created_at`, which is arbitrary -- telling
  * a team they missed the podium on identical points because they arrived later is a worse error
@@ -87,7 +94,9 @@ function podiumLine(board) {
 export function standingsMessage(teamId) {
   const board = standings();
   const me = board.find((row) => row.id === teamId);
-  if (!me) return economy.standingsBands.rest;
+  if (!me) return economy.standingsBands.fresh;
+
+  if (me.score === 0) return economy.standingsBands.fresh;
 
   const line = podiumLine(board);
 

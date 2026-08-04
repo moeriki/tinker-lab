@@ -23,11 +23,21 @@ export default {
   podiumSize: 3,
   podiumGap: 30,
 
-  // Copy is still owned by the "Rules page copy and score-band messages" work -- these are the
-  // mission's own words, held until that lands. The thresholds above are settled.
+  // The one comparative signal a team gets all night, so each line has to be true across the
+  // whole width of its band. Four of them, not three: `fresh` is a team on exactly zero, which
+  // the thresholds alone would scatter across the other bands depending on the time of night.
+  //
+  // `fresh` may not say "welcome" or "you just got here". A team can play hard for two hours,
+  // submit to nothing but the resolve games, and still sit on zero -- those are not scored until
+  // game end. "Nothing on the board yet" is true for them and for the team that walked in a
+  // minute ago; "you just arrived" would be an insult to one of them.
+  //
+  // `rest` keeps the mission's own words, and they only became cruel once zero moved out: every
+  // team that lands here now has actually played and is actually losing.
   standingsBands: {
-    podium: 'You are in the top 3 (amazing)',
-    chasing: 'You have a chance for top 3 (work harder)',
-    rest: 'Your effort is appreciated',
+    fresh: 'Nothing on the board yet. That is a state, not a verdict.',
+    podium: 'Top three. Enjoy it — nobody else can see it.',
+    chasing: 'The top three is catchable from here. That is all we are prepared to say.',
+    rest: 'Your effort is appreciated.',
   },
 };
