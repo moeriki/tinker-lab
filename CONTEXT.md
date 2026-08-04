@@ -112,6 +112,23 @@ have none. Enforced in the app, not the schema — the kind lives in content.
 A submission carries a **verdict** (`pending` | `correct` | `incorrect`) and **never points**.
 A submission is *what the team did*; an award is *what it was worth*.
 
+A game whose form carries a file input declares `photo: true`. Photo games return the team to the
+game page after submitting rather than to the dashboard, so sending another is one tap.
+
+### Photo
+
+Stored **exactly as the camera produced it** — no conversion, no resizing. `photo_mime` is
+sniffed from magic bytes, never the filename; `photo_thumb` is the JPEG the camera embedded in
+EXIF, and is **null** whenever there wasn't one. A format the browser may refuse (HEIC on
+anything but Safari) gets a download tile rather than a broken `<img>`. See
+[ADR-0008](docs/adr/0008-photos-are-stored-as-they-arrive.md).
+
+Filenames are self-describing — `0007-yarn-20260814T2134-a3f9.jpg` is team, game, when, random —
+so `data/uploads` is already a labelled archive and needs no export feature. The random tail is
+what keeps the URL unguessable: `/uploads/*` has no cookie gate.
+
+> Not "image", not "upload". The thing a team sends is a **photo**; it hangs off a submission.
+
 ### Award
 
 One row per point movement: `(team_id, game_id, kind, points, reason, source_id)`. `kind` is one
@@ -137,13 +154,23 @@ gift rather than a fine. Every reveal after it costs. The rules page unlocks its
 
 ### Judging
 
-Three modes, declared per game in content:
+Four modes. Two are *derived* from the presence of a function; two are *declared* as
+`judging: 'manual' | 'trust'`. Declaring both a mode and a function is a boot-time error.
 
 - **`check(value)`** — judged immediately on submit. The tile goes green at once.
 - **`resolve(submissions)`** — a pure function over *every team's* submissions, run at game end.
   This is what "closest to the average height" and "who shares your favourite colour" need, and
   why the Unknown tile design exists.
-- **manual** — the host judges in the admin gallery. Photo and trust-based games.
+- **`trust`** — points land on submit, unjudged. One point per photo, no host involved. A trust
+  game must declare `points`, and the gallery deliberately gives it **no buttons**: the points
+  are already banked and a second press would double-pay.
+- **`manual`** — the host judges in the admin gallery: award or reject, per submission.
+
+**The default is `manual`**, deliberately: a game that forgot to say gets a human looking at it,
+never silent free points.
+
+The gallery reads this mode and never hardcodes a game — so locking the roster requires no change
+to the admin surface.
 
 ### Game end
 
@@ -174,7 +201,8 @@ Everything mutable lives under `$DATA_DIR` (default `./data`):
 $DATA_DIR/bday.sqlite        the database
 $DATA_DIR/bday.sqlite-wal    ┐ WAL sidecars — which is why the deployment must
 $DATA_DIR/bday.sqlite-shm    ┘ bind-mount the DIRECTORY, never the .sqlite file
-$DATA_DIR/uploads/<id>.jpg   photos
+$DATA_DIR/uploads/0007-yarn-20260814T2134-a3f9.jpg        a photo, as the camera made it
+$DATA_DIR/uploads/0007-yarn-20260814T2134-a3f9.thumb.jpg  its EXIF thumbnail, where there was one
 ```
 
 ## Route inventory
@@ -202,8 +230,8 @@ Admin, all behind one cookie gate ([ADR-0005](docs/adr/0005-admin-is-a-one-time-
 | --- | --- | --- |
 | GET | `/admin/key/:secret` | set the admin cookie, redirect to `/admin` |
 | GET | `/admin` | live board: teams, scores, hunt progress, unjudged count |
-| GET | `/admin/game/:gameId` | every submission for one game + photo gallery |
-| POST | `/admin/judge` | verdict + award on one submission |
+| GET | `/admin/game/:gameId` | the gallery: every submission for one game, with the actions its judging mode calls for |
+| POST | `/admin/judge` | verdict + award on one submission; rejecting writes a zero rather than deleting, so re-judging upserts |
 | POST | `/admin/award` | manual points to a team |
 | POST | `/admin/end` · `/admin/reopen` | the freeze, and its undo |
 | POST | `/admin/rescore` | re-run content scoring over existing player data |

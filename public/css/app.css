@@ -813,6 +813,148 @@ code {
   text-align: center;
 }
 
+/* --------------------------------- photos ---------------------------------- */
+
+/* A banner that has gone wrong. Same box, different mood. */
+.banner--bad {
+  background: var(--c-red);
+  color: var(--c-paper);
+}
+
+/*
+ * The file input itself is unstylable across browsers, so it is hidden inside its own label and
+ * the label is the button. Hidden by clipping, never display:none -- that would take it out of
+ * the tab order and off the keyboard.
+ */
+.shoot {
+  display: block;
+  position: relative;
+  overflow: hidden;
+}
+
+.shoot__input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.shoot__face {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: calc(var(--tap) * 1.6);
+  border: var(--edge-3) dashed var(--c-ink);
+  box-shadow: var(--shadow-2);
+  background: var(--grad-hot);
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  text-transform: uppercase;
+  text-align: center;
+}
+
+.shoot__input:focus-visible + .shoot__face {
+  outline: var(--edge-2) solid var(--c-blue);
+  outline-offset: 3px;
+}
+
+.shoot__face:active {
+  transform: translate(3px, 3px);
+  box-shadow: none;
+}
+
+/* A team's own photos, back to them: small, cheap, and tappable through to the full thing. */
+.shots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.shot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 4.5rem;
+  height: 4.5rem;
+  overflow: hidden;
+  border: var(--edge-2) solid var(--c-ink);
+  box-shadow: var(--shadow-1);
+  background: var(--c-gray);
+}
+
+.shot__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* The fallback tile: a format this browser may refuse, shown as a link rather than a broken img. */
+.shot__none {
+  padding: 0.2rem;
+  font-family: var(--font-mono);
+  font-size: 0.55rem;
+  text-align: center;
+  word-break: break-word;
+}
+
+.shot--dl {
+  background: var(--c-yellow);
+}
+
+/* -------------------------------- gallery ---------------------------------- */
+
+.gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
+  gap: 0.8rem;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.5rem;
+  border: var(--edge-2) solid var(--c-ink);
+  box-shadow: var(--shadow-1);
+  background: var(--c-paper);
+}
+
+/* Judged at a glance, across a grid, on a phone, in a dark house. */
+.card--correct { background: linear-gradient(150deg, #7bf07b, #24c024); }
+.card--incorrect { background: var(--c-gray); }
+.card--pending { background: linear-gradient(150deg, var(--c-yellow), var(--c-orange)); }
+
+.card .shot {
+  width: 100%;
+  height: 7rem;
+}
+
+.card__who {
+  margin: 0;
+  font-family: var(--font-shout);
+  font-size: 0.85rem;
+  text-transform: uppercase;
+}
+
+.card__body {
+  margin: 0;
+  font-family: var(--font-aside);
+  font-size: 0.8rem;
+  word-break: break-word;
+}
+
+.judge {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.judge .btn {
+  flex: 1;
+  min-height: var(--tap);
+  padding: 0.4rem 0.3rem;
+  font-size: 0.7rem;
+}
+
 /* ------------------------------- motion guard ------------------------------- */
 
 @media (prefers-reduced-motion: reduce) {

@@ -16,24 +16,30 @@ import {
   getGame,
   getPage,
   getCode,
+  judgingMode,
   listCodes,
   listGames,
   listQuestions,
   hintsFor,
   stepCount,
   getStep,
+  takesPhoto,
 } from './content.js';
 import {
   escape,
   html,
+  isMultipart,
   noCache,
   parseCookies,
   readForm,
+  readMultipart,
   redirect,
   route,
   setCookie,
   clearCookie,
+  TooLarge,
 } from './http.js';
+import { displayFor, MAX_PHOTO_BYTES, storePhoto } from './photos.js';
 import { attachTeam, createTeam, currentTeam, membersOf } from './identity.js';
 import { huntIsComplete, isUnlocked, reachedStep, recordScan, scanIsInOrder, unlock } from './progress.js';
 import {
@@ -66,6 +72,9 @@ const MIME = {
   '.svg': 'image/svg+xml',
   '.woff2': 'font/woff2',
   '.ico': 'image/x-icon',
+  '.webp': 'image/webp',
+  '.heic': 'image/heic',
+  '.avif': 'image/avif',
 };
 
 const requireTeam = (req, res) => {
@@ -291,6 +300,36 @@ function showDashboard({ req, res }) {
   );
 }
 
+/** Honest, short, and never a dead end -- the form is always still underneath. */
+const SUBMIT_PROBLEMS = {
+  toobig: 'That photo was too big to send. Take a new one and try again.',
+  notaphoto: "That file wasn't a photo — at least, not one we know how to read.",
+  empty: 'Nothing arrived. Pick a photo first.',
+};
+
+/**
+ * A team's own photos, back to them. Thumbnails are the extracted EXIF ones where the camera
+ * embedded any, so reopening a tile with six photos on it costs kilobytes and not megabytes.
+ */
+function photoStrip(submissions) {
+  const withPhotos = submissions.filter((submission) => submission.photo_path);
+  if (!withPhotos.length) return '';
+
+  const cells = withPhotos
+    .map((submission) => {
+      const display = displayFor(submission);
+      const href = `/uploads/${escape(submission.photo_path)}`;
+      const inside = display.src
+        ? `<img class="shot__img" src="${escape(display.src)}" alt="" loading="lazy">`
+        : '<span class="shot__none">sent ✓</span>';
+      return `<a class="shot" href="${href}">${inside}</a>`;
+    })
+    .join('');
+
+  return `<p class="statusline">you've sent ${withPhotos.length}</p>
+          <div class="shots">${cells}</div>`;
+}
+
 function showGame({ req, res, params, url }) {
   const team = requireTeam(req, res);
   if (!team) return undefined;
@@ -307,20 +346,36 @@ function showGame({ req, res, params, url }) {
   const hints = revealedHints(team.id, game.id, step);
   const remaining = hintsFor(game, step).length - hints.length;
 
+  const mine = submissionsFor(team.id, game.id);
+  const problem = SUBMIT_PROBLEMS[url.searchParams.get('problem')];
+  const wantsPhoto = takesPhoto(game);
+
   return html(
     res,
     layout({
       title: escape(game.title),
       body: `
         <p class="banner"><strong>Composition not designed yet.</strong> Owned by: the per-game tickets.</p>
+        ${problem ? `<p class="banner banner--bad">${escape(problem)}</p>` : ''}
         ${
           game.kind === 'hunt'
             ? `<p class="statusline">Step ${step} of ${stepCount(game)} — reached ${reached}</p>
                <div class="hero hero--text">${escape(getStep(game, step)?.hero?.text ?? '')}</div>`
             : `<div class="hero hero--text">${escape(game.hero?.text ?? '')}</div>
-               <form class="stack" method="post" action="/g/${escape(game.id)}/submit">
-                 <input class="input" name="body"
-                        value="${escape(submissionsFor(team.id, game.id).at(-1)?.body ?? '')}">
+               ${wantsPhoto ? photoStrip(mine) : ''}
+               <form class="stack" method="post" action="/g/${escape(game.id)}/submit"
+                     ${wantsPhoto ? 'enctype="multipart/form-data"' : ''}>
+                 ${
+                   wantsPhoto
+                     ? `<label class="shoot">
+                          <input class="shoot__input" type="file" name="photo"
+                                 accept="image/*" capture="environment">
+                          <span class="shoot__face">${mine.some((s) => s.photo_path) ? 'take another' : 'take a photo'}</span>
+                        </label>`
+                     : ''
+                 }
+                 <input class="input" name="body" ${wantsPhoto ? 'placeholder="say something about it (optional)"' : ''}
+                        value="${escape(game.kind === 'tally' ? '' : mine.at(-1)?.body ?? '')}">
                  <button class="btn btn--primary" ${gameIsOver() ? 'disabled' : ''}>Submit</button>
                </form>`
         }
@@ -341,6 +396,13 @@ function showGame({ req, res, params, url }) {
   );
 }
 
+/**
+ * A failed submission must never cost a team their place: every problem lands back on the game
+ * page with the form still there, never on an error page and never on a 500.
+ */
+const backToGame = (res, game, problem) =>
+  redirect(res, `/g/${game.id}${problem ? `?problem=${problem}` : ''}`);
+
 async function submitToGame({ req, res, params }) {
   const team = requireTeam(req, res);
   if (!team) return undefined;
@@ -350,55 +412,103 @@ async function submitToGame({ req, res, params }) {
   if (!game || !isUnlocked(team.id, game.id)) return html(res, notFound(), 404);
   if (game.kind === 'hunt') return redirect(res, `/g/${game.id}`);
 
-  // Photo submissions are multipart and belong to the photo subsystem ticket; this handles the
-  // urlencoded half of the contract only.
-  const form = await readForm(req);
-  const body = form.get('body') ?? '';
+  let fields;
+  let photo = null;
 
-  transact(() => {
+  try {
+    if (isMultipart(req)) {
+      const parsed = await readMultipart(req, { limit: MAX_PHOTO_BYTES });
+      fields = parsed.fields;
+
+      // Written to disk only now, after the whole body parsed -- an upload that dies on patchy
+      // wifi throws above and leaves no file at all.
+      const upload = parsed.files.find((file) => file.name === 'photo');
+      if (upload) {
+        photo = storePhoto({ teamId: team.id, gameId: game.id, buf: upload.buf });
+        if (!photo) return backToGame(res, game, 'notaphoto');
+      }
+    } else {
+      fields = await readForm(req);
+    }
+  } catch (error) {
+    if (error instanceof TooLarge) return backToGame(res, game, 'toobig');
+    throw error;
+  }
+
+  const body = (fields.get('body') ?? '').trim();
+  if (takesPhoto(game) && !photo && !body) return backToGame(res, game, 'empty');
+
+  const mode = judgingMode(game);
+
+  const submissionId = transact(() => {
     const existing = submissionsFor(team.id, game.id);
 
+    // `answer` games hold one row per team and upsert it, editable until game end.
     if (game.kind === 'answer' && existing.length) {
-      run(
-        "update submissions set body = ?, updated_at = datetime('now') where id = ?",
-        body,
-        existing[0].id,
-      );
-      return;
+      if (photo) {
+        run(
+          `update submissions
+              set body = ?, photo_path = ?, photo_mime = ?, photo_thumb = ?,
+                  verdict = 'pending', updated_at = datetime('now')
+            where id = ?`,
+          body,
+          photo.filename,
+          photo.mime,
+          photo.thumbnailName,
+          existing[0].id,
+        );
+      } else {
+        run(
+          "update submissions set body = ?, updated_at = datetime('now') where id = ?",
+          body,
+          existing[0].id,
+        );
+      }
+      return existing[0].id;
     }
 
     const { lastInsertRowid } = run(
-      'insert into submissions (team_id, game_id, body) values (?, ?, ?)',
+      `insert into submissions (team_id, game_id, body, photo_path, photo_mime, photo_thumb)
+       values (?, ?, ?, ?, ?, ?)`,
       team.id,
       game.id,
       body,
+      photo?.filename ?? null,
+      photo?.mime ?? null,
+      photo?.thumbnailName ?? null,
     );
 
-    if (game.kind === 'tally') {
+    // Trust games pay on submit -- which is exactly why the gallery gives them no buttons: the
+    // points are already banked and a second press would double-pay.
+    if (mode === 'trust') {
       award({
         teamId: team.id,
         gameId: game.id,
-        kind: 'tally',
-        points: game.points ?? 1,
+        kind: game.kind === 'tally' ? 'tally' : 'answer',
+        points: game.points,
+        reason: 'on trust',
         sourceId: Number(lastInsertRowid),
       });
     }
+
+    return Number(lastInsertRowid);
   });
 
-  if (game.kind === 'answer' && typeof game.check === 'function') {
+  if (mode === 'check') {
     const verdict = game.check(body) ? 'correct' : 'incorrect';
-    const submission = submissionsFor(team.id, game.id)[0];
-    run('update submissions set verdict = ? where id = ?', verdict, submission.id);
+    run('update submissions set verdict = ? where id = ?', verdict, submissionId);
     award({
       teamId: team.id,
       gameId: game.id,
       kind: 'answer',
       points: verdict === 'correct' ? game.points ?? 0 : 0,
-      sourceId: submission.id,
+      sourceId: submissionId,
     });
   }
 
-  return redirect(res, '/');
+  // Photo games send many, so returning to the tile grid would mean reopening the tile every
+  // time. Stay on the game page; everything else goes back to the dashboard as before.
+  return takesPhoto(game) ? backToGame(res, game, null) : redirect(res, '/');
 }
 
 async function revealHint({ req, res, params }) {
@@ -504,19 +614,74 @@ function adminBoard({ req, res }) {
   );
 }
 
+/**
+ * The gallery, per game. What a photo can have done to it comes from the game's judging mode in
+ * content, never from a hardcoded list -- so locking the roster needs no change here.
+ */
 function adminGame({ req, res, params }) {
   if (!requireAdmin(req, res)) return undefined;
 
   const game = getGame(params.gameId);
   if (!game) return html(res, notFound(), 404);
 
+  const mode = judgingMode(game);
+  const submissions = allSubmissionsFor(game.id);
+  const names = new Map(all('select id, name from teams').map((team) => [team.id, team.name]));
+  const worth = game.points ?? 1;
+
+  const cards = submissions
+    .map((submission) => {
+      const display = submission.photo_path ? displayFor(submission) : null;
+
+      let media = '';
+      if (display?.src) {
+        media = `<a class="shot" href="/uploads/${escape(submission.photo_path)}">
+                   <img class="shot__img" src="${escape(display.src)}" alt="" loading="lazy">
+                 </a>`;
+      } else if (display) {
+        // HEIC on Android, or anything else this browser may refuse. Never a broken <img>.
+        media = `<a class="shot shot--dl" href="/uploads/${escape(submission.photo_path)}" download>
+                   <span class="shot__none">${escape(submission.photo_mime ?? 'file')}<br>tap to open</span>
+                 </a>`;
+      }
+
+      const judging =
+        mode === 'manual'
+          ? `<form class="judge" method="post" action="/admin/judge">
+               <input type="hidden" name="submission" value="${submission.id}">
+               <button class="btn btn--primary" name="verdict" value="correct">✓ award ${worth}</button>
+               <button class="btn" name="verdict" value="incorrect">✗ reject</button>
+               <input type="hidden" name="points" value="${worth}">
+             </form>`
+          : '';
+
+      return `<article class="card card--${escape(submission.verdict)}">
+                ${media}
+                <p class="card__who">${escape(names.get(submission.team_id) ?? '?')}</p>
+                ${submission.body ? `<p class="card__body">${escape(submission.body)}</p>` : ''}
+                <p class="statusline">${escape(submission.verdict)} · ${escape(submission.created_at)}</p>
+                ${judging}
+              </article>`;
+    })
+    .join('');
+
+  const explainer = {
+    manual: 'You judge these. Award or reject each one.',
+    trust: 'Judged on trust — points landed when they submitted. Nothing to press.',
+    check: 'Judged automatically on submit. Read-only.',
+    resolve: 'Judged across every team at game end. Read-only until then.',
+  }[mode];
+
   return html(
     res,
-    stub({
-      title: `Admin — ${game.title}`,
-      owner: 'Photo submission subsystem (gallery) and Admin dashboard (judging)',
-      does: 'Every submission for this game, with a photo gallery and per-submission judging.',
-      data: allSubmissionsFor(game.id),
+    layout({
+      title: game.title,
+      body: `
+        <p class="statusline">${escape(explainer)}</p>
+        <p class="statusline">${submissions.length} submission${submissions.length === 1 ? '' : 's'}</p>
+        <div class="gallery">${cards || '<p>Nothing submitted yet.</p>'}</div>
+        <a class="btn btn--close" href="/admin">back to the board</a>
+      `,
     }),
   );
 }
@@ -532,6 +697,11 @@ async function adminJudge({ req, res }) {
   const submission = get('select * from submissions where id = ?', submissionId);
   if (!submission) return redirect(res, '/admin');
 
+  // A tally game's award must be a tally row: the ledger is unique on (team, game, kind,
+  // source), so the wrong kind would open a second row per submission rather than upsert.
+  const game = getGame(submission.game_id);
+  const kind = game?.kind === 'tally' ? 'tally' : 'answer';
+
   transact(() => {
     run(
       "update submissions set verdict = ?, updated_at = datetime('now') where id = ?",
@@ -541,8 +711,10 @@ async function adminJudge({ req, res }) {
     award({
       teamId: submission.team_id,
       gameId: submission.game_id,
-      kind: 'answer',
-      points,
+      kind,
+      // Rejecting writes a zero rather than deleting, so re-judging upserts and a mis-tap costs
+      // nothing permanent.
+      points: verdict === 'correct' ? points : 0,
       reason: 'judged by the host',
       sourceId: submissionId,
     });
@@ -612,15 +784,25 @@ function adminCodes({ req, res }) {
 
 // --- static -----------------------------------------------------------------------------------
 
-async function serveFrom(rootDir, relativePath, res) {
+async function serveFrom(rootDir, relativePath, res, { immutable = false } = {}) {
   const safe = normalize(relativePath).replace(/^(\.\.[/\\])+/, '').replace(/^[/\\]+/, '');
   const file = join(rootDir, safe);
   if (!file.startsWith(rootDir)) return html(res, notFound(), 403);
 
   try {
     const body = await readFile(file);
-    noCache(res);
-    res.writeHead(200, { 'Content-Type': MIME[extname(file)] ?? 'application/octet-stream' });
+    const headers = { 'Content-Type': MIME[extname(file)] ?? 'application/octet-stream' };
+
+    if (immutable) {
+      // An upload's name carries a random tail and its bytes never change, so a phone should
+      // fetch each photo exactly once. This is what keeps a tile full of thumbnails cheap on
+      // house wifi shared by fifteen teams. Pages stay uncached; only these bytes are.
+      headers['Cache-Control'] = 'public, max-age=31536000, immutable';
+    } else {
+      noCache(res);
+    }
+
+    res.writeHead(200, headers);
     res.end(body);
   } catch {
     html(res, notFound(), 404);
@@ -700,7 +882,7 @@ export async function handle(req, res) {
   }
 
   if (url.pathname.startsWith('/uploads/')) {
-    return serveFrom(UPLOADS_DIR, url.pathname.slice('/uploads/'.length), res);
+    return serveFrom(UPLOADS_DIR, url.pathname.slice('/uploads/'.length), res, { immutable: true });
   }
 
   if (/^\/(css|js|fonts|img)\//.test(url.pathname)) {

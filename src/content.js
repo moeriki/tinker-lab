@@ -11,6 +11,31 @@ import { all } from './db.js';
 
 export const GAME_KINDS = ['answer', 'tally', 'hunt'];
 
+/** Declared in content; the two that need a human. `check` and `resolve` are derived, not declared. */
+export const DECLARED_JUDGING = ['manual', 'trust'];
+
+/**
+ * How a game's submissions become points, which is the only thing the admin gallery needs to
+ * know to decide what buttons a photo gets:
+ *
+ *   check    judged on submit by a pure function     -> gallery is read-only
+ *   resolve  judged across every team at game end    -> gallery is read-only
+ *   trust    points land on submit, no judging       -> gallery shows no buttons
+ *   manual   the host judges each one in the gallery -> award / reject
+ *
+ * Defaulting to `manual` is deliberate: a game that forgot to say gets a human looking at it,
+ * never silent free points.
+ */
+export function judgingMode(game) {
+  if (game.judging) return game.judging;
+  if (typeof game.check === 'function') return 'check';
+  if (typeof game.resolve === 'function') return 'resolve';
+  return 'manual';
+}
+
+/** Whether the game's form carries a file input. */
+export const takesPhoto = (game) => Boolean(game.photo);
+
 async function loadDirectory(name) {
   const dir = join(CONTENT_DIR, name);
   const entries = readdirSync(dir).filter((file) => file.endsWith('.js'));
@@ -73,6 +98,25 @@ function validate() {
     }
     if (game.kind === 'hunt' && !game.steps?.length) {
       problems.push(`hunt "${game.id}" has no steps`);
+    }
+
+    if (game.judging && !DECLARED_JUDGING.includes(game.judging)) {
+      problems.push(
+        `game "${game.id}" declares judging "${game.judging}"; expected one of ${DECLARED_JUDGING.join(', ')}`,
+      );
+    }
+    // Declaring both is a contradiction the gallery would have to guess at, so refuse at boot.
+    if (game.judging && (typeof game.check === 'function' || typeof game.resolve === 'function')) {
+      problems.push(
+        `game "${game.id}" declares judging "${game.judging}" AND a check/resolve function`,
+      );
+    }
+    if (game.photo && game.kind === 'hunt') {
+      problems.push(`hunt "${game.id}" takes a photo, but hunts have no form`);
+    }
+    // A trust game pays on submit, so it needs to know what a submission is worth.
+    if (judgingMode(game) === 'trust' && typeof game.points !== 'number') {
+      problems.push(`game "${game.id}" is judged on trust but declares no points`);
     }
   }
 

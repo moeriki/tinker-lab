@@ -1,5 +1,7 @@
 // Small helpers over node:http. No framework: forms POST and redirect, pages render fresh.
 
+import { Readable } from 'node:stream';
+
 export function noCache(res) {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
   res.setHeader('Pragma', 'no-cache');
@@ -35,18 +37,81 @@ export function setCookie(res, name, value, { maxAge = 60 * 60 * 24 * 30, httpOn
 
 export const clearCookie = (res, name) => setCookie(res, name, '', { maxAge: 0 });
 
-/** urlencoded only. Multipart belongs to the photo submission ticket. */
+/** urlencoded only. Use `readMultipart` when the form can carry a photo. */
 export async function readForm(req, { limit = 64 * 1024 } = {}) {
   const chunks = [];
   let size = 0;
 
   for await (const chunk of req) {
     size += chunk.length;
-    if (size > limit) throw new Error('form body too large');
+    if (size > limit) throw new TooLarge();
     chunks.push(chunk);
   }
 
   return new URLSearchParams(Buffer.concat(chunks).toString('utf8'));
+}
+
+/** Thrown past the size cap, and caught into an honest message rather than a 500. */
+export class TooLarge extends Error {
+  constructor() {
+    super('body too large');
+    this.name = 'TooLarge';
+  }
+}
+
+export const isMultipart = (req) =>
+  (req.headers['content-type'] ?? '').startsWith('multipart/form-data');
+
+/**
+ * Multipart, with no dependency: Node can bridge an IncomingMessage into a web Request and let
+ * the platform's own parser do the work. Verified on Node 26, which is what the container pins.
+ *
+ * The body is capped twice -- once on the declared Content-Length so an oversized upload dies
+ * before it is sent, and once on the bytes actually seen, because a header is a claim.
+ */
+export async function readMultipart(req, { limit } = {}) {
+  const declared = Number(req.headers['content-length'] ?? 0);
+  if (declared > limit) throw new TooLarge();
+
+  let seen = 0;
+  const counter = new TransformStream({
+    transform(chunk, controller) {
+      seen += chunk.byteLength;
+      if (seen > limit) throw new TooLarge();
+      controller.enqueue(chunk);
+    },
+  });
+
+  const request = new Request('http://form.invalid/', {
+    method: 'POST',
+    headers: { 'content-type': req.headers['content-type'] },
+    body: Readable.toWeb(req).pipeThrough(counter),
+    duplex: 'half',
+  });
+
+  let form;
+  try {
+    form = await request.formData();
+  } catch (error) {
+    // The cap fires inside the stream, so it surfaces here wrapped as a parse failure.
+    if (seen > limit || declared > limit) throw new TooLarge();
+    throw error;
+  }
+
+  const fields = new URLSearchParams();
+  const files = [];
+
+  for (const [name, value] of form.entries()) {
+    if (typeof value === 'string') {
+      fields.append(name, value);
+      continue;
+    }
+    // A file input left empty still posts a part: zero bytes and an empty filename.
+    if (value.size === 0) continue;
+    files.push({ name, filename: value.name, buf: Buffer.from(await value.arrayBuffer()) });
+  }
+
+  return { fields, files };
 }
 
 export function redirect(res, location, status = 303) {
