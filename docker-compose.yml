@@ -16,11 +16,16 @@ services:
       # Host port 3040 -> container. Defaults to loopback so the reverse proxy terminating TLS
       # for bday.moeriki.com is what's reachable, not this.
       #
-      # CHECK THIS FIRST IF THE SITE 502s. Nginx Proxy Manager is at 192.168.128.2 and the
-      # Unraid host is 192.168.129.201 -- different subnets, so NPM is probably a separate
-      # namespace and CANNOT reach this host's loopback. Fix it in .env, not here:
+      # ON TOWER, BIND_ADDR IS REQUIRED -- the default below will always 502. Set it in .env,
+      # not here:
       #
       #   BIND_ADDR=192.168.129.201     # or 0.0.0.0 if the LAN is trusted
+      #
+      # Nginx Proxy Manager runs as a macvlan container on br0 (192.168.128.0/23), so it is a
+      # separate network namespace and can never reach this host's 127.0.0.1. Its own address
+      # 192.168.128.2 is in that same /23 as the host's 192.168.129.201 -- the subnets were
+      # never the issue, the namespace is. Verified 4 Aug from inside the NPM container:
+      # 192.168.129.201:9000 answered 302 while 127.0.0.1:9000 answered nothing.
       #
       # Only bday.moeriki.com should be proxied. Do not expose HA's /api/webhook/ through it.
       - '${BIND_ADDR:-127.0.0.1}:3040:3040'

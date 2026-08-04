@@ -82,16 +82,34 @@ Use the script. See [§ Backups](#backups).
 
 ### Prerequisites
 
-- Docker with the Compose plugin.
-- A DNS A/AAAA record for `bday.moeriki.com` pointing at this host.
-- A reverse proxy that can terminate TLS. If you already run one, use it — we have no preference.
+Checked against Tower on 4 August from a machine on the house LAN, so most of this is already
+true and wants nothing from you:
+
+- **Docker 29.3.1, Compose v2.40.3** — already installed. Nothing to do.
+- **TLS** — NPM already serves a wildcard `*.moeriki.com` Let's Encrypt certificate (ECDSA
+  P-384, valid 16 Jun → 14 Sep 2026) and it **already covers `bday.moeriki.com`**. There is
+  nothing to issue. Step 5 says which button *not* to press.
+- **DNS** — the one thing genuinely missing. `bday.moeriki.com` does not resolve yet. Step 5.
+
+One consequence worth knowing before you start: `ha.moeriki.com` resolves — publicly, from
+Route 53, same answer from 1.1.1.1 and 8.8.8.8 — to `192.168.128.2`, an RFC1918 address.
+Pointing `bday` at the same place makes **the site LAN-only**. That is fine and probably right,
+but it makes joining the house WiFi step zero of the game, and a guest on cellular gets a
+connection timeout we cannot write a message into.
 
 ### 1. Get the code
 
 ```bash
+cd /mnt/disk1/appdata
 git clone https://github.com/moeriki/tinker-lab.git bday
 cd bday
 ```
+
+**`/mnt/disk1/appdata`, not `/mnt/user/appdata`.** There is one array disk and no cache pool, so
+`/mnt/user` is a FUSE `shfs` layer over that same XFS filesystem. The database runs SQLite in WAL
+mode, which wants shared-memory mmap that FUSE does not reliably provide — and when that breaks
+it breaks quietly, which is the expensive kind. The disk path is the same bytes without the FUSE
+layer. Same family of trap as the bind-mount one above.
 
 There is no registry and no published image. `docker compose` builds from this checkout, so
 shipping a fix is `git pull && docker compose up -d --build`.
@@ -111,7 +129,8 @@ cp .env.example .env
 | Variable | Required | Notes |
 | --- | --- | --- |
 | `ADMIN_SECRET` | **yes** | The host visits `/admin/key/<this>` once to claim the admin cookie. Generate it: `openssl rand -hex 24`. Anyone holding it can end the game and rewrite scores. |
-| `HA_WEBHOOK_URL` | no | One fully-qualified HA webhook URL, id included. Unset is valid — the hunt still works, the lights just stay put. See below. |
+| `BIND_ADDR` | **required here, already filled in** | `192.168.129.201`. Pre-set in `.env.example` so the copy above just works. Not a fallback — without it the proxy answers 502 every time. Reasoning in step 5. |
+| `HA_WEBHOOK_URL` | no | One fully-qualified HA webhook URL, id included. Unset is valid — the hunt still works, the lights just stay put. See below. **Leave it empty for a first deploy**; the lights are a separate job. |
 | `PORT` | no | Defaults to `3040`. |
 | `DATA_DIR` | no | Defaults to `/data`. Leave it. |
 | `TZ` | no | Defaults to `Europe/Brussels`. Game-end timestamps and log lines both use it. |
@@ -147,11 +166,21 @@ kit  → http://localhost:3040/kit
 The `migrated →` line appears only when there is schema work to do; on later restarts it is
 absent and that is correct.
 
-### 5. Put it behind TLS
+### 5. DNS, then put it behind TLS
 
-The container publishes on `127.0.0.1:3040` by default. Point your proxy at that.
+**Do the DNS record first**, since it is the only step with any wait in it. In **Route 53** — the
+zone's nameservers are AWS, not the registrar — add:
 
-**You run Nginx Proxy Manager, so start here.** Add a Proxy Host:
+```
+bday.moeriki.com.   A   192.168.128.2
+```
+
+The same address `ha.moeriki.com` already uses. Reckon on ~15 minutes: `ha`'s A record TTL is
+300s and the zone's SOA caps negative caching at 900s. This does not need splitting over two
+evenings.
+
+Then the proxy. The container publishes on `${BIND_ADDR}:3040`, which step 2 set to the host's
+LAN address. Add a Proxy Host in NPM:
 
 | Field | Value |
 | --- | --- |
@@ -161,7 +190,12 @@ The container publishes on `127.0.0.1:3040` by default. Point your proxy at that
 | Forward Port | `3040` |
 | Block Common Exploits | on |
 | Websockets Support | off — the admin page polls over ordinary requests |
-| SSL | Request a new Let's Encrypt certificate, Force SSL on |
+| SSL | **Pick the existing `*.moeriki.com` certificate from the dropdown.** Force SSL on. |
+
+⚠️ **Do not click _Request a new SSL Certificate_.** The wildcard already covers this hostname,
+and a new request would use HTTP-01, which cannot reach a private address — so it can only fail,
+and it spends failed-validation quota on the way. The renewal falls due around 15 August, the day
+*after* the party, so the certificate cannot be a day-of surprise either.
 
 Then, under the Advanced tab, raise the upload ceiling — guests upload phone photos and the
 1 MB nginx default rejects them, which looks like a broken game rather than a broken proxy:
@@ -170,20 +204,32 @@ Then, under the Advanced tab, raise the upload ceiling — guests upload phone p
 client_max_body_size 25M;
 ```
 
-**NPM is at `192.168.128.2` and the host is `192.168.129.201` — different subnets.** So NPM is
-almost certainly a separate network namespace and cannot reach the host's loopback. If
-`bday.moeriki.com` answers **502** while `curl 127.0.0.1:3040/healthz` works *on* the host, that
-is exactly this. The fix is one line in `.env`, no file editing:
+#### Why `BIND_ADDR`, and why it is not optional
+
+Measured on Tower on 4 August rather than reasoned about — which is just as well, because the
+first version of this note got both halves wrong:
+
+- **They are not different subnets.** NPM's macvlan network is `192.168.128.0/23`, spanning
+  `192.168.128.0`–`192.168.129.255`. `.128.2` and `.129.201` are in the same one, and they route
+  to each other fine. The subnets were never the problem.
+- **The loopback problem is absolute, not probable.** A container's `127.0.0.1` is its own
+  namespace's loopback. NPM cannot reach the host that way, routed or not, ever.
+
+Why the LAN address *does* work is worth knowing, because it is a setting someone could switch
+off. NPM is a **macvlan** container on `br0`, and a macvlan container normally cannot talk to its
+parent host at all — that is a deliberate kernel restriction. It works here only because Unraid's
+**"Host access to custom networks"** is on, which is what the `shim-br0` interface is. Proof,
+from inside the NPM container:
 
 ```
-BIND_ADDR=192.168.129.201
+curl 192.168.129.201:9000   ->  302        # the host's LAN address: reachable
+curl 127.0.0.1:9000         ->  no answer  # its own loopback: nothing there
 ```
 
-then `docker compose up -d`. Confirm with `curl 192.168.129.201:3040/healthz` from anywhere on
-the LAN.
+So if this site ever starts answering **502** and nothing else changed, check that setting first.
+Turning it off takes out every proxied host on Tower at once, not just this one.
 
-DNS: `bday.moeriki.com` needs an A record pointing at whatever public address already serves
-`ha.moeriki.com`, since NPM terminates both.
+Confirm the container end with `curl 192.168.129.201:3040/healthz` from anywhere on the LAN.
 
 <details>
 <summary>Caddy or plain nginx instead</summary>
@@ -247,6 +293,24 @@ Then, in a browser:
 | `https://bday.moeriki.com/welcome` | The onboarding page, in full MS-Paint glory |
 | `https://bday.moeriki.com/kit` | The style kit — proves CSS and fonts are being served |
 | `https://bday.moeriki.com/admin` | **A plain 404.** Not a login page. This is correct — see ADR-0005 |
+
+**Check `/welcome` and not just `/kit`.** Under `NODE_ENV=production` the team cookie is `Secure`,
+so if TLS is not genuinely terminating, `/kit` still renders perfectly — it needs no cookie —
+while every team silently bounces back to onboarding and never gets to play. `/kit` loading
+proves the proxy and the CSS, and nothing at all about the thing the party depends on.
+
+Do both **on a phone, on the house WiFi**. `/kit` has only ever been seen in a desktop browser
+against localhost.
+
+If it does not work, the failure mode names itself:
+
+| Symptom | What it means |
+| --- | --- |
+| Cannot resolve, or times out | DNS record missing — or the phone is not on the house WiFi |
+| **404** from `openresty` | DNS is fine; the NPM Proxy Host is missing or the domain is misspelled |
+| **502** | Proxy Host exists but cannot reach the container — `BIND_ADDR` unset, or the container is down |
+| Container exits on boot | `data/` owned by root instead of uid 1000 |
+| `/kit` fine but `/welcome` loops | TLS is not really terminating — the `Secure` cookie is being dropped |
 
 Please **do not** visit `/admin/key/<secret>` yourself unless you're debugging; it sets the admin
 cookie on whatever browser you use. That URL is the host's, for the start of the night.
