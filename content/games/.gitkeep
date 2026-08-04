@@ -1,0 +1,16 @@
+# One file per game, default-exporting the game object.
+#
+# answer -- hero + form, one editable submission
+#   { id, title, kind: 'answer', points, hero: { text } | { asset },
+#     form: { type: 'text', label, placeholder }, hints: [],
+#     check(value, ctx) {},              // judged immediately; return true/false/points
+#     resolve(submissions, ctx) {} }     // OR judged at game end across every team
+#
+# tally -- hero + form, many submissions (one point per photo)
+#   { id, title, kind: 'tally', points, hero, form: { type: 'photo' }, hints: [] }
+#
+# hunt -- ordered steps, no form, auto-awarded on the final step
+#   { id, title, kind: 'hunt', points,
+#     steps: [{ hero: { text: 'Nothing happens?' }, hints: [], webhook: 'hallway-lights' }] }
+#
+# Populated once the roster locks -- see the "Lock the game roster" ticket.

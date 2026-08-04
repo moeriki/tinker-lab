@@ -1,0 +1,214 @@
+# Context
+
+The domain model for the `bday.moeriki.com` QR party game. This is the vocabulary — use these
+words in code, issues, and conversation. Where a term has an obvious synonym we deliberately
+avoid, it says so.
+
+Decisions with a real alternative live in [`docs/adr/`](docs/adr/). This file is the glossary and
+the shape; the ADRs are the *why*.
+
+## The one-line version
+
+Guests scan QR codes hidden around the house. Each scan unlocks a **game**, advances a **hunt**,
+or shows a gag **page**. Games are content on disk; the database holds only what players did.
+
+## The seam
+
+**Game content is code. The database is player data.** Nothing else.
+
+`content/` holds every game, code mapping, onboarding question and gag page, in version control.
+The database holds teams, scans, unlocks, submissions, hint reveals and awards — and refers to
+content by bare string id (`game_id TEXT`), with **no foreign key**. The database does not know
+what games exist. See [ADR-0001](docs/adr/0001-game-content-lives-on-disk.md).
+
+## Glossary
+
+### Team
+
+The unit of play and of scoring. 20–30 guests in teams of **2**, so ~10–15 teams.
+
+**The cookie is the team.** One phone per team carries `team=<token>`; there are no accounts,
+passwords or join codes. A team has **members** — named explicitly during onboarding, because
+several games key off individual attributes (height, favourite colour) rather than team ones.
+
+Losing the cookie loses the team, so the host can re-attach a team to a new phone via
+`/admin/adopt/:token`.
+
+> Not "player", not "user". A single human is a **member**; the thing that scores is a **team**.
+
+### Code
+
+A QR code hidden in the house, identified by an opaque random **slug** (`/q/k7f2qx`). Codes are
+content (`content/codes.js`), mapping slug → target. A slug either belongs to a game:
+
+```js
+k7f2qx: { game: 'yarn' },            // unlock this game and open it
+m3p8zz: { game: 'lights', step: 1 }, // a hunt step
+```
+
+…or is a pure gag with no game and no points:
+
+```js
+b4xk7m: { page: 'rickroll' },
+```
+
+Slugs are opaque but **not secret** — teams shouting hiding places at each other is the goal.
+
+> Not "QR", not "tag". The physical thing is a **code**; its identifier is a **slug**.
+
+### Scan
+
+The event of a code being visited by a team — every visit to `/q/:slug`, recorded whether or not
+it did anything. A scan is an **event**; an unlock is **state**. Scans carry `accepted` (`0` when
+the scan was out of order or after game end), which is what makes hunt progress derivable.
+
+### Game
+
+A unit of play, defined entirely in `content/games/<id>.js`. Three **kinds**:
+
+| kind | the game page shows | scored by |
+| --- | --- | --- |
+| `answer` | hero + form, **one** submission, editable until game end | `check()` on submit, or `resolve()` at game end |
+| `tally` | hero + form, **many** submissions (one point per photo) | per submission |
+| `hunt` | the current step's hero and hints, **no form** | auto-awarded on the final step |
+
+### Tile
+
+A game as it appears on the dashboard grid. Five designs: locked, unlocked, answered-correctly,
+answered-incorrectly, and **unknown** (submitted, but not judgeable until game end). A tile shows
+the game title and the points scored on it.
+
+> A tile is a *view* of a game, never a separate entity.
+
+### Unlock
+
+State: this team may open this game. Created by scanning a code that names the game; permanent
+once granted. One tile is unlocked during onboarding by whichever code they arrived through.
+
+### Hunt and step
+
+A **hunt** is one game with an ordered list of **steps**. Each step has its own hero text
+(deliberately vague — *"Nothing happens?"*), its own hints, and optionally a **webhook** to fire.
+Each step is bound to one code slug.
+
+Steps are **1-based** in content and in the database.
+
+A team's position is **derived**: the longest *contiguous* run of steps whose slugs they have an
+accepted scan for. There is no progress column. Progression is strictly sequential — stumbling on
+step 4's code while at step 1 does nothing but record a flagged scan and show the "you're not
+supposed to be here" page. See [ADR-0006](docs/adr/0006-hunt-progress-is-derived-from-scans.md).
+
+`/g/:id` always means *the current step*. `?step=n` browses steps already reached, clamped.
+
+**Webhooks re-fire on every scan** — but only from `/q/:slug`, never from step navigation. Making
+the lights blink again means physically walking back to the code. That retry loop is the game.
+
+### Submission
+
+What a team did in a game: `body` (typed answer), `photo_path`, or both. `answer` games hold at
+most **one** row per team per game and upsert it; `tally` games insert a new row per POST; hunts
+have none. Enforced in the app, not the schema — the kind lives in content.
+
+A submission carries a **verdict** (`pending` | `correct` | `incorrect`) and **never points**.
+A submission is *what the team did*; an award is *what it was worth*.
+
+### Award
+
+One row per point movement: `(team_id, game_id, kind, points, reason, source_id)`. `kind` is one
+of `answer`, `tally`, `hunt`, `hint`, `manual`; hint rows are **negative**. Score is a single
+`SUM(points)`; a tile's score is the same sum filtered by `game_id`.
+
+Unique on `(team, game, kind, source_id)`, so re-running scoring **upserts** rather than
+duplicates — which is what makes `/admin/rescore` safe. See
+[ADR-0002](docs/adr/0002-points-are-a-ledger.md).
+
+> Not "score" — a **score** is the sum of awards, not a stored thing.
+
+### Hint reveal
+
+A record that a team has seen hint *n* of a game (or of a hunt step; `step` is `0` for non-hunt
+games). Sequential: the next index is simply `COUNT(*)` for that `(team, game, step)`.
+
+Revealing writes the reveal row **and** its negative award in one transaction.
+
+The **first reveal per team, across all games, is free** — the modal announces the price as a
+gift rather than a fine. Every reveal after it costs. The rules page unlocks its hidden line
+("hints cost you N points") once the team has any reveal at all.
+
+### Judging
+
+Three modes, declared per game in content:
+
+- **`check(value)`** — judged immediately on submit. The tile goes green at once.
+- **`resolve(submissions)`** — a pure function over *every team's* submissions, run at game end.
+  This is what "closest to the average height" and "who shares your favourite colour" need, and
+  why the Unknown tile design exists.
+- **manual** — the host judges in the admin gallery. Photo and trust-based games.
+
+### Game end
+
+A real event: `game_ended_at` in the `settings` key/value table, stamped when the host presses
+**End game**. In one transaction it stamps the timestamp and runs every game's `resolve()`.
+
+After it, the site is **read-only for teams**: every mutating POST — submit, hint, and any scan
+that would unlock or advance — redirects to the wrap page. Scans are still recorded, so you can
+see who was still hunting at midnight; they just buy nothing.
+
+**Reversible.** Reopening clears the timestamp; resolvers are idempotent, so re-running is free.
+
+### Profile answer
+
+An onboarding questionnaire answer, keyed by `question_id` from `content/questions.js`. Its
+`member_id` is **nullable**: `NULL` means a team-level answer. Questions declare
+`scope: 'team' | 'member'`; member-scoped ones are asked once per member.
+
+## Storage
+
+`node:sqlite` — zero dependencies, no native compilation. WAL, foreign keys on. Schema changes
+go through numbered files in `db/migrations/` tracked by `PRAGMA user_version`. See
+[ADR-0004](docs/adr/0004-sqlite-via-node-sqlite.md).
+
+Everything mutable lives under `$DATA_DIR` (default `./data`):
+
+```
+$DATA_DIR/bday.sqlite        the database
+$DATA_DIR/bday.sqlite-wal    ┐ WAL sidecars — which is why the deployment must
+$DATA_DIR/bday.sqlite-shm    ┘ bind-mount the DIRECTORY, never the .sqlite file
+$DATA_DIR/uploads/<id>.jpg   photos
+```
+
+## Route inventory
+
+Team-facing:
+
+| method | route | what | idempotent |
+| --- | --- | --- | --- |
+| GET | `/q/:slug` | **the front door** — resolve a code, apply its effect, redirect | mutating, see [ADR-0003](docs/adr/0003-qr-entry-mutates-on-get.md) |
+| GET | `/` | dashboard: header, score, tile grid | ✓ |
+| GET | `/welcome` | onboarding: team name + member names | ✓ |
+| POST | `/welcome` | create team + members, set cookie → `/questions` | PRG |
+| GET | `/questions` | the questionnaire | ✓ |
+| POST | `/questions` | save profile answers → pending destination or `/` | PRG |
+| GET | `/g/:gameId` | game page; `?step=n` for hunts, clamped to reached | ✓ |
+| POST | `/g/:gameId/submit` | upsert (`answer`) / insert (`tally`); multipart for photos | PRG |
+| POST | `/g/:gameId/hint` | reveal next hint, write the negative award | PRG |
+| GET | `/rules` | rules; the hidden hint rule appears after the first reveal | ✓ |
+| GET | `/p/:pageId` | gag and hidden pages | ✓ |
+| GET | `/showdown` | final standings, after game end | ✓ |
+
+Admin, all behind one cookie gate ([ADR-0005](docs/adr/0005-admin-is-a-one-time-secret-url.md)):
+
+| method | route | what |
+| --- | --- | --- |
+| GET | `/admin/key/:secret` | set the admin cookie, redirect to `/admin` |
+| GET | `/admin` | live board: teams, scores, hunt progress, unjudged count |
+| GET | `/admin/game/:gameId` | every submission for one game + photo gallery |
+| POST | `/admin/judge` | verdict + award on one submission |
+| POST | `/admin/award` | manual points to a team |
+| POST | `/admin/end` · `/admin/reopen` | the freeze, and its undo |
+| POST | `/admin/rescore` | re-run content scoring over existing player data |
+| GET | `/admin/adopt/:token` | cookie recovery on a new phone |
+| GET | `/admin/codes` | slug → target inventory, for printing and debugging |
+
+Static: `/css/*`, `/js/*`, `/fonts/*`, `/img/*` from `public/`; `/uploads/*` from `$DATA_DIR`;
+`/kit` is the style kit.
