@@ -233,6 +233,7 @@ code {
 
 /* ------------------------------- score header ------------------------------ */
 
+/* on every team-facing page, and the whole bar is the way back to the board */
 .scorebar {
   display: flex;
   align-items: center;
@@ -242,6 +243,21 @@ code {
   border: var(--edge-2) solid var(--c-ink);
   box-shadow: var(--shadow-2);
   padding: 0.55rem 0.75rem;
+  color: inherit;
+  text-decoration: none;
+}
+
+.scorebar:active {
+  transform: translate(2px, 2px);
+  box-shadow: var(--shadow-1);
+}
+
+/* how much of the board is still shut -- what makes a new team go and look at it */
+.scorebar__open {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .scorebar__who {

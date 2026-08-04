@@ -42,7 +42,15 @@ import {
   TooLarge,
 } from './http.js';
 import { displayFor, MAX_PHOTO_BYTES, storePhoto } from './photos.js';
-import { attachTeam, createTeam, currentTeam, membersOf } from './identity.js';
+import {
+  attachTeam,
+  createTeam,
+  currentTeam,
+  dealTeamName,
+  isDealtName,
+  membersOf,
+  onboardingComplete,
+} from './identity.js';
 import { huntIsComplete, isUnlocked, reachedStep, recordScan, scanIsInOrder, unlock } from './progress.js';
 import {
   allSubmissionsFor,
@@ -63,8 +71,9 @@ import {
   teamScore,
 } from './scoring.js';
 import { fireWebhook } from './webhooks.js';
-import { hintModal, layout, notFound, stub } from './render.js';
+import { hintModal, layout, notFound, scorebar, stub } from './render.js';
 import {
+  ARRIVED,
   gamePath,
   heroAnimation,
   hintNoticeFor,
@@ -92,10 +101,40 @@ const MIME = {
   '.avif': 'image/avif',
 };
 
+/** A team, or a bounce to the door. Used by the onboarding routes themselves. */
 const requireTeam = (req, res) => {
   const team = currentTeam(req);
   if (!team) redirect(res, '/welcome');
   return team;
+};
+
+/**
+ * A team that is all the way through the gate. Onboarding is a gate rather than a suggestion
+ * (#9), and a team exists from the end of the first screen -- so "has a cookie" is not the same
+ * question as "is allowed to play", and every route past the door has to ask the second one.
+ */
+const requireOnboardedTeam = (req, res) => {
+  const team = requireTeam(req, res);
+  if (!team) return null;
+  if (!onboardingComplete(team.id)) {
+    redirect(res, '/questions');
+    return null;
+  }
+  return team;
+};
+
+/**
+ * Who you are, what you have, and how much of the board is still shut -- on every team-facing
+ * page. See `scorebar()` in render.js for why the count is there.
+ */
+const teamBar = (team) => {
+  const games = listGames();
+  return scorebar({
+    name: team.name,
+    score: teamScore(team.id),
+    open: games.filter((game) => isUnlocked(team.id, game.id)).length,
+    total: games.length,
+  });
 };
 
 /** After game end the site is read-only for teams. One guard, one place. */
@@ -118,6 +157,66 @@ const noSuchCode = (res) => {
   return html(res, layout({ title: page.title, body: page.body, showClose: page.showClose }), 404);
 };
 
+/**
+ * What a code DOES, separated from how the team got here -- because one scan on this site is not
+ * live. An un-onboarded guest's scan is held in a cookie and replayed once they have a team, and
+ * `deferred` is that replay saying so.
+ *
+ * The only thing it changes is the webhook. A hunt step's webhook flashes a lamp in a room, and
+ * that flash IS the clue pointing at the next code; firing it a minute late, while the team is
+ * still head-down in a questionnaire, spends the clue on an empty room. So a deferred scan keeps
+ * the scan row and the unlock and drops the webhook, and the game page asks them to go and scan
+ * it again for real. See ADR-0011.
+ *
+ * Returns the path to send them to, or null when the code points at a game content does not
+ * define -- which the caller turns into a 404.
+ */
+function applyCode({ team, slug, target, deferred = false }) {
+  if (gameIsOver()) {
+    recordScan(team.id, slug, false);
+    return '/showdown';
+  }
+
+  if (target.page) {
+    recordScan(team.id, slug, true);
+    return `/p/${target.page}`;
+  }
+
+  const game = getGame(target.game);
+  if (!game) return null;
+
+  if (game.kind !== 'hunt') {
+    recordScan(team.id, slug, true);
+    unlock(team.id, game.id);
+    // Straight into the game, never via the dashboard: the team scanned a code because they want
+    // to play, and the unlock plays on the hero they are already looking at. ADR-0009.
+    return gamePath(game.id, { moment: 'unlock' });
+  }
+
+  const step = target.step;
+
+  if (!scanIsInOrder(team.id, game, step)) {
+    recordScan(team.id, slug, false);
+    return '/p/too-soon';
+  }
+
+  recordScan(team.id, slug, true);
+  if (step === 1) unlock(team.id, game.id);
+
+  // The step's `webhook` is a logical node name, never a Home Assistant id -- see
+  // docs/adr/0007-one-home-assistant-webhook.md.
+  const webhook = getStep(game, step)?.webhook;
+  if (webhook && !deferred) fireWebhook(webhook, { team: team.name, game: game.id, step });
+
+  // Every step banks as it is reached, not the whole hunt at the finish -- see awardHuntProgress.
+  awardHuntProgress(team.id, game);
+
+  // A deferred scan that owed a physical effect asks for it back. Otherwise: step 1 is an unlock,
+  // and every step after it is a step transition, and they look different.
+  if (deferred && webhook) return gamePath(game.id, { step, moment: 'rescan' });
+  return gamePath(game.id, { step, moment: step === 1 ? 'unlock' : 'step' });
+}
+
 async function handleScan({ req, res, params }) {
   const target = getCode(params.slug);
   if (!target) return noSuchCode(res);
@@ -137,70 +236,71 @@ async function handleScan({ req, res, params }) {
   }
 
   const team = currentTeam(req);
-  if (!team) {
-    // Hold the slug across onboarding, then replay this exact URL so the effect applies once.
+
+  // Hold the slug and replay it once they are through onboarding, so the code they scanned costs
+  // them nothing. A team mid-questionnaire is held the same way: they have a cookie but they owe
+  // answers, and letting this scan through would put them in a game past the gate.
+  if (!team || !onboardingComplete(team.id)) {
     setCookie(res, PENDING_COOKIE, params.slug, { maxAge: 60 * 60 });
-    return redirect(res, '/welcome');
+    return redirect(res, team ? '/questions' : '/welcome');
   }
 
-  if (gameIsOver()) {
-    recordScan(team.id, params.slug, false);
-    return redirect(res, '/showdown');
-  }
+  const path = applyCode({ team, slug: params.slug, target });
+  if (!path) return html(res, notFound(), 404);
 
-  if (target.page) {
-    recordScan(team.id, params.slug, true);
-    return redirect(res, `/p/${target.page}`);
-  }
-
-  const game = getGame(target.game);
-  if (!game) return html(res, notFound(), 404);
-
-  if (game.kind !== 'hunt') {
-    recordScan(team.id, params.slug, true);
-    unlock(team.id, game.id);
-    // Straight into the game, never via the dashboard: the team scanned a code because they want
-    // to play, and the unlock plays on the hero they are already looking at. ADR-0009.
-    return redirect(res, gamePath(game.id, { moment: 'unlock' }));
-  }
-
-  const step = target.step;
-
-  if (!scanIsInOrder(team.id, game, step)) {
-    recordScan(team.id, params.slug, false);
-    return redirect(res, '/p/too-soon');
-  }
-
-  recordScan(team.id, params.slug, true);
-  if (step === 1) unlock(team.id, game.id);
-
-  // The step's `webhook` is a logical node name, never a Home Assistant id -- see
-  // docs/adr/0007-one-home-assistant-webhook.md.
-  fireWebhook(getStep(game, step)?.webhook, { team: team.name, game: game.id, step });
-
-  // Every step banks as it is reached, not the whole hunt at the finish -- see awardHuntProgress.
-  awardHuntProgress(team.id, game);
-
-  // Step 1 is an unlock; every step after it is a step transition, and they look different.
-  return redirect(res, gamePath(game.id, { step, moment: step === 1 ? 'unlock' : 'step' }));
+  return redirect(res, path);
 }
 
 // --- onboarding -------------------------------------------------------------------------------
 
-function showWelcome({ req, res }) {
-  if (currentTeam(req)) return redirect(res, '/');
+const MEMBER_NAME_MAX = 24;
+
+/**
+ * Screen one: who you are. Nine fields is the whole door, and this screen is two of them --
+ * because the team name is dealt rather than typed.
+ *
+ * The team name is DEALT rather than typed (#9). It is the team's display name and also the
+ * handle a stranger types into a Human Bingo square, so dealing it buys uniqueness, kills the
+ * duplicate-name error that would otherwise live on the first screen of the night, and hands
+ * every team something better than they would have typed with their coat still on.
+ *
+ * Reroll costs no client JS and loses nothing already typed: the button carries `formmethod=get`,
+ * so it re-submits this same form as a GET back to this same page. The word they were looking at
+ * arrives as `?word=`, gets excluded from the next deal so the name visibly changes, and their
+ * half-typed member names come back with them. `formnovalidate` is what lets that happen before
+ * the first name has been filled in.
+ */
+function showWelcome({ req, res, url }) {
+  const existing = currentTeam(req);
+  if (existing) return redirect(res, onboardingComplete(existing.id) ? '/' : '/questions');
+
+  const offered = dealTeamName(url.searchParams.get('word'));
+  const typed = url.searchParams.getAll('member');
+
+  const nameField = (index, label, required) => `
+    <label class="field">
+      <span class="field__label">${escape(label)}</span>
+      <input class="input" name="member" maxlength="${MEMBER_NAME_MAX}"
+             autocomplete="off" ${required ? 'required' : ''}
+             value="${escape(typed[index] ?? '')}">
+    </label>`;
 
   return html(
     res,
     layout({
-      title: 'Welcome',
+      title: 'Right. Who are you?',
       body: `
-        <p><strong>Not designed yet.</strong> Owned by: Onboarding flow and questionnaire.</p>
-        <form method="post" action="/welcome">
-          <p><label>Team name <input name="team" required></label></p>
-          <p><label>Player 1 <input name="member" required></label></p>
-          <p><label>Player 2 <input name="member"></label></p>
-          <button type="submit">Let us in</button>
+        <p>Two of you, one phone. Whoever is holding it is carrying the team all night — so pick
+          the one with battery left.</p>
+        <form class="stack" method="post" action="/welcome">
+          <input type="hidden" name="word" value="${escape(offered)}">
+          <p class="display">TEAM ${escape(offered)}</p>
+          <button class="btn" formmethod="get" formaction="/welcome" formnovalidate>
+            no, deal us another
+          </button>
+          ${nameField(0, 'Who is holding the phone?', true)}
+          ${nameField(1, 'And who else? (leave empty if you are on your own)', false)}
+          <button class="btn btn--primary">that's us</button>
         </form>
       `,
     }),
@@ -208,45 +308,88 @@ function showWelcome({ req, res }) {
 }
 
 async function createTeamFromForm({ req, res }) {
-  const form = await readForm(req);
-  const name = (form.get('team') ?? '').trim();
-  if (!name) return redirect(res, '/welcome');
+  const existing = currentTeam(req);
+  if (existing) return redirect(res, onboardingComplete(existing.id) ? '/' : '/questions');
 
-  const team = createTeam({ name, memberNames: form.getAll('member') });
+  const form = await readForm(req);
+
+  // Trust the hidden field only as far as it names a word this site would have dealt; anything
+  // else means a hand-edited form, and gets a name of our choosing rather than an error page.
+  const offered = form.get('word');
+  const name = isDealtName(offered) ? offered : dealTeamName();
+
+  const memberNames = form.getAll('member').map((value) => String(value).slice(0, MEMBER_NAME_MAX));
+  if (!memberNames.some((value) => value.trim())) return redirect(res, '/welcome');
+
+  const team = createTeam({ name, memberNames });
   attachTeam(res, team);
 
   return redirect(res, '/questions');
 }
 
-function showQuestions({ req, res }) {
+/** Honest, short, and never a dead end: the form is always still underneath. */
+const QUESTION_PROBLEMS = {
+  blank: 'Nearly — a couple of those are still empty. Every one of them is somebody else’s game later.',
+};
+
+/**
+ * Screen two: the questionnaire, which is a gate rather than a form (#9). Every answer here is
+ * consumed by a game somebody else plays hours from now -- the aged-eight answers become Guess
+ * Who's answer key, and the five one-word answers are the corpus Herd Mentality scores against.
+ * A team that skips does not merely skip their own tile; they put a hole in everyone's.
+ */
+function showQuestions({ req, res, url }) {
   const team = requireTeam(req, res);
   if (!team) return undefined;
+  if (onboardingComplete(team.id)) return redirect(res, afterOnboarding(req, res, team));
 
   const questions = listQuestions();
-  // Nothing to ask yet -- the questionnaire is owned by its own ticket. Skip straight through
-  // rather than showing an empty form.
-  if (!questions.length) return redirect(res, afterOnboarding(req, res));
-
   const members = membersOf(team.id);
+  const answered = new Map(
+    all('select member_id, question_id, value from profile_answers where team_id = ?', team.id).map(
+      (row) => [`${row.question_id}:${row.member_id ?? ''}`, row.value],
+    ),
+  );
+
   const fields = questions
     .flatMap((question) =>
       question.scope === 'member'
         ? members.map((member) => ({ question, member }))
         : [{ question, member: null }],
     )
-    .map(
-      ({ question, member }) => `
-        <p><label>${escape(question.label)}${member ? ` (${escape(member.name)})` : ''}
-          <input name="${escape(question.id)}:${member?.id ?? ''}"
-                 type="${escape(question.input ?? 'text')}"></label></p>`,
-    )
+    .map(({ question, member }) => {
+      const key = `${question.id}:${member?.id ?? ''}`;
+      // The member's name goes in the question, not in brackets after it: "what did ANNA want to
+      // be" is a question, "what did you want to be (Anna)" is a form field.
+      const label = member ? `${member.name}: ${question.label}` : question.label;
+
+      return `
+        <label class="field">
+          <span class="field__label">${escape(label)}</span>
+          <input class="input" name="${escape(key)}" type="${escape(question.input ?? 'text')}"
+                 maxlength="${Number(question.maxLength ?? 40)}"
+                 placeholder="${escape(question.placeholder ?? '')}"
+                 autocomplete="off" autocapitalize="off" required
+                 value="${escape(answered.get(key) ?? '')}">
+        </label>`;
+    })
     .join('');
+
+  const problem = QUESTION_PROBLEMS[url.searchParams.get('problem')];
 
   return html(
     res,
     layout({
-      title: 'A few questions',
-      body: `<form method="post" action="/questions">${fields}<button>Done</button></form>`,
+      title: 'Two seconds each',
+      body: `
+        ${problem ? `<p class="banner banner--bad">${escape(problem)}</p>` : ''}
+        <p>Answer these and you are in. Don't think about them — every single one is a game
+          somebody plays later tonight, and the honest answer is the funny one.</p>
+        <form class="stack" method="post" action="/questions">
+          ${fields}
+          <button class="btn btn--primary">let us in</button>
+        </form>
+      `,
     }),
   );
 }
@@ -274,21 +417,37 @@ async function saveQuestions({ req, res }) {
     }
   });
 
-  return redirect(res, afterOnboarding(req, res));
+  // Everything typed is kept either way, so coming back costs them only the blanks. `required`
+  // already asked; this is the same question asked by someone who cannot be talked out of it.
+  if (!onboardingComplete(team.id)) return redirect(res, '/questions?problem=blank');
+
+  return redirect(res, afterOnboarding(req, res, team));
 }
 
-/** Replay the code they arrived on, so onboarding costs them nothing. */
-function afterOnboarding(req, res) {
+/**
+ * The code they arrived on, applied at last, so onboarding costs them nothing.
+ *
+ * It is applied HERE rather than by redirecting back through `/q/:slug`, because this scan is a
+ * minute stale and a hunt step's webhook must not fire into an empty room -- see `applyCode` and
+ * ADR-0011. A team who arrived by typing the address instead of scanning anything has no pending
+ * slug and simply lands on their board.
+ */
+function afterOnboarding(req, res, team) {
   const pending = parseCookies(req)[PENDING_COOKIE];
   if (!pending) return '/';
+
   clearCookie(res, PENDING_COOKIE);
-  return `/q/${pending}`;
+
+  const target = getCode(pending);
+  if (!target || isPending(pending)) return '/';
+
+  return applyCode({ team, slug: pending, target, deferred: true }) ?? '/';
 }
 
 // --- dashboard, games, rules ------------------------------------------------------------------
 
 function showDashboard({ req, res }) {
-  const team = requireTeam(req, res);
+  const team = requireOnboardedTeam(req, res);
   if (!team) return undefined;
 
   // The five tile designs the style kit ships: locked, unlocked, correct, wrong, unknown.
@@ -329,17 +488,9 @@ function showDashboard({ req, res }) {
   return html(
     res,
     layout({
-      title: escape(team.name),
+      title: 'Your board',
+      bar: teamBar(team),
       body: `
-        <div class="scorebar">
-          <div class="scorebar__who">
-            <span class="scorebar__label">TEAM</span>
-            <span class="scorebar__name">${escape(team.name)}</span>
-          </div>
-          <div class="scorebar__pts">
-            <span class="scorebar__num">${teamScore(team.id)}</span><span class="scorebar__unit">pts</span>
-          </div>
-        </div>
         <p class="standing">${escape(standingsMessage(team.id))}</p>
         <div class="tiles">${grid}</div>
         <a class="btn" href="/rules">the rules</a>
@@ -381,7 +532,7 @@ function photoStrip(submissions, newestAnim = '') {
 }
 
 function showGame({ req, res, params, url }) {
-  const team = requireTeam(req, res);
+  const team = requireOnboardedTeam(req, res);
   if (!team) return undefined;
 
   const game = getGame(params.gameId);
@@ -403,6 +554,10 @@ function showGame({ req, res, params, url }) {
   // What just happened, delivered here rather than to the dashboard. See ADR-0009.
   const moment = momentOf(url);
   const submitted = SUBMITTED[moment];
+
+  // The one arrival that carries an instruction rather than a verdict: a hunt code scanned before
+  // this team existed, whose webhook was deliberately not fired. ADR-0011.
+  const arrival = ARRIVED[moment];
 
   // A reveal that has already happened, announcing what it cost. Rendered only when there is a
   // price to name -- every other visit to this page carries no modal at all.
@@ -447,12 +602,14 @@ function showGame({ req, res, params, url }) {
     res,
     layout({
       title: escape(game.title),
+      bar: teamBar(team),
       modal: notice
         ? hintModal({ notice, cost: hintCost(), backHref: gamePath(game.id, { step }) })
         : '',
       body: `
         <p class="banner"><strong>Composition not designed yet.</strong> Owned by: the per-game tickets.</p>
         ${problem ? `<p class="banner banner--bad">${escape(problem)}</p>` : ''}
+        ${arrival ? `<p class="banner">${escape(arrival)}</p>` : ''}
         ${submitted ? `<p class="banner${verdictAnimation(moment)}">${escape(submitted)}</p>` : ''}
         ${stage}
         <ul class="stack stack--tight">
@@ -480,7 +637,7 @@ const backToGame = (res, game, problem) =>
   redirect(res, `/g/${game.id}${problem ? `?problem=${problem}` : ''}`);
 
 async function submitToGame({ req, res, params }) {
-  const team = requireTeam(req, res);
+  const team = requireOnboardedTeam(req, res);
   if (!team) return undefined;
   if (blockedByGameEnd(res)) return undefined;
 
@@ -600,7 +757,7 @@ async function submitToGame({ req, res, params }) {
 }
 
 async function revealHint({ req, res, params }) {
-  const team = requireTeam(req, res);
+  const team = requireOnboardedTeam(req, res);
   if (!team) return undefined;
   if (blockedByGameEnd(res)) return undefined;
 
@@ -626,6 +783,7 @@ function showRules({ req, res }) {
     res,
     layout({
       title: 'The rules',
+      bar: team ? teamBar(team) : '',
       body: `
         <p><strong>Copy not written yet.</strong> Owned by: the rules page and score bands fog.</p>
         <ul>
@@ -943,18 +1101,6 @@ const adminRescore = ({ req, res }) => {
   return redirect(res, '/admin');
 };
 
-function adminAdopt({ req, res, params }) {
-  if (!requireAdmin(req, res)) return undefined;
-
-  const team = get('select * from teams where token = ?', params.token);
-  if (!team) return html(res, notFound(), 404);
-
-  // Re-attach a team to this phone. The one thing standing between a dead battery and a lost
-  // evening's score.
-  attachTeam(res, team);
-  return redirect(res, '/');
-}
-
 /**
  * The inventory, on screen. It exists for one question asked at 22:40 with a drink in hand:
  * "code seven is broken." The slug is printed on every card, so the host reads it off the paper
@@ -1098,7 +1244,6 @@ const routes = [
   route('POST', '/admin/end', adminEnd),
   route('POST', '/admin/reopen', adminReopen),
   route('POST', '/admin/rescore', adminRescore),
-  route('GET', '/admin/adopt/:token', adminAdopt),
   route('GET', '/admin/codes', adminCodes),
 
   route('GET', '/kit', serveKit),

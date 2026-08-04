@@ -9,6 +9,7 @@ import { pathToFileURL } from 'node:url';
 import economy from '../content/economy.js';
 import { CONTENT_DIR } from './config.js';
 import { all } from './db.js';
+import { fuzzyEquals } from './matching.js';
 
 export const GAME_KINDS = ['answer', 'tally', 'hunt', 'trophy'];
 
@@ -20,6 +21,9 @@ export const GAME_KINDS = ['answer', 'tally', 'hunt', 'trophy'];
  */
 const FORMLESS = new Set(['hunt', 'trophy']);
 export const takesForm = (game) => !FORMLESS.has(game.kind);
+
+/** Six, where the fuzzy matcher's floor is five: one character of margin, deliberately. */
+const MIN_TEAM_NAME = 6;
 
 /** Declared in content; the two that need a human. `check` and `resolve` are derived, not declared. */
 export const DECLARED_JUDGING = ['manual', 'trust'];
@@ -63,6 +67,7 @@ const games = new Map();
 const pages = new Map();
 let codes = {};
 let questions = [];
+let teamNames = [];
 
 export async function loadContent() {
   for (const game of await loadDirectory('games')) games.set(game.id, game);
@@ -70,9 +75,10 @@ export async function loadContent() {
 
   codes = (await import(pathToFileURL(join(CONTENT_DIR, 'codes.js')).href)).default;
   questions = (await import(pathToFileURL(join(CONTENT_DIR, 'questions.js')).href)).default;
+  teamNames = (await import(pathToFileURL(join(CONTENT_DIR, 'team-names.js')).href)).default;
 
   validate();
-  return { games, pages, codes, questions };
+  return { games, pages, codes, questions, teamNames };
 }
 
 export const listGames = () => [...games.values()];
@@ -96,6 +102,16 @@ export const isPending = (slug) => {
 /** Every code whose content is still missing, for the boot warning and for /admin/codes. */
 export const listPendingCodes = () => listCodes().filter(([slug]) => isPending(slug));
 export const listQuestions = () => questions;
+export const listTeamNames = () => teamNames;
+
+/**
+ * Games every team has before they have found anything, unlocked during onboarding on top of
+ * whatever code they arrived through. A game declares this itself rather than onboarding holding
+ * a list, so the roster's two starters (Human Bingo, Longest yarn) start working the moment their
+ * own tickets land their content, and nothing here changes. See #7 for the rule that put them
+ * there: a tile starts open only if learning about it late is unrecoverable.
+ */
+export const listStarterGames = () => listGames().filter((game) => game.starter);
 
 /** Hunt steps are 1-based in content and in the database. */
 export const stepCount = (game) => (game.kind === 'hunt' ? game.steps.length : 0);
@@ -112,6 +128,72 @@ export function slugsForGame(gameId) {
   return listCodes()
     .filter(([, target]) => target.game === gameId)
     .sort((a, b) => (a[1].step ?? 1) - (b[1].step ?? 1));
+}
+
+const QUESTION_SCOPES = ['team', 'member'];
+const QUESTION_INPUTS = ['text', 'number', 'select'];
+
+/**
+ * A question id is a bare string in `profile_answers` with no foreign key (ADR-0001), so a
+ * duplicate id silently makes two questions share one row and the second overwrite the first.
+ * Cheap to check at boot, invisible at 21:00 with fourteen teams' answers already in the file.
+ */
+function questionProblems() {
+  const problems = [];
+  const seen = new Set();
+
+  for (const question of questions) {
+    if (!question.id) problems.push('a question has no id');
+    else if (seen.has(question.id)) problems.push(`two questions share the id "${question.id}"`);
+    else seen.add(question.id);
+
+    if (!question.label) problems.push(`question "${question.id}" has no label`);
+    if (!QUESTION_SCOPES.includes(question.scope)) {
+      problems.push(`question "${question.id}" has scope "${question.scope}"`);
+    }
+    if (question.input && !QUESTION_INPUTS.includes(question.input)) {
+      problems.push(`question "${question.id}" has unknown input "${question.input}"`);
+    }
+    if (question.input === 'select' && !question.options?.length) {
+      problems.push(`question "${question.id}" is a select with no options`);
+    }
+  }
+
+  return problems;
+}
+
+/**
+ * The name pool has rules that only bite hours later, in someone else's game: a team name is also
+ * the handle a stranger types into a Human Bingo square, matched FUZZILY. A word under five
+ * characters gets an edit budget of zero and has to be typed perfectly; two words within each
+ * other's budget are the same team as far as that square is concerned. Both are invisible while
+ * writing the list and unfixable once the night has started, so they fail the boot.
+ */
+function teamNameProblems() {
+  const problems = [];
+
+  if (!teamNames.length) return ['content/team-names.js is empty; onboarding has nothing to deal'];
+
+  for (const word of teamNames) {
+    if (!/^[A-Z]+$/.test(word)) {
+      problems.push(`team name "${word}" must be one word, A-Z only, no accents or spaces`);
+    }
+    if (word.length < MIN_TEAM_NAME) {
+      problems.push(
+        `team name "${word}" is shorter than ${MIN_TEAM_NAME}; a stranger would have to type it perfectly`,
+      );
+    }
+  }
+
+  for (let i = 0; i < teamNames.length; i += 1) {
+    for (let j = i + 1; j < teamNames.length; j += 1) {
+      if (fuzzyEquals(teamNames[i], teamNames[j])) {
+        problems.push(`team names "${teamNames[i]}" and "${teamNames[j]}" are too alike to tell apart`);
+      }
+    }
+  }
+
+  return problems;
 }
 
 function validate() {
@@ -184,7 +266,14 @@ function validate() {
     if (judgingMode(game) === 'trust' && typeof game.points !== 'number') {
       problems.push(`game "${game.id}" is judged on trust but declares no points`);
     }
+    // A hunt is unlocked by scanning its step 1, and a team holding an unlocked hunt they have
+    // not started has reached step 0 -- a step that does not exist. Nothing to render.
+    if (game.starter && game.kind === 'hunt') {
+      problems.push(`hunt "${game.id}" is a starter, but a hunt has no step until it is scanned`);
+    }
   }
+
+  problems.push(...questionProblems(), ...teamNameProblems());
 
   // A code may point at content that does not exist YET, but only where the inventory admits it
   // with `pending: true`. Without the flag the same situation is a typo in a game id, and stays

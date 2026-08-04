@@ -28,13 +28,23 @@ what games exist. See [ADR-0001](docs/adr/0001-game-content-lives-on-disk.md).
 The unit of play and of scoring. 20–30 guests in teams of **2**, so ~10–15 teams.
 
 **The cookie is the team.** One phone per team carries `team=<token>`; there are no accounts,
-passwords or join codes. A team has **members** — named explicitly during onboarding, because
-several games key off individual attributes (height, favourite colour) rather than team ones.
+passwords or join codes — and no way back out either. There is no sign-out, no rejoin and no
+recovery, because there is nothing to sign out of: one phone, carried by whichever member
+volunteers, and a charger in the hall.
 
-Losing the cookie loses the team, so the host can re-attach a team to a new phone via
-`/admin/adopt/:token`.
+A team has **members** — named explicitly during onboarding, because member-scoped questions need
+subjects to be asked about. Two name fields, the second optional: a solo arrival is a legal team
+of one, and a trio enters two.
+
+**The name is dealt, not typed.** Onboarding hands out a word from `content/team-names.js` — TEAM
+BADGER — with a reroll. That word is the team's display name *and* the **handle** a stranger types
+into a Human Bingo square to name the team that matches, which is the whole reason it is dealt:
+uniqueness is free, there is no duplicate-name error at the door, and it survives being shouted
+across a loud kitchen. The pool's rules are enforced at boot, because they only bite hours later
+in someone else's game — see `src/matching.js`.
 
 > Not "player", not "user". A single human is a **member**; the thing that scores is a **team**.
+> Not "team code" — a **code** is the physical QR thing. A team's word is its **handle**.
 
 ### Code
 
@@ -110,7 +120,7 @@ they were never asked a question they could get wrong.
 The one thing that **just happened**, carried across a redirect so the arriving page can react.
 Every state change here is a POST-and-redirect or a scan redirect, so the only channel is a query
 param on the destination: `?just=<moment>`, with a closed vocabulary in `src/moments.js` —
-`unlock`, `step`, `correct`, `incorrect`, `banked`, `pending`, `shot`.
+`unlock`, `step`, `correct`, `incorrect`, `banked`, `pending`, `shot`, `rescan`.
 
 A moment is always delivered to **the page that caused it**. Scanning opens the game and the hero
 plays the unlock; submitting keeps the team on the game page and answers them there. Nobody is
@@ -121,13 +131,39 @@ The param is **spent on arrival** — `public/js/app.js` strips it after first p
 does not replay the animation. The animation is never load-bearing: `prefers-reduced-motion`
 flattens all of it, and everything a moment says is also said in text.
 
+`rescan` is the odd one: it carries an **instruction** rather than a verdict, and it exists
+because one scan on this site is not live. See *Deferred scan* below.
+
 > Not "flash", not "toast". There is no notification layer — a moment decorates the page that was
 > already being rendered.
+
+### Deferred scan
+
+The first scan of the night cannot be applied when it happens: the team it would belong to does
+not exist yet. `/q/:slug` holds the slug in a cookie, sends the guest through onboarding, and
+applies it on the way out — so the code they scanned costs them nothing.
+
+**A deferred scan keeps its state and drops its physical effect.** The scan row, the unlock and
+the hunt position are all written exactly as a live scan would write them; the step's **webhook
+does not fire**. A lamp flashing in an empty hallway while the team fills in a form spends the
+clue it was supposed to be, and Home Assistant returns `200 OK` for everything, so nothing can
+detect it. Instead the game page carries `rescan` and asks them to scan it again for real —
+which is the retry loop the hunt was already built on.
+
+Derived, never declared: the discriminator is whether the step has a `webhook` at all, so the
+riddle hunt needs no prompt and gets none. See
+[ADR-0011](docs/adr/0011-the-first-scan-is-not-live.md).
 
 ### Unlock
 
 State: this team may open this game. Created by scanning a code that names the game; permanent
 once granted. One tile is unlocked during onboarding by whichever code they arrived through.
+
+**Starters** are unlocked on top of that, for every team, at the moment the team is created. A
+game declares `starter: true` itself rather than onboarding holding a list, so the roster's two
+(Human Bingo, Longest yarn) start working the moment their own tickets land. The rule for being
+one: *a tile starts open only if learning about it late is unrecoverable.* A hunt may not be a
+starter — it has no step until it is scanned — and boot refuses one that tries.
 
 ### Hunt and step
 
@@ -294,6 +330,18 @@ An onboarding questionnaire answer, keyed by `question_id` from `content/questio
 `member_id` is **nullable**: `NULL` means a team-level answer. Questions declare
 `scope: 'team' | 'member'`; member-scoped ones are asked once per member.
 
+Every question is here because **a game eats it** — that is the whole admission test. One
+member-scoped question (what you wanted to be aged eight) is Guess Who's answer key; five
+team-scoped ones are the honest **harvest** that Herd Mentality asks you to predict hours later.
+A team that skipped would put a hole in everyone's tile, not just their own, which is why
+onboarding is a **gate**: `onboardingComplete()` means the team exists *and* owes no answers, and
+every route past the door asks that rather than merely 'has a cookie'.
+
+Answers are stored **verbatim** and normalised only when counted. `src/matching.js` owns that —
+lowercase, accents, punctuation, a trailing plural, then roughly one edit of slack per five
+characters and **exact below five**, because `cat`/`bat` and `bear`/`beer` are two teams
+disagreeing rather than one typing badly.
+
 ## Storage
 
 `node:sqlite` — zero dependencies, no native compilation. WAL, foreign keys on. Schema changes
@@ -318,10 +366,10 @@ Team-facing:
 | --- | --- | --- | --- |
 | GET | `/q/:slug` | **the front door** — resolve a code, apply its effect, redirect | mutating, see [ADR-0003](docs/adr/0003-qr-entry-mutates-on-get.md) |
 | GET | `/` | dashboard: header, score, tile grid | ✓ |
-| GET | `/welcome` | onboarding: team name + member names | ✓ |
+| GET | `/welcome` | onboarding, screen 1: a dealt team name + member names. Reroll re-submits this form as a GET | ✓ |
 | POST | `/welcome` | create team + members, set cookie → `/questions` | PRG |
-| GET | `/questions` | the questionnaire | ✓ |
-| POST | `/questions` | save profile answers → pending destination or `/` | PRG |
+| GET | `/questions` | onboarding, screen 2: the questionnaire, and **the gate** — every team-facing route bounces here until it is answered | ✓ |
+| POST | `/questions` | save profile answers; incomplete returns here, complete applies the held code (deferred) or lands on `/` | PRG |
 | GET | `/g/:gameId` | game page; `?step=n` for hunts, clamped to reached; `?just=` is the moment, `?hint=` the reveal notice | ✓ |
 | POST | `/g/:gameId/submit` | upsert (`answer`) / insert (`tally`); multipart for photos → back to `/g/:gameId` | PRG |
 | POST | `/g/:gameId/hint` | reveal next hint, write the negative award | PRG |
@@ -341,7 +389,6 @@ Admin, all behind one cookie gate ([ADR-0005](docs/adr/0005-admin-is-a-one-time-
 | POST | `/admin/award` | manual points to a team |
 | POST | `/admin/end` · `/admin/reopen` | the freeze, and its undo |
 | POST | `/admin/rescore` | re-run content scoring over existing player data |
-| GET | `/admin/adopt/:token` | cookie recovery on a new phone |
 | GET | `/admin/codes` | slug → target inventory with scan counts, for debugging a code someone says is broken |
 
 Static: `/css/*`, `/js/*`, `/fonts/*`, `/img/*` from `public/`; `/uploads/*` from `$DATA_DIR`;

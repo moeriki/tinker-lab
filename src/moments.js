@@ -18,7 +18,24 @@ export const MOMENTS = new Set([
   'banked', // a trust game took the submission and paid for it, unjudged
   'pending', // submitted, and unscoreable until game end
   'shot', // a photo just landed
+  'rescan', // unlocked by a scan whose physical effect was deferred; go and scan it again
 ]);
+
+/**
+ * What a team is told on arrival, for the moment that carries an instruction rather than a
+ * verdict.
+ *
+ * `rescan` exists because one scan on this site is not live: the very first one. An un-onboarded
+ * guest's scan is held in a cookie and replayed a minute later, once they have a team -- and for
+ * a hunt step that fires a webhook, the physical half of the scan is the whole point. Firing it
+ * on the replay would flash a lamp in an empty room while the team is still head-down in a form,
+ * spending the clue that lamp was supposed to be. So the replay keeps the unlock and drops the
+ * webhook, and this line asks for the one thing that puts it right: scan it again, on purpose,
+ * standing in front of it. See ADR-0011.
+ */
+export const ARRIVED = {
+  rescan: "You're in — and this one is yours now. Go back and scan that code again: this time, something happens.",
+};
 
 /** The moment this request is carrying, or null. */
 export function momentOf(url) {
@@ -89,7 +106,7 @@ export function gamePath(gameId, { step = 0, moment = null, hint = null } = {}) 
 
 /** The hero is where an arriving team is already looking, so it carries the arrival. */
 export function heroAnimation(moment) {
-  if (moment === 'unlock') return ' anim-unlock';
+  if (moment === 'unlock' || moment === 'rescan') return ' anim-unlock';
   if (moment === 'step') return ' anim-page';
   return '';
 }

@@ -10,12 +10,17 @@ import { escape } from './http.js';
  * wants it: it polls, and a page that re-animates every few seconds is unreadable. Team-facing
  * pages animate by default so a new one never has to remember to.
  *
+ * `bar` is the scorebar, and it is a slot rather than something this function builds, so that
+ * render.js keeps knowing nothing about the database. Team-facing pages pass one; admin surfaces
+ * and gag pages pass nothing. See `scorebar()` for why it is on every page rather than only the
+ * dashboard.
+ *
  * `modal` is a slot, and it sits **outside `.app` on purpose**: `anim-page` animates a
  * `transform`, and a transformed ancestor becomes the containing block for `position: fixed`, so
  * a modal nested inside would be pinned to the page rather than to the viewport for the length of
  * the arrival animation. The style kit puts it at the end of `<body>` for the same reason.
  */
-export function layout({ title, body, showClose = false, still = false, modal = '' }) {
+export function layout({ title, body, bar = '', showClose = false, still = false, modal = '' }) {
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -27,6 +32,7 @@ export function layout({ title, body, showClose = false, still = false, modal = 
 <body class="shell">
   <div class="app${still ? '' : ' anim-page'}">
     <div class="stack">
+      ${bar}
       <h1 class="shout">${escape(title)}</h1>
       ${body}
       ${showClose ? '<a class="btn btn--close" href="/">close</a>' : ''}
@@ -36,6 +42,34 @@ export function layout({ title, body, showClose = false, still = false, modal = 
   <script type="module" src="/js/app.js"></script>
 </body>
 </html>`;
+}
+
+/**
+ * Who you are, what you have, and how much of the board is still shut -- on every team-facing
+ * page rather than only the dashboard, and the whole thing is a link back to it.
+ *
+ * The open count is doing a specific job. The roster opens two tiles for every team at onboarding
+ * (#7), on the rule that a tile starts open only if learning about it late is unrecoverable --
+ * and Human Bingo has a hard window, because 20:00 to 21:00 is when people still introduce
+ * themselves. But a team lands in the game they scanned, not on their board, so nothing would
+ * otherwise tell them those two exist. A running count advertises the board from wherever they
+ * are, needs no first-arrival flag, and keeps working every time a tile opens all night. Settled
+ * in #9.
+ *
+ * `open` of zero total means content has no games yet, and a bare "0 OF 0" says nothing worth the
+ * pixels, so the line is dropped entirely rather than rendered empty.
+ */
+export function scorebar({ name, score, open = 0, total = 0 }) {
+  return `<a class="scorebar" href="/">
+    <span class="scorebar__who">
+      <span class="scorebar__label">TEAM</span>
+      <span class="scorebar__name">${escape(name)}</span>
+      ${total ? `<span class="scorebar__open">${Number(open)} of ${Number(total)} open</span>` : ''}
+    </span>
+    <span class="scorebar__pts">
+      <span class="scorebar__num">${Number(score)}</span><span class="scorebar__unit">pts</span>
+    </span>
+  </a>`;
 }
 
 /**
