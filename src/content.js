@@ -10,7 +10,16 @@ import economy from '../content/economy.js';
 import { CONTENT_DIR } from './config.js';
 import { all } from './db.js';
 
-export const GAME_KINDS = ['answer', 'tally', 'hunt'];
+export const GAME_KINDS = ['answer', 'tally', 'hunt', 'trophy'];
+
+/**
+ * The kinds whose game page carries **no form**, and so can never hold a submission: a hunt
+ * advances by walking to the next code, a trophy is handed over by the host. Stated once, as a
+ * predicate, rather than spelled `kind !== 'hunt'` at each of the four places that ask -- which is
+ * exactly how `trophy` would otherwise have quietly inherited a form.
+ */
+const FORMLESS = new Set(['hunt', 'trophy']);
+export const takesForm = (game) => !FORMLESS.has(game.kind);
 
 /** Declared in content; the two that need a human. `check` and `resolve` are derived, not declared. */
 export const DECLARED_JUDGING = ['manual', 'trust'];
@@ -137,6 +146,26 @@ function validate() {
       }
     }
 
+    // A trophy is an object in the house, awarded once by hand. Its worth has to be knowable at
+    // boot for the same reason a hunt's is: the admin button has to print a number, and nothing
+    // later in the night can work it out. It is also the whole tile, so it may not exceed one.
+    if (game.kind === 'trophy') {
+      if (typeof game.points !== 'number') {
+        problems.push(`trophy "${game.id}" declares no points; the host's award button has none to give`);
+      } else if (game.points > economy.tilePoints) {
+        problems.push(
+          `trophy "${game.id}" is worth ${game.points}, over the ${economy.tilePoints}-point tile budget`,
+        );
+      }
+      if (game.judging || typeof game.check === 'function' || typeof game.resolve === 'function') {
+        problems.push(
+          `trophy "${game.id}" declares a judging mode or a check/resolve function; a trophy has ` +
+            `no form, so there is never a submission to judge`,
+        );
+      }
+      if (game.steps) problems.push(`trophy "${game.id}" declares steps; only hunts have them`);
+    }
+
     if (game.judging && !DECLARED_JUDGING.includes(game.judging)) {
       problems.push(
         `game "${game.id}" declares judging "${game.judging}"; expected one of ${DECLARED_JUDGING.join(', ')}`,
@@ -148,8 +177,8 @@ function validate() {
         `game "${game.id}" declares judging "${game.judging}" AND a check/resolve function`,
       );
     }
-    if (game.photo && game.kind === 'hunt') {
-      problems.push(`hunt "${game.id}" takes a photo, but hunts have no form`);
+    if (game.photo && !takesForm(game)) {
+      problems.push(`${game.kind} "${game.id}" takes a photo, but has no form to take it with`);
     }
     // A trust game pays on submit, so it needs to know what a submission is worth.
     if (judgingMode(game) === 'trust' && typeof game.points !== 'number') {

@@ -24,6 +24,7 @@ import {
   hintsFor,
   stepCount,
   getStep,
+  takesForm,
   takesPhoto,
 } from './content.js';
 import {
@@ -296,6 +297,8 @@ function showDashboard({ req, res }) {
     const submissions = submissionsFor(team.id, game.id);
     const verdicts = new Set(submissions.map((submission) => submission.verdict));
 
+    const points = gameScore(team.id, game.id);
+
     let state = 'locked';
     if (unlocked) state = 'unlocked';
     if (submissions.length) {
@@ -303,8 +306,12 @@ function showDashboard({ req, res }) {
       else state = verdicts.has('correct') ? 'correct' : 'wrong';
     }
     if (game.kind === 'hunt' && huntIsComplete(team.id, game)) state = 'correct';
+    // A trophy never holds a submission, so the ledger is the only thing that knows. A team that
+    // was not handed it sits at unlocked and zero -- never `wrong`, since they were never asked a
+    // question they could get wrong.
+    if (game.kind === 'trophy' && points > 0) state = 'correct';
 
-    return { game, unlocked, state, points: gameScore(team.id, game.id) };
+    return { game, unlocked, state, points };
   });
 
   const grid = tiles.length
@@ -401,6 +408,41 @@ function showGame({ req, res, params, url }) {
   // price to name -- every other visit to this page carries no modal at all.
   const notice = hintNoticeOf(url);
 
+  const heroBlock = `<div class="hero hero--text${heroAnimation(moment)}">${escape(
+    (game.kind === 'hunt' ? getStep(game, step)?.hero?.text : game.hero?.text) ?? '',
+  )}</div>`;
+
+  // What sits between the banners and the hints. A hunt says which step it is on; a trophy is the
+  // hero and nothing else -- no form, and no explanation of how it is won, because the object is
+  // in the room and the host decides who ends the night holding it. Everything else takes an
+  // answer. The last branch asks `takesForm` rather than naming the three kinds, so a fifth
+  // formless kind cannot quietly inherit a form.
+  let stage;
+  if (game.kind === 'hunt') {
+    stage = `<p class="statusline">Step ${step} of ${stepCount(game)} — reached ${reached}</p>
+             ${heroBlock}`;
+  } else if (!takesForm(game)) {
+    stage = heroBlock;
+  } else {
+    stage = `${heroBlock}
+             ${wantsPhoto ? photoStrip(mine, shotAnimation(moment)) : ''}
+             <form class="stack" method="post" action="/g/${escape(game.id)}/submit"
+                   ${wantsPhoto ? 'enctype="multipart/form-data"' : ''}>
+               ${
+                 wantsPhoto
+                   ? `<label class="shoot">
+                        <input class="shoot__input" type="file" name="photo"
+                               accept="image/*" capture="environment">
+                        <span class="shoot__face">${mine.some((s) => s.photo_path) ? 'take another' : 'take a photo'}</span>
+                      </label>`
+                   : ''
+               }
+               <input class="input" name="body" ${wantsPhoto ? 'placeholder="say something about it (optional)"' : ''}
+                      value="${escape(game.kind === 'tally' ? '' : mine.at(-1)?.body ?? '')}">
+               <button class="btn btn--primary" ${gameIsOver() ? 'disabled' : ''}>Submit</button>
+             </form>`;
+  }
+
   return html(
     res,
     layout({
@@ -412,28 +454,7 @@ function showGame({ req, res, params, url }) {
         <p class="banner"><strong>Composition not designed yet.</strong> Owned by: the per-game tickets.</p>
         ${problem ? `<p class="banner banner--bad">${escape(problem)}</p>` : ''}
         ${submitted ? `<p class="banner${verdictAnimation(moment)}">${escape(submitted)}</p>` : ''}
-        ${
-          game.kind === 'hunt'
-            ? `<p class="statusline">Step ${step} of ${stepCount(game)} — reached ${reached}</p>
-               <div class="hero hero--text${heroAnimation(moment)}">${escape(getStep(game, step)?.hero?.text ?? '')}</div>`
-            : `<div class="hero hero--text${heroAnimation(moment)}">${escape(game.hero?.text ?? '')}</div>
-               ${wantsPhoto ? photoStrip(mine, shotAnimation(moment)) : ''}
-               <form class="stack" method="post" action="/g/${escape(game.id)}/submit"
-                     ${wantsPhoto ? 'enctype="multipart/form-data"' : ''}>
-                 ${
-                   wantsPhoto
-                     ? `<label class="shoot">
-                          <input class="shoot__input" type="file" name="photo"
-                                 accept="image/*" capture="environment">
-                          <span class="shoot__face">${mine.some((s) => s.photo_path) ? 'take another' : 'take a photo'}</span>
-                        </label>`
-                     : ''
-                 }
-                 <input class="input" name="body" ${wantsPhoto ? 'placeholder="say something about it (optional)"' : ''}
-                        value="${escape(game.kind === 'tally' ? '' : mine.at(-1)?.body ?? '')}">
-                 <button class="btn btn--primary" ${gameIsOver() ? 'disabled' : ''}>Submit</button>
-               </form>`
-        }
+        ${stage}
         <ul class="stack stack--tight">
           ${hints.map((hint) => `<li class="bubble">${escape(hintsFor(game, step)[hint.hint_index])}</li>`).join('')}
         </ul>
@@ -465,7 +486,10 @@ async function submitToGame({ req, res, params }) {
 
   const game = getGame(params.gameId);
   if (!game || !isUnlocked(team.id, game.id)) return html(res, notFound(), 404);
-  if (game.kind === 'hunt') return redirect(res, `/g/${game.id}`);
+  // Neither a hunt nor a trophy renders a form, so a POST here is a stale tab or a curious guest
+  // with a terminal. Bounce it rather than opening a submission row against a game that has no
+  // way to judge one.
+  if (!takesForm(game)) return redirect(res, `/g/${game.id}`);
 
   let fields;
   let photo = null;
@@ -687,14 +711,75 @@ function adminBoard({ req, res }) {
 }
 
 /**
+ * A trophy's admin surface. There is no gallery, because a trophy holds no submissions: it is an
+ * object in the house, and the only question is who is holding it. So this is the team list, one
+ * button each, and the current holder said out loud.
+ *
+ * It does not enforce a single holder. A trophy is content's word for "the host decides", and two
+ * people carrying Teddy between them is the kind of thing that happens at midnight -- the count is
+ * shown instead, so an accidental second award is visible rather than prevented.
+ */
+function trophyPanel(res, game) {
+  const worth = game.points ?? 0;
+  const holders = new Map(
+    all(
+      "select team_id, points from awards where game_id = ? and kind = 'trophy' and points > 0",
+      game.id,
+    ).map((row) => [row.team_id, row.points]),
+  );
+
+  const rows = all('select id, name from teams order by name')
+    .map((team) => {
+      const holding = holders.has(team.id);
+      return `
+        <tr>
+          <td>${escape(team.name)}</td>
+          <td class="mono">${holding ? `holding · ${holders.get(team.id)} pts` : '&mdash;'}</td>
+          <td>
+            <form class="judge" method="post" action="/admin/trophy">
+              <input type="hidden" name="game" value="${escape(game.id)}">
+              <input type="hidden" name="team" value="${team.id}">
+              ${
+                holding
+                  ? '<button class="btn" name="holding" value="no">✗ take it back</button>'
+                  : `<button class="btn btn--primary" name="holding" value="yes">✓ award ${worth}</button>`
+              }
+            </form>
+          </td>
+        </tr>`;
+    })
+    .join('');
+
+  return html(
+    res,
+    layout({
+      title: game.title,
+      still: true, // admin surface
+      body: `
+        <p class="statusline">A trophy — no form, no submissions. Award it to whoever is holding
+          it. Taking it back writes a zero, so a mis-tap costs nothing permanent.</p>
+        <p class="statusline">${holders.size} team${holders.size === 1 ? '' : 's'} holding it</p>
+        <table class="board">
+          <thead><tr><th>team</th><th>state</th><th></th></tr></thead>
+          <tbody>${rows || '<tr><td colspan="3">No teams yet.</td></tr>'}</tbody>
+        </table>
+        <a class="btn btn--close" href="/admin">back to the board</a>
+      `,
+    }),
+  );
+}
+
+/**
  * The gallery, per game. What a photo can have done to it comes from the game's judging mode in
- * content, never from a hardcoded list -- so locking the roster needs no change here.
+ * content, never from a hardcoded list -- so locking the roster needs no change here. A trophy
+ * has no submissions to gallery, and hands off above.
  */
 function adminGame({ req, res, params }) {
   if (!requireAdmin(req, res)) return undefined;
 
   const game = getGame(params.gameId);
   if (!game) return html(res, notFound(), 404);
+  if (game.kind === 'trophy') return trophyPanel(res, game);
 
   const mode = judgingMode(game);
   const submissions = allSubmissionsFor(game.id);
@@ -794,6 +879,35 @@ async function adminJudge({ req, res }) {
   });
 
   return redirect(res, `/admin/game/${submission.game_id}`);
+}
+
+/**
+ * Hand a trophy over, or take it back. Its own route rather than a reuse of /admin/award, because
+ * that one is the host's freehand escape hatch and deliberately *accumulates* — it stamps
+ * `Date.now()` into `source_id` so two consolation points are two rows. A trophy is the opposite:
+ * `source_id` stays null, so the upsert key is `(team, game, 'trophy', 0)` and a team can hold one
+ * trophy exactly once however many times the button is pressed.
+ */
+async function adminTrophy({ req, res }) {
+  if (!requireAdmin(req, res)) return undefined;
+
+  const form = await readForm(req);
+  const game = getGame(form.get('game'));
+  if (!game || game.kind !== 'trophy') return redirect(res, '/admin');
+
+  const holding = form.get('holding') === 'yes';
+
+  award({
+    teamId: Number(form.get('team')),
+    gameId: game.id,
+    kind: 'trophy',
+    // Taking it back writes a zero rather than deleting the row — the same rule the gallery's
+    // reject follows, so handing Teddy to the wrong team at 23:00 costs nothing permanent.
+    points: holding ? game.points : 0,
+    reason: holding ? 'was holding it' : 'handed it back',
+  });
+
+  return redirect(res, `/admin/game/${game.id}`);
 }
 
 async function adminAward({ req, res }) {
@@ -979,6 +1093,7 @@ const routes = [
   route('GET', '/admin', adminBoard),
   route('GET', '/admin/game/:gameId', adminGame),
   route('POST', '/admin/judge', adminJudge),
+  route('POST', '/admin/trophy', adminTrophy),
   route('POST', '/admin/award', adminAward),
   route('POST', '/admin/end', adminEnd),
   route('POST', '/admin/reopen', adminReopen),

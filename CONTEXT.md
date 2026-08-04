@@ -78,19 +78,30 @@ the scan was out of order or after game end), which is what makes hunt progress 
 
 ### Game
 
-A unit of play, defined entirely in `content/games/<id>.js`. Three **kinds**:
+A unit of play, defined entirely in `content/games/<id>.js`. Four **kinds**:
 
 | kind | the game page shows | scored by |
 | --- | --- | --- |
 | `answer` | hero + form, **one** submission, editable until game end | `check()` on submit, or `resolve()` at game end |
 | `tally` | hero + form, **many** submissions (one point per photo) | per submission |
 | `hunt` | the current step's hero and hints, **no form** | auto-awarded **per step**, as each is reached |
+| `trophy` | the hero and nothing else — **no form** | the host awards it by hand at `/admin/game/:id` |
+
+`hunt` and `trophy` are the **formless** kinds: they can never hold a submission, and the code
+asks `takesForm(game)` rather than naming them, so a fifth formless kind cannot inherit a form by
+accident. A trophy is a physical object in the house — Mr Bean's Teddy in his timer lockbox — and
+must declare `points`, since the admin button has to print a number and nothing later in the
+night can work one out. It declares no judging: there is nothing to judge.
 
 ### Tile
 
 A game as it appears on the dashboard grid. Five designs: locked, unlocked, answered-correctly,
 answered-incorrectly, and **unknown** (submitted, but not judgeable until game end). A tile shows
 the game title and the points scored on it.
+
+A `trophy` tile has no submissions to read, so the **ledger** is what turns it green: awarded
+means correct. A team that was never handed it stays *unlocked* at zero — never *wrong*, since
+they were never asked a question they could get wrong.
 
 > A tile is a *view* of a game, never a separate entity.
 
@@ -145,7 +156,8 @@ the lights blink again means physically walking back to the code. That retry loo
 
 What a team did in a game: `body` (typed answer), `photo_path`, or both. `answer` games hold at
 most **one** row per team per game and upsert it; `tally` games insert a new row per POST; hunts
-have none. Enforced in the app, not the schema — the kind lives in content.
+and trophies have none, and a POST to their `/submit` is bounced rather than stored. Enforced in
+the app, not the schema — the kind lives in content.
 
 A submission carries a **verdict** (`pending` | `correct` | `incorrect`) and **never points**.
 A submission is *what the team did*; an award is *what it was worth*.
@@ -170,8 +182,14 @@ what keeps the URL unguessable: `/uploads/*` has no cookie gate.
 ### Award
 
 One row per point movement: `(team_id, game_id, kind, points, reason, source_id)`. `kind` is one
-of `answer`, `tally`, `hunt`, `hint`, `manual`; hint rows are **negative**. Score is a single
-`SUM(points)`; a tile's score is the same sum filtered by `game_id`.
+of `answer`, `tally`, `hunt`, `hint`, `manual`, `trophy`; hint rows are **negative**. Score is a
+single `SUM(points)`; a tile's score is the same sum filtered by `game_id`.
+
+`kind` is the only record of *why* points moved, which is why a trophy has its own rather than
+riding in as a `manual` award against a game. A trophy row carries **no `source_id`**, so its
+upsert key is `(team, game, 'trophy', 0)`: a team holds a given trophy exactly once, however many
+times the button is pressed. Freehand `manual` awards do the opposite — they stamp a timestamp
+into `source_id` so two consolation points are two rows.
 
 Unique on `(team, game, kind, source_id)`, so re-running scoring **upserts** rather than
 duplicates — which is what makes `/admin/rescore` safe. See
@@ -255,6 +273,10 @@ never silent free points.
 The gallery reads this mode and never hardcodes a game — so locking the roster requires no change
 to the admin surface.
 
+A **`trophy` has no judging mode at all**, and declaring one is a boot error: a mode is how
+*submissions* become points, and a trophy has none. Its admin page is the team list, not a
+gallery.
+
 ### Game end
 
 A real event: `game_ended_at` in the `settings` key/value table, stamped when the host presses
@@ -313,8 +335,9 @@ Admin, all behind one cookie gate ([ADR-0005](docs/adr/0005-admin-is-a-one-time-
 | --- | --- | --- |
 | GET | `/admin/key/:secret` | set the admin cookie, redirect to `/admin` |
 | GET | `/admin` | live board: teams, scores, hunt progress, unjudged count |
-| GET | `/admin/game/:gameId` | the gallery: every submission for one game, with the actions its judging mode calls for |
+| GET | `/admin/game/:gameId` | the gallery: every submission for one game, with the actions its judging mode calls for — or, for a `trophy`, the team list with one button each |
 | POST | `/admin/judge` | verdict + award on one submission; rejecting writes a zero rather than deleting, so re-judging upserts |
+| POST | `/admin/trophy` | hand a trophy over, or take it back (which writes a zero) |
 | POST | `/admin/award` | manual points to a team |
 | POST | `/admin/end` · `/admin/reopen` | the freeze, and its undo |
 | POST | `/admin/rescore` | re-run content scoring over existing player data |
