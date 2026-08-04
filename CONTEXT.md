@@ -212,3 +212,7 @@ Admin, all behind one cookie gate ([ADR-0005](docs/adr/0005-admin-is-a-one-time-
 
 Static: `/css/*`, `/js/*`, `/fonts/*`, `/img/*` from `public/`; `/uploads/*` from `$DATA_DIR`;
 `/kit` is the style kit.
+
+`GET /healthz` is the container health check and the pre-party liveness probe — JSON, no cookie
+required, `503` if the database is unreachable. It reports nothing about teams or scores, being
+the one route reachable by anyone ([#13](https://github.com/moeriki/tinker-lab/issues/13)).

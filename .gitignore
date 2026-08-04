@@ -2,4 +2,10 @@ node_modules/
 .DS_Store
 *.sqlite
 *.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
 data/
+backups/
+
+# Holds ADMIN_SECRET and the Home Assistant webhook id. .env.example is committed; this is not.
+.env

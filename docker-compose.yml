@@ -1,0 +1,34 @@
+# The unit MM actually operates. Built from this checkout -- there is no registry and no
+# published image, so a fix is `git pull && docker compose up -d --build`.
+
+services:
+  bday:
+    build: .
+    image: bday-games:local
+    container_name: bday
+    restart: unless-stopped
+
+    # Read from a .env file beside this one. Copy .env.example and fill it in.
+    env_file:
+      - .env
+
+    ports:
+      # Host port 3040 -> container. Bound to loopback because the reverse proxy terminating TLS
+      # for bday.moeriki.com is what should be reachable, not this. Drop the 127.0.0.1 prefix
+      # only if the proxy runs in a different network namespace and cannot reach loopback.
+      - '127.0.0.1:3040:3040'
+
+    volumes:
+      # THE DIRECTORY, never the .sqlite file. Bind-mounting the file alone breaks WAL, and it
+      # breaks silently. See docs/adr/0004-sqlite-via-node-sqlite.md.
+      - ./data:/data
+
+    # If Home Assistant runs under Docker on this host, adding the site to its network lets
+    # HA_WEBHOOK_URL use the service name (http://homeassistant:8123/...) instead of an IP.
+    # Uncomment both blocks if so.
+    #
+    # networks:
+    #   - homeassistant
+# networks:
+#   homeassistant:
+#     external: true

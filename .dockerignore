@@ -1,0 +1,24 @@
+# The database and uploads are a bind mount, never baked into the image.
+data/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+*.sqlite-journal
+
+node_modules/
+.git/
+.github/
+.claude/
+.DS_Store
+
+# Planning and research, not runtime. The image stays small and the source of truth stays GitHub.
+docs/
+MISSION.md
+CLAUDE.md
+MM-HANDOFF.md
+CONTEXT.md
+moeriki-birthday-invite.png
+
+.env
+.env.*
+!.env.example
