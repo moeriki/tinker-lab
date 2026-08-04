@@ -110,18 +110,23 @@
 
         <div class="stack">
           <div>
+            <!--@scorebar name="NAAMLOOS" score="0" open="2" total="10"-->
+            <p class="standing">Nothing on the board yet. That is a state, not a verdict.</p>
+          </div>
+
+          <div>
             <!--@scorebar name="BADGER" score="47" open="7" total="10"-->
-            <p class="standing standing--top">You are in the top 3 <span class="aside">(amazing)</span></p>
+            <p class="standing standing--top">Top three. Enjoy it — nobody else can see it.</p>
           </div>
 
           <div>
             <!--@scorebar name="OTTERSPOOR" score="22" open="4" total="10"-->
-            <p class="standing standing--mid">You have a chance for top 3 <span class="aside">(work harder)</span></p>
+            <p class="standing standing--mid">The top three is catchable from here. That is all we are prepared to say.</p>
           </div>
 
           <div>
-            <!--@scorebar name="NAAMLOOS" score="3" open="2" total="10"-->
-            <p class="standing standing--low">Your effort is appreciated <span class="aside">(it is not, but we are being polite)</span></p>
+            <!--@scorebar name="MOSSEL" score="3" open="2" total="10"-->
+            <p class="standing standing--low">Your effort is appreciated.</p>
           </div>
         </div>
 
@@ -129,9 +134,15 @@
           The bar itself comes from <code>scorebar()</code> in <code>src/render.js</code> — this is
           the real one, not a drawing of it. The whole thing is a link back to the board, and the
           open-count is what tells a team the starter tiles exist at all.
-          <strong>The three standing colours are the kit running ahead of the site:</strong>
-          <code>.standing--top/--mid/--low</code> are in <code>app.css</code> and no page emits one
-          yet, so those three lines are still written by hand here.
+        </p>
+        <p class="sect__note">
+          The four lines are the real band copy from <code>content/economy.js</code>, kept in step
+          by hand — the app emits a bare <code>.standing</code> with no modifier, so
+          <strong>the colours are still the kit running ahead of the site.</strong>
+          <code>fresh</code> deliberately has no colour of its own: a team on zero has not done
+          anything a colour could report, and the neutral line is the honest one. That leaves
+          <code>.standing--top/--mid/--low</code> for the three bands that are a judgement, which
+          is why four bands still want only three colours.
         </p>
       </section>
 
