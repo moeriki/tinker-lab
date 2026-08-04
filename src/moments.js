@@ -3,7 +3,8 @@
 //
 // Every state change on this site is a POST-and-redirect or a scan redirect, so the server has
 // exactly one channel to say what it just did: a query param on the destination. `?just=` is
-// that channel, and this module owns its vocabulary.
+// that channel, and this module owns its vocabulary -- along with `?hint=`, its one sibling,
+// for the reveal notice that has a price to announce rather than an animation to start.
 //
 // The page a team is already on is the stage. A moment is therefore always delivered to the page
 // that caused it -- never to the dashboard, which the team did not ask to see.
@@ -37,11 +38,45 @@ export function momentForSubmission({ photo, mode, verdict }) {
   return 'pending';
 }
 
-/** A game page, with the moment that just happened attached. `step` is 0 for non-hunts. */
-export function gamePath(gameId, { step = 0, moment = null } = {}) {
+// --- the hint notice ----------------------------------------------------------------------------
+//
+// Revealing a hint is a one-shot signal like a moment, but it is not one: nothing animates, and
+// what it has to say is a price rather than a verdict. So it rides its own param and `?just=`
+// keeps the closed vocabulary ADR-0009 gave it. Both are spent on arrival the same way.
+//
+// It is a **notification, never a confirmation**. By the time this param exists the reveal is
+// written, the negative award is in the ledger and the hint is on the page underneath the modal.
+// Nothing about the hint waits for a tap. See CONTEXT.md, "Hint reveal".
+
+/** The whole vocabulary. A value outside this set is ignored rather than trusted. */
+export const HINT_NOTICES = new Set([
+  'free', // the first reveal this team has ever made, and it cost nothing
+  'paid', // every reveal after it
+]);
+
+/** The hint notice this request is carrying, or null. */
+export function hintNoticeOf(url) {
+  const notice = url.searchParams.get('hint');
+  return HINT_NOTICES.has(notice) ? notice : null;
+}
+
+/**
+ * The notice a reveal earned, or `null` for one worth no announcement: a reveal that did not
+ * happen because the team has seen every hint, or a `hintCost` of zero, which makes hints free
+ * forever and leaves this modal with no price to name and no gift to make of it. The number
+ * itself is the economy ticket's to move; all this asks is whether there is one.
+ */
+export function hintNoticeFor(revealed, hintCost) {
+  if (!revealed || hintCost <= 0) return null;
+  return revealed.isFirstEver ? 'free' : 'paid';
+}
+
+/** A game page, with what just happened attached. `step` is 0 for non-hunts. */
+export function gamePath(gameId, { step = 0, moment = null, hint = null } = {}) {
   const params = new URLSearchParams();
   if (step) params.set('step', String(step));
   if (moment) params.set('just', moment);
+  if (hint) params.set('hint', hint);
 
   const query = params.toString();
   return `/g/${gameId}${query ? `?${query}` : ''}`;

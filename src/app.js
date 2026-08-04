@@ -49,6 +49,7 @@ import {
   gameIsOver,
   gameScore,
   hasDiscoveredHintCost,
+  hintCost,
   reopenGame,
   rescore,
   revealNextHint,
@@ -59,10 +60,12 @@ import {
   teamScore,
 } from './scoring.js';
 import { fireWebhook } from './webhooks.js';
-import { layout, notFound, stub } from './render.js';
+import { hintModal, layout, notFound, stub } from './render.js';
 import {
   gamePath,
   heroAnimation,
+  hintNoticeFor,
+  hintNoticeOf,
   momentForSubmission,
   momentOf,
   shotAnimation,
@@ -368,10 +371,17 @@ function showGame({ req, res, params, url }) {
   const moment = momentOf(url);
   const submitted = SUBMITTED[moment];
 
+  // A reveal that has already happened, announcing what it cost. Rendered only when there is a
+  // price to name -- every other visit to this page carries no modal at all.
+  const notice = hintNoticeOf(url);
+
   return html(
     res,
     layout({
       title: escape(game.title),
+      modal: notice
+        ? hintModal({ notice, cost: hintCost(), backHref: gamePath(game.id, { step }) })
+        : '',
       body: `
         <p class="banner"><strong>Composition not designed yet.</strong> Owned by: the per-game tickets.</p>
         ${problem ? `<p class="banner banner--bad">${escape(problem)}</p>` : ''}
@@ -552,10 +562,11 @@ async function revealHint({ req, res, params }) {
 
   const revealed = revealNextHint(team.id, game, step);
 
-  // `first=1` is what makes the client-side modal announce the price. It is a notification, not
-  // a confirmation: the first reveal per team is free, every one after costs.
-  const query = revealed?.isFirstEver ? '&first=1' : '';
-  return redirect(res, `/g/${game.id}?step=${step}${query}`);
+  // The reveal is done: the row is written, the ledger is charged, and the hint is on the page we
+  // are redirecting to. `?hint=` only decides which sentence the modal says on arrival -- free the
+  // first time this team ever asks, the price every time after. It is a notification, not a
+  // confirmation, so nothing above this line waits on it.
+  return redirect(res, gamePath(game.id, { step, hint: hintNoticeFor(revealed, hintCost()) }));
 }
 
 function showRules({ req, res }) {
@@ -571,7 +582,13 @@ function showRules({ req, res }) {
           <li>Have fun</li>
           <li>Be nice</li>
           <li>The bedroom is off limits</li>
-          ${team && hasDiscoveredHintCost(team.id) ? '<li>Hints cost you points. You knew that.</li>' : ''}
+          ${
+            // The hidden line, unlocked by the team's first reveal -- and where the hint modal's
+            // "What?" button lands, so it has to actually answer the question.
+            team && hasDiscoveredHintCost(team.id)
+              ? `<li>Hints cost you ${hintCost()} points. You knew that.</li>`
+              : ''
+          }
         </ul>
         <p><a href="/">close</a></p>
       `,

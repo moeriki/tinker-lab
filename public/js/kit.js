@@ -1,5 +1,16 @@
 // /kit page only. Lets the animations be replayed on demand — on a real page
-// they fire once on load and are never re-armed.
+// they fire once on load and are never re-armed. Same for the modal: a real page
+// arrives with it already open, so opening one is a thing only the kit needs.
+
+const modal = document.getElementById('hint-modal');
+
+if (modal) {
+  for (const button of document.querySelectorAll('[data-open-modal]')) {
+    button.addEventListener('click', () => {
+      modal.hidden = false;
+    });
+  }
+}
 
 const replay = (name) => {
   const klass = `anim-${name}`;

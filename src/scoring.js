@@ -118,6 +118,13 @@ export function revealNextHint(teamId, game, step = 0) {
 /** The rules page hides its "hints cost you N points" line until the team has revealed one. */
 export const hasDiscoveredHintCost = (teamId) => totalReveals(teamId) > 0;
 
+/**
+ * What a reveal costs, for the two surfaces that have to say it out loud. Read through here
+ * rather than importing `content/economy.js` again, so the number has exactly one owner and the
+ * economy ticket can move it in one place.
+ */
+export const hintCost = () => economy.hintCost;
+
 // --- submissions ---------------------------------------------------------------------------
 
 export const submissionsFor = (teamId, gameId) =>

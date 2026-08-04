@@ -171,6 +171,12 @@ The **first reveal per team, across all games, is free** — the modal announces
 gift rather than a fine. Every reveal after it costs. The rules page unlocks its hidden line
 ("hints cost you N points") once the team has any reveal at all.
 
+The modal is a **notification, not a confirmation**: the reveal is written, charged and rendered
+in the hint list before the modal exists, and nothing about it waits for a tap. It rides
+`?hint=free|paid` — the one sibling of `?just=`, spent on arrival the same way — and the server
+renders it *already open*, so a phone with JavaScript blocked still gets the announcement and
+still dismisses it, because both its buttons are ordinary links.
+
 ### Judging
 
 Four modes. Two are *derived* from the presence of a function; two are *declared* as
@@ -236,7 +242,7 @@ Team-facing:
 | POST | `/welcome` | create team + members, set cookie → `/questions` | PRG |
 | GET | `/questions` | the questionnaire | ✓ |
 | POST | `/questions` | save profile answers → pending destination or `/` | PRG |
-| GET | `/g/:gameId` | game page; `?step=n` for hunts, clamped to reached; `?just=` is the moment | ✓ |
+| GET | `/g/:gameId` | game page; `?step=n` for hunts, clamped to reached; `?just=` is the moment, `?hint=` the reveal notice | ✓ |
 | POST | `/g/:gameId/submit` | upsert (`answer`) / insert (`tally`); multipart for photos → back to `/g/:gameId` | PRG |
 | POST | `/g/:gameId/hint` | reveal next hint, write the negative award | PRG |
 | GET | `/rules` | rules; the hidden hint rule appears after the first reveal | ✓ |

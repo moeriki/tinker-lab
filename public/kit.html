@@ -264,7 +264,7 @@
       <!-- ============================== MODAL ============================== -->
       <section class="sect" id="modal">
         <h2 class="sect__h">10. Modal</h2>
-        <p class="sect__note">Fires exactly once per team, the first time anybody touches a hint.</p>
+        <p class="sect__note">Fires on every hint reveal, saying a different thing the first time a team ever asks (free, a gift) than every time after (the price, a fine). The real one is built by <code>hintModal()</code> in <code>src/render.js</code> and rendered <em>already open</em> by the server, because the hint has been revealed and charged by the time it appears — it announces, it never asks. This copy is a demo, and needs a button because the kit has no server.</p>
         <button class="btn btn--hint" type="button" data-open-modal>Open the hint modal</button>
       </section>
 
@@ -326,14 +326,16 @@
       <span class="mono">✦ BEST VIEWED AT 800×600 ✦</span>
     </div>
 
-    <!-- ===================== MODAL (hidden by default) ==================== -->
+    <!-- ============ MODAL — demo copy; src/render.js owns the real one ============ -->
+    <!-- On a game page the server renders this open, with no `hidden`, and both actions are
+         real links: "What?" to the rules, the other back to the same page without `?hint=`. -->
     <div class="modal" id="hint-modal" hidden>
-      <div class="modal__box">
-        <p class="modal__title">oh yeah.</p>
-        <p class="modal__body">a hint costs you <strong>3 points</strong>.</p>
+      <div class="modal__box" role="alertdialog" aria-labelledby="kit-modal-title">
+        <p class="modal__title" id="kit-modal-title">oh yeah.</p>
+        <p class="modal__body">that hint cost you <strong>3 points</strong>.</p>
         <div class="modal__actions">
           <button class="btn btn--what" type="button" data-close-modal>What?</button>
-          <button class="btn btn--primary" type="button" data-close-modal>fine, show me</button>
+          <button class="btn btn--primary" type="button" data-close-modal>fine</button>
         </div>
       </div>
     </div>
