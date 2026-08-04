@@ -23,13 +23,7 @@ needs none of this.
 
 ## Taking a worktree
 
-Use the `EnterWorktree` tool, named after the ticket you claimed:
-
-```
-EnterWorktree(name: "ticket-29-worktree-isolation")
-```
-
-That gives you:
+The layout is the same however you get it:
 
 | | |
 |---|---|
@@ -40,13 +34,67 @@ That gives you:
 Three things follow from that layout:
 
 - `.claude/` is gitignored globally, so worktrees never show up as untracked files.
-- The tool prepends `worktree-` to the branch name. You cannot turn that off — treat it as the
-  marker that says "an agent session owns this branch".
+- The branch name carries a `worktree-` prefix. Treat it as the marker that says "an agent session
+  owns this branch" — [Sweeping leftovers](#sweeping-leftovers) finds branches by that prefix and
+  nothing else, so a branch without it is invisible to cleanup.
 - Naming the worktree `ticket-<n>-<slug>` makes ownership mechanical: any `worktree-ticket-<n>-*`
   branch belongs to issue `<n>`, and whether it may still exist is a question with an answer.
 
 Branch from `origin/main`, so `git fetch origin` before you start. Other sessions land work while
 you're running.
+
+**How you take it depends on whether your working directory is pinned.** There are two ways, and
+picking the wrong one wastes a session discovering it.
+
+### If you are a top-level session: `EnterWorktree`
+
+A session the human is talking to directly owns its own working directory, so the tool can move it:
+
+```
+EnterWorktree(name: "ticket-29-worktree-isolation")
+```
+
+It creates the worktree, prepends `worktree-` to the branch name for you, and **switches your
+session into it** — after this call every relative path and every `git` command already runs in the
+worktree. This is the normal case; prefer it whenever it works.
+
+### If you are a subagent: by hand
+
+A subagent launched with a pinned working directory (`Agent` tool sessions, and anything given an
+explicit cwd) **cannot use `EnterWorktree` to create one.** It refuses, because creating one would
+mutate the parent session's process-wide working directory. `ExitWorktree` will not clean up after
+you either — it does not remove a worktree it did not create. This is a property of how you were
+launched, not a misconfiguration — do not retry it.
+
+Build the identical layout with plain git instead:
+
+```sh
+git -C /Users/moeriki/Projects/moeriki/bday-games worktree add \
+  -b worktree-ticket-29-worktree-isolation \
+  .claude/worktrees/ticket-29-worktree-isolation \
+  origin/main
+```
+
+Two things the tool would have done for you, which are now yours to get right:
+
+- **You must type the `worktree-` prefix yourself.** `git worktree add -b ticket-29-…` is accepted
+  happily and produces a branch that `git branch --list 'worktree-*'` never returns, so the sweep
+  will not find it and nobody will know it is there.
+- **Your working directory does not change.** You are still standing in the shared checkout, which
+  is exactly the tree you are supposed to be staying out of. Nothing warns you: an `Edit` on a
+  relative path, or a bare `git commit`, silently hits the shared checkout instead of your
+  worktree — which is the failure this whole document exists to prevent.
+
+So for the rest of the session, address the worktree explicitly and never rely on the ambient
+directory:
+
+- File writes: **absolute paths** under `.claude/worktrees/ticket-29-worktree-isolation/`.
+- Git: **`git -C <worktree-path>`** on every single call, including `status` and `commit`.
+
+Do not solve this with a `cd` at the top of a command. The shell's working directory is reset
+between tool calls, so `cd` holds for that one call and quietly stops applying to the next.
+
+### Either way
 
 Inside your worktree, ordinary git is safe again: commit, rebase, switch branches, run tests that
 rewrite `content/`. Nobody else is standing in it.
@@ -62,6 +110,9 @@ git rebase origin/main       # your branch, your worktree — a normal rebase is
 <run the checks>
 git push origin HEAD:main    # atomic; rejected if someone landed while you worked
 ```
+
+If you took your worktree by hand, "inside your worktree" means `git -C <worktree-path>` on each of
+those lines. Running them from the shared checkout would rebase and push `main` itself.
 
 If the push is rejected, someone else got there first. Rebase again and re-run the checks — the
 rejection is the mechanism working, not a problem to force past.
@@ -82,15 +133,32 @@ yours to reset.
 
 ## Teardown
 
-**Cleanup is tied to the merge, not to the end of your session.** Once your work is on `main`:
+**Cleanup is tied to the merge, not to the end of your session.** Once your work is on `main`, tear
+down the way you built up.
+
+If you used `EnterWorktree`:
 
 ```
 ExitWorktree(action: "remove")
 git branch -d worktree-ticket-29-worktree-isolation
 ```
 
+If you took it by hand, `ExitWorktree` is not available to you — remove it with git, from the
+shared checkout, since you never left it:
+
+```sh
+git -C /Users/moeriki/Projects/moeriki/bday-games \
+  worktree remove .claude/worktrees/ticket-29-worktree-isolation
+git -C /Users/moeriki/Projects/moeriki/bday-games \
+  branch -d worktree-ticket-29-worktree-isolation
+```
+
 `git branch -d` (not `-D`) is the safety check: it refuses if the commits aren't reachable from
 `main`, which means the landing didn't actually work.
+
+`git worktree remove` also does its own bookkeeping, so **a teardown that used it needs no
+`git worktree prune`**. Prune is only for directories that were deleted some other way — see
+[Sweeping leftovers](#sweeping-leftovers).
 
 ### If the work isn't finished
 
@@ -136,7 +204,34 @@ branch, `git rev-list --count main..<branch>` — a `0` means it never carried a
 with `git branch -D` without losing anything. Anything with commits on it needs a ticket or a
 merge, not a delete.
 
-Prune the worktree bookkeeping after removing directories by hand:
+### Locked worktrees
+
+`EnterWorktree` **locks** the worktrees it creates; hand-made ones are unlocked. `git worktree list`
+prints `locked` in the trailing column, and sweeping a locked one refuses:
+
+```
+fatal: cannot remove a locked working tree;
+use 'remove -f -f' to override or unlock first
+```
+
+That is not a stuck worktree, just one whose owner would normally have used
+`ExitWorktree(action: "remove")`. Unlock it and remove it as usual:
+
+```sh
+git worktree unlock .claude/worktrees/<name>
+git worktree remove .claude/worktrees/<name>
+```
+
+Prefer that over `remove -f -f`, which also discards uncommitted work in the tree — and a leftover
+you are sweeping is exactly where uncommitted work would be hiding.
+
+A `locked` marker is also the clearest signal that a session may still be **standing in it right
+now**, so check the ticket before you unlock anything.
+
+### Pruning
+
+`git worktree remove` cleans up after itself. `git worktree prune` is only needed when a directory
+went away some other way — deleted by hand, or lost with its parent:
 
 ```sh
 git worktree prune
