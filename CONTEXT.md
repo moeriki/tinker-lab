@@ -54,6 +54,20 @@ b4xk7m: { page: 'rickroll' },
 
 Slugs are opaque but **not secret** — teams shouting hiding places at each other is the goal.
 
+The roster fixes **19 codes**. Each entry also carries three fields for humans: a `label` (host
+key only — never printed on the card, or a gag announces itself), a `where` (its hiding place, or
+`null` while the hiding plan is open), and `pending: true` while the content it points at has not
+been authored. A pending code **warns at boot** and shows a placeholder when scanned; an
+*unflagged* dangling target is still a boot error. Printing is gated on the flag being gone.
+
+`node scripts/qr-sheet.js` reads this file and emits one self-contained A4 sheet — six cards per
+page at error-correction level H, plus a host key sheet that is not for cutting. Slugs are minted
+once and frozen, so `--only=<slug>` reprints a single lost card. See
+[ADR-0010](docs/adr/0010-codes-are-printed-from-the-inventory.md).
+
+A slug the inventory does not contain is a dead end: `/q/<unknown>` renders the `no-such-code`
+page with a 404 and offers no near-miss guess.
+
 > Not "QR", not "tag". The physical thing is a **code**; its identifier is a **slug**.
 
 ### Scan
@@ -261,7 +275,7 @@ Admin, all behind one cookie gate ([ADR-0005](docs/adr/0005-admin-is-a-one-time-
 | POST | `/admin/end` · `/admin/reopen` | the freeze, and its undo |
 | POST | `/admin/rescore` | re-run content scoring over existing player data |
 | GET | `/admin/adopt/:token` | cookie recovery on a new phone |
-| GET | `/admin/codes` | slug → target inventory, for printing and debugging |
+| GET | `/admin/codes` | slug → target inventory with scan counts, for debugging a code someone says is broken |
 
 Static: `/css/*`, `/js/*`, `/fonts/*`, `/img/*` from `public/`; `/uploads/*` from `$DATA_DIR`;
 `/kit` is the style kit.

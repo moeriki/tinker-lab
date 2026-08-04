@@ -16,6 +16,7 @@ import {
   getGame,
   getPage,
   getCode,
+  isPending,
   judgingMode,
   listCodes,
   listGames,
@@ -104,9 +105,34 @@ const blockedByGameEnd = (res) => {
 
 // --- the front door ---------------------------------------------------------------------------
 
+/**
+ * A slug the inventory does not know. Rendered here rather than redirected to `/p/no-such-code`,
+ * because the most likely person holding an unknown code is someone who has not onboarded yet,
+ * and bouncing them through /welcome for a code that buys nothing is a worse first minute than
+ * a dead end that says so. Status is a real 404: the code really does not exist.
+ */
+const noSuchCode = (res) => {
+  const page = getPage('no-such-code');
+  return html(res, layout({ title: page.title, body: page.body, showClose: page.showClose }), 404);
+};
+
 async function handleScan({ req, res, params }) {
   const target = getCode(params.slug);
-  if (!target) return html(res, notFound(), 404);
+  if (!target) return noSuchCode(res);
+
+  // A real code whose content is not written yet. Impossible on the night -- the sheet generator
+  // refuses to print while any code is pending -- but entirely normal during the week before,
+  // when a test print exists and the game behind it does not. ADR-0010.
+  if (isPending(params.slug)) {
+    return html(
+      res,
+      stub({
+        title: 'Nothing here yet',
+        owner: `the content ticket for "${target.game ?? target.page}"`,
+        does: 'This code is real, printed and hidden. What it opens has not been written yet.',
+      }),
+    );
+  }
 
   const team = currentTeam(req);
   if (!team) {
@@ -815,17 +841,60 @@ function adminAdopt({ req, res, params }) {
   return redirect(res, '/');
 }
 
+/**
+ * The inventory, on screen. It exists for one question asked at 22:40 with a drink in hand:
+ * "code seven is broken." The slug is printed on every card, so the host reads it off the paper
+ * and finds the row -- which says what it should have done, whether its content exists, and how
+ * many teams have already scanned it. A code nobody has ever scanned is lost or badly hidden; a
+ * code with scans is fine and the complaint is about something else.
+ */
 function adminCodes({ req, res }) {
   if (!requireAdmin(req, res)) return undefined;
 
+  const scans = new Map(
+    all(`select slug, count(*) as total, sum(accepted) as accepted from scans group by slug`).map(
+      (row) => [row.slug, row],
+    ),
+  );
+
+  const rows = listCodes()
+    .map(([slug, target], index) => {
+      const seen = scans.get(slug);
+      const pending = isPending(slug);
+      return `
+        <tr>
+          <td class="mono">#${String(index + 1).padStart(2, '0')}</td>
+          <td class="mono"><a href="/q/${escape(slug)}">${escape(slug)}</a></td>
+          <td>${escape(target.label ?? '')}</td>
+          <td class="mono">${escape(
+            target.game ? `${target.game}${target.step ? ` step ${target.step}` : ''}` : target.page,
+          )}</td>
+          <td>${pending ? '<strong>PENDING</strong>' : 'ready'}</td>
+          <td class="mono">${seen ? `${seen.accepted}/${seen.total}` : '&mdash;'}</td>
+          <td>${escape(target.where ?? '')}</td>
+        </tr>`;
+    })
+    .join('');
+
   return html(
     res,
-    stub({
+    layout({
       title: 'Codes',
-      owner: 'QR inventory and generator script',
-      does: 'Slug → target inventory, for printing and for debugging a code someone says is broken.',
-      data: listCodes().map(([slug, target]) => ({ slug, ...target })),
       still: true, // admin surface
+      body: `
+        <p>${listCodes().length} codes. Scans are shown as <em>accepted / total</em>; a code with
+          no scans at all is the one that fell behind the radiator.</p>
+        <table class="board">
+          <thead>
+            <tr><th>#</th><th>slug</th><th>label</th><th>target</th><th>content</th>
+              <th>scans</th><th>where</th></tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+        <p class="mono">Print: <code>node scripts/qr-sheet.js</code> &middot;
+          reprint one: <code>node scripts/qr-sheet.js --only=&lt;slug&gt;</code></p>
+        <a class="btn btn--close" href="/admin">back to the board</a>
+      `,
     }),
   );
 }

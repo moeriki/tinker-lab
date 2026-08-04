@@ -566,6 +566,7 @@ docker compose start bday
 | Take a snapshot | `docker compose exec bday node scripts/backup.js` |
 | Lights aren't firing | Run the `GET` → 405 probe. If it returns 200, the automation isn't registered |
 | Host lost the admin page | They visit `/admin/key/<ADMIN_SECRET>` again on any phone |
+| "This QR code is broken" | Read the slug printed under the code, look it up at `/admin/codes` — it shows what the code should do and how many teams have scanned it |
 
 A restart is cheap and safe. Teams keep their cookies, and the database is untouched.
 

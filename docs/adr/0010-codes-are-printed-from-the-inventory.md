@@ -1,0 +1,91 @@
+# ADR-0010: Codes are printed from the inventory, by a script with no dependencies
+
+**Status:** accepted · **Date:** 2026-08-04 · **Ticket:** [QR inventory and generator script](https://github.com/moeriki/tinker-lab/issues/12)
+
+## Context
+
+Nineteen codes get printed **on the day of the party** and taped around a house. By then the
+script has to be boring: no install, no network, no surprises, and a rerun that costs nothing.
+
+Two facts pull against each other. The **inventory is settleable now** — the roster (#7) fixed
+which codes exist and what each points at. The **content behind six of them is not** — the lights
+hunt, the riddle hunt, the Triangle Test and the gag pages are open tickets. A slug must be
+printable before the game behind it is written, or the printing waits on the slowest game.
+
+## Decision
+
+**`content/codes.js` is the only source of truth for which codes exist**, and
+`scripts/qr-sheet.js` reads exactly that file to emit one self-contained A4 HTML sheet.
+
+Four things follow.
+
+**The QR encoder is written in this repo** (`scripts/qr-encode.js`, byte mode, versions 1–10, all
+four correction levels). Not a runtime dependency — the Dockerfile's build guard forbids those —
+but not a devDependency either. `pnpm install` on the morning of the party means a lockfile, a
+registry, a network and a package manager all working on the one day they must not be a question.
+`node scripts/qr-sheet.js` runs from a bare checkout, offline.
+
+**The encoder is trusted because it is decoded, not because it is short.** `--selftest` encodes
+and decodes 95 symbols — every payload in the inventory, plus a full sweep of every version and
+level — back through the spec: format bits, mask, zigzag, de-interleave, Reed-Solomon syndromes,
+payload. It corrects nothing, so a single wrong module fails it.
+
+**A code may point at content that does not exist yet, if it says so.** `pending: true` in the
+inventory turns a dangling target from a boot error into a loud boot warning; scanning one shows
+a placeholder naming the ticket that owes the content. **Without the flag it is still fatal**, so
+a typo in a game id has not become survivable. The flag is a promise with a deadline attached:
+`node scripts/qr-sheet.js --check` **exits non-zero while any pending flag survives**, so the
+tolerance can never reach paper.
+
+**Slugs are minted once and frozen.** Nothing in the generator is random or timestamped, so the
+same inventory produces the same sheet forever, and `--only=<slug>` reprints a single lost card
+without touching the other eighteen.
+
+### The numbers
+
+**Level H (30%)**, symbol **49.9mm**, module **1.51mm**, quiet zone 4 modules, six cards to an A4
+sheet. A 33-byte URL at level H is a version-4 symbol, 33×33 modules; with the quiet zone that is
+41 spans across a 62mm box.
+
+H over M costs one version step — 2mm of module size on the same card — and buys damage tolerance
+on paper that gets folded, taped and handled by twenty-five people holding drinks. Measured with
+an independent decoder (Apple's `CIDetector`), a version-4 H symbol still reads with a contiguous
+blot covering **20% of its area**. Rendered to PDF and rasterised, all nineteen decode down to
+**~4 pixels per module**; a 12MP phone at arm's length gives roughly nine.
+
+### What is on the card
+
+Every card front is **identical apart from the number, the slug and a stripe colour**. It carries
+the site name, `#07`, the slug in small type, and "point your camera". It does **not** say what
+the code opens.
+
+That is the gag decision, and it is uniform on purpose: a rickroll that announces itself isn't a
+rickroll, and if only the gags were unlabelled then *unlabelled* would be the label. The mapping
+lives on a **host key sheet** printed last and never cut.
+
+## Consequences
+
+- The print pipeline is one command, offline, on any Node 22+: `node scripts/qr-sheet.js`.
+- Every game ticket that lands must **delete its `pending: true`** in the same commit. Boot warns
+  when the flag is stale, and the printer keeps refusing until it goes.
+- Renumbering: the card number is the position in `content/codes.js`. New codes go at the **end**.
+- Scanning an unknown slug is a dead end with a 404 and a page that says so, not a search.
+- The sheet is HTML printed by a browser, so page geometry depends on printing at **100% scale**.
+  The key sheet says so.
+
+## Alternatives considered
+
+**A devDependency (`qrcode`, `qrcode-generator`).** Slips past the build guard legitimately, and
+still fails the actual requirement: trustworthy on the day, from a bare checkout, with no network.
+
+**Emitting a PDF.** A PDF writer is either a dependency or a hand-rolled font embedder, and the
+browser we would open the PDF in to check it is the same browser that prints the HTML.
+
+**Labelling every card with its game, and leaving the gags blank.** Rejected: the blank ones
+become the interesting ones, which is worse than labelling everything.
+
+**Holding the inventory back until every game exists.** Rejected: it makes the slowest game
+ticket block the print, and the slugs were never the uncertain part.
+
+**Keeping a separate print-time inventory so `content/codes.js` could stay strict.** Rejected —
+two files listing slugs is exactly how a printed card ends up pointing nowhere.

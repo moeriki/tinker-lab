@@ -955,6 +955,41 @@ code {
   font-size: 0.7rem;
 }
 
+/* --------------------------------- board ----------------------------------- */
+/* A dense table, for admin surfaces only. Teams never see one -- the tile grid is the team's
+   view of everything. It scrolls sideways inside its own box rather than widening the page,
+   because the host is on a phone too. */
+
+.board {
+  display: block;
+  overflow-x: auto;
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  white-space: nowrap;
+  border: var(--edge-2) solid var(--c-ink);
+  box-shadow: var(--shadow-1);
+  background: var(--c-paper);
+}
+
+.board th,
+.board td {
+  border: 1px solid var(--c-ink);
+  padding: 0.3rem 0.45rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.board th {
+  font-family: var(--font-shout);
+  text-transform: uppercase;
+  font-size: 0.62rem;
+  background: var(--c-yellow);
+}
+
+.board tbody tr:nth-child(even) { background: #f2f2f2; }
+
 /* ------------------------------- motion guard ------------------------------- */
 
 @media (prefers-reduced-motion: reduce) {

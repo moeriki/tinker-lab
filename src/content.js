@@ -70,6 +70,21 @@ export const getGame = (id) => games.get(id) ?? null;
 export const getPage = (id) => pages.get(id) ?? null;
 export const getCode = (slug) => codes[slug] ?? null;
 export const listCodes = () => Object.entries(codes);
+
+/**
+ * A slug whose target content is not authored yet. The inventory of nineteen codes is settled and
+ * printed from `content/codes.js`, but the games behind six of them are still being written -- so
+ * a code is allowed to point at nothing, PROVIDED it says `pending: true` out loud. An unflagged
+ * dangling target is still a boot error, because that one is a typo. See ADR-0010.
+ */
+export const isPending = (slug) => {
+  const target = codes[slug];
+  if (!target) return false;
+  return target.game ? !games.has(target.game) : !pages.has(target.page);
+};
+
+/** Every code whose content is still missing, for the boot warning and for /admin/codes. */
+export const listPendingCodes = () => listCodes().filter(([slug]) => isPending(slug));
 export const listQuestions = () => questions;
 
 /** Hunt steps are 1-based in content and in the database. */
@@ -120,13 +135,20 @@ function validate() {
     }
   }
 
+  // A code may point at content that does not exist YET, but only where the inventory admits it
+  // with `pending: true`. Without the flag the same situation is a typo in a game id, and stays
+  // fatal. `scripts/qr-sheet.js` refuses to print while any flag survives, so the tolerance can
+  // never reach paper. See docs/adr/0010-codes-are-printed-from-the-inventory.md.
+  const stale = [];
+
   for (const [slug, target] of Object.entries(codes)) {
     if (target.game) {
       const game = games.get(target.game);
       if (!game) {
-        problems.push(`code "${slug}" points at unknown game "${target.game}"`);
+        if (!target.pending) problems.push(`code "${slug}" points at unknown game "${target.game}"`);
         continue;
       }
+      if (target.pending) stale.push(`${slug} (game "${target.game}" exists now)`);
       if (game.kind === 'hunt') {
         const step = target.step;
         if (!step || step < 1 || step > game.steps.length) {
@@ -135,11 +157,29 @@ function validate() {
       }
     } else if (target.page) {
       if (!pages.has(target.page)) {
-        problems.push(`code "${slug}" points at unknown page "${target.page}"`);
+        if (!target.pending) problems.push(`code "${slug}" points at unknown page "${target.page}"`);
+        continue;
       }
+      if (target.pending) stale.push(`${slug} (page "${target.page}" exists now)`);
     } else {
       problems.push(`code "${slug}" names neither a game nor a page`);
     }
+  }
+
+  const pending = listPendingCodes();
+  if (pending.length) {
+    console.warn(
+      `\n!! ${pending.length} QR CODE(S) POINT AT CONTENT THAT DOES NOT EXIST YET:` +
+        `\n!!   ${pending.map(([slug, target]) => `${slug} -> ${target.game ?? target.page}`).join(', ')}` +
+        `\n!! Scanning one shows a placeholder. \`node scripts/qr-sheet.js --check\` gates printing.\n`,
+    );
+  }
+  if (stale.length) {
+    console.warn(
+      `\n!! STALE \`pending: true\` in content/codes.js -- the content landed, the flag did not:` +
+        `\n!!   ${stale.join(', ')}` +
+        `\n!! Delete the flag, or the sheet generator will keep refusing to print.\n`,
+    );
   }
 
   // Every hunt step needs exactly one slug, or a team can never reach the end.

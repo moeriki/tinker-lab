@@ -7,7 +7,8 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
-    "backup": "node scripts/backup.js"
+    "backup": "node scripts/backup.js",
+    "qr": "node scripts/qr-sheet.js"
   },
   "engines": {
     "node": ">=22"
