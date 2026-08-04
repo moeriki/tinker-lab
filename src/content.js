@@ -58,6 +58,37 @@ export const takesPhoto = (game) => Boolean(game.photo);
 const missingAssets = new Set();
 export const assetIsPresent = (asset) => Boolean(asset) && !missingAssets.has(asset);
 
+/**
+ * Whether a photo alone is not enough. Portrait of a stranger is the only game that asks for
+ * both -- its quote is the mechanic, not a caption -- so a photo-only submission there has to
+ * bounce rather than bank a point for a picture with nothing said in it.
+ */
+export const requiresBody = (game) => Boolean(game.requiresBody);
+
+/**
+ * A tally game's **units**: the countable things it pays for, declared in content as either
+ *
+ *   units: 10                  ten anonymous slots      (Portrait of a stranger)
+ *   units: ['a thing', ...]    labelled prompts         (the photo scavenger)
+ *
+ * The point of the concept is that the unit -- not the submission -- is what the ledger keys on.
+ * `awards` is unique on (team, game, kind, source_id), so writing the unit index into
+ * `source_id` makes a retake upsert the row it already wrote and pay nothing, with no cap check
+ * and no delete anywhere. Every photo is still stored; only the second point is refused.
+ *
+ * Returns 0 for a game that declares none, which is every other kind on the roster.
+ */
+export function unitCount(game) {
+  if (typeof game.units === 'number') return game.units;
+  return Array.isArray(game.units) ? game.units.length : 0;
+}
+
+/** The prompts, where the units are labelled. Anonymous units have none, and that is not a lack. */
+export const unitLabels = (game) => (Array.isArray(game.units) ? game.units : []);
+
+/** The label for one unit, or null where the units are anonymous or the index is out of range. */
+export const unitLabel = (game, unit) => unitLabels(game)[unit] ?? null;
+
 async function loadDirectory(name) {
   const dir = join(CONTENT_DIR, name);
   const entries = readdirSync(dir).filter((file) => file.endsWith('.js'));
@@ -305,6 +336,39 @@ function validate() {
     }
     if (game.photo && !takesForm(game)) {
       problems.push(`${game.kind} "${game.id}" takes a photo, but has no form to take it with`);
+    }
+    if (game.requiresBody && !takesForm(game)) {
+      problems.push(`${game.kind} "${game.id}" requires a body, but has no form to type one into`);
+    }
+
+    // Units. A tally game spends its ten points across countable things, and the arithmetic is
+    // knowable at boot for exactly the reason a hunt's is -- the number is declared rather than
+    // computed inside check() or resolve(), so nothing has to run for it to be wrong.
+    if (game.units !== undefined) {
+      if (!takesForm(game)) {
+        problems.push(`${game.kind} "${game.id}" declares units, but has no form to submit one`);
+      }
+      if (typeof game.units === 'number') {
+        if (!Number.isInteger(game.units) || game.units < 1) {
+          problems.push(`game "${game.id}" declares ${game.units} units; expected a positive whole number`);
+        }
+      } else if (Array.isArray(game.units)) {
+        if (!game.units.length) problems.push(`game "${game.id}" declares an empty units list`);
+        game.units.forEach((label, index) => {
+          if (typeof label !== 'string' || !label.trim()) {
+            problems.push(`game "${game.id}" unit ${index + 1} has no label`);
+          }
+        });
+      } else {
+        problems.push(`game "${game.id}" declares units that are neither a count nor a list of labels`);
+      }
+
+      const budget = unitCount(game) * (game.points ?? 0);
+      if (budget > economy.tilePoints) {
+        problems.push(
+          `game "${game.id}" pays ${budget} across its units, over the ${economy.tilePoints}-point tile budget`,
+        );
+      }
     }
     // A trust game pays on submit, so it needs to know what a submission is worth.
     if (judgingMode(game) === 'trust' && typeof game.points !== 'number') {

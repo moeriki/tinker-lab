@@ -17,7 +17,8 @@ export const MOMENTS = new Set([
   'incorrect', // an answer was judged wrong, on submit
   'banked', // a trust game took the submission and paid for it, unjudged
   'pending', // submitted, and unscoreable until game end
-  'shot', // a photo just landed
+  'shot', // a photo just landed, and it paid
+  'spare', // a photo just landed and paid nothing: a retake, or past the last unit
   'rescan', // unlocked by a scan whose physical effect was deferred; go and scan it again
 ]);
 
@@ -48,8 +49,8 @@ export function momentOf(url) {
  * at submit time, which is why `correct` is the rarest moment on the site and cannot be the only
  * feedback a team ever gets.
  */
-export function momentForSubmission({ photo, mode, verdict }) {
-  if (photo) return 'shot';
+export function momentForSubmission({ photo, mode, verdict, paid = true }) {
+  if (photo) return paid ? 'shot' : 'spare';
   if (mode === 'check') return verdict === 'correct' ? 'correct' : 'incorrect';
   if (mode === 'trust') return 'banked';
   return 'pending';
@@ -114,8 +115,13 @@ export function heroAnimation(moment) {
 /** Only a genuinely correct answer is celebrated. Everything else gets an honest line instead. */
 export const verdictAnimation = (moment) => (moment === 'correct' ? ' anim-correct' : '');
 
-/** The photo that just landed, and only that one. */
-export const shotAnimation = (moment) => (moment === 'shot' ? ' anim-correct' : '');
+/**
+ * The photo that just landed, and only that one. A `spare` animates too: it is every bit as much
+ * a photograph as one that paid, and the party wanted it. The banner is where the difference in
+ * worth gets said, not the animation.
+ */
+export const shotAnimation = (moment) =>
+  moment === 'shot' || moment === 'spare' ? ' anim-correct' : '';
 
 /**
  * What the team is told after submitting. Deliberately honest for the three non-`check` modes:
@@ -127,4 +133,9 @@ export const SUBMITTED = {
   incorrect: 'Not that one. You can change your answer right up to the end.',
   banked: 'Got it, and counted. Nobody is judging this one.',
   pending: 'Sent. This one cannot be scored until the end of the night.',
+  // A paid photo says nothing: the thumbnail flying into the strip has already said it, and a
+  // banner on every single shot would be noise on the two tiles you use most. Only the unpaid
+  // one has news, and it must never read as "stop" -- the photographs are what the pair is for.
+  spare:
+    "Kept. It doesn't add a point — you've had that one already. Take more anyway: we want the photographs more than the arithmetic.",
 };

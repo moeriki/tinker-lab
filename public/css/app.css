@@ -954,6 +954,54 @@ code {
   background: var(--c-yellow);
 }
 
+/* The photo pair's units: the scavenger's prompt checklist, and the portraits with what was
+   said under each. A done row is a thumbnail beside its text; an open one is a camera button
+   wearing the prompt as its face, so the thing you have to photograph is the thing you tap. */
+.prompts {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  list-style: none;
+  padding: 0;
+}
+
+.prompt--done {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  border: var(--edge-1) solid var(--c-ink);
+  box-shadow: var(--shadow-1);
+  background: var(--c-paper);
+  padding: 0.4rem;
+}
+
+/* Keeps a long prompt or a long quote from shoving the thumbnail out of the row. */
+.prompt__said {
+  flex: 1;
+  min-width: 0;
+}
+
+.prompt__label {
+  font-family: var(--font-aside);
+  font-size: 0.85rem;
+  overflow-wrap: anywhere;
+}
+
+/* The retake, which is deliberately quiet: allowed and free, but never the thing being asked
+   for. It sits under a prompt already closed and must not compete with the open ones. */
+.prompt--done .shoot__face {
+  min-height: var(--tap);
+  border-width: var(--edge-1);
+  box-shadow: none;
+  background: none;
+  font-size: 0.7rem;
+}
+
+.prompt--done .btn {
+  padding: 0.2rem 0.6rem;
+  font-size: 0.7rem;
+}
+
 /* -------------------------------- gallery ---------------------------------- */
 
 .gallery {

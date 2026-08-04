@@ -43,10 +43,10 @@ export default {
   awyuv2: { game: 'guess-who', label: 'Guess Who (b)', where: null, pending: true },
   bgue88: { game: 'herd', label: 'Herd Mentality (a)', where: null, pending: true },
   '46ezp7': { game: 'herd', label: 'Herd Mentality (b)', where: null, pending: true },
-  '38bpnu': { game: 'scavenger', label: 'Photo scavenger (a)', where: null, pending: true },
-  pydzrd: { game: 'scavenger', label: 'Photo scavenger (b)', where: null, pending: true },
-  zfu45r: { game: 'portrait', label: 'Portrait of a stranger (a)', where: null, pending: true },
-  '2mu2xg': { game: 'portrait', label: 'Portrait of a stranger (b)', where: null, pending: true },
+  '38bpnu': { game: 'scavenger', label: 'Photo scavenger (a)', where: null },
+  pydzrd: { game: 'scavenger', label: 'Photo scavenger (b)', where: null },
+  zfu45r: { game: 'portrait', label: 'Portrait of a stranger (a)', where: null },
+  '2mu2xg': { game: 'portrait', label: 'Portrait of a stranger (b)', where: null },
 
   // --- Fixed-location tiles -- #15..#16 ---------------------------------------------------------
   // These two placements are settled by the roster (#7) rather than by the hiding plan.

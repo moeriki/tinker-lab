@@ -29,6 +29,10 @@ import {
   getStep,
   takesForm,
   takesPhoto,
+  requiresBody,
+  unitCount,
+  unitLabel,
+  unitLabels,
 } from './content.js';
 import {
   escape,
@@ -493,6 +497,19 @@ function showDashboard({ req, res }) {
       else state = verdicts.has('correct') ? 'correct' : 'wrong';
     }
     if (game.kind === 'hunt' && huntIsComplete(team.id, game)) state = 'correct';
+
+    // A `trust` game banks on submit and is never judged, so its submissions sit at `pending`
+    // for the whole night -- which the block above would paint `unknown`, the design that means
+    // "submitted, and unscoreable until game end". For these two tiles that is precisely
+    // backwards: they hold the only points on the board that are already certain.
+    //
+    // So the LEDGER decides, the way it does for a trophy, and green means the same thing here
+    // as it does on a hunt: finished. A half-filled tile stays `unlocked` and lets its points
+    // speak, rather than going green for one photograph out of ten.
+    if (judgingMode(game) === 'trust') {
+      const budget = unitCount(game) * (game.points ?? 0);
+      state = budget && points >= budget ? 'correct' : 'unlocked';
+    }
     // A trophy never holds a submission, so the ledger is the only thing that knows. A team that
     // was not handed it sits at unlocked and zero -- never `wrong`, since they were never asked a
     // question they could get wrong.
@@ -536,6 +553,11 @@ const SUBMIT_PROBLEMS = {
   toobig: 'That photo was too big to send. Take a new one and try again.',
   notaphoto: "That file wasn't a photo — at least, not one we know how to read.",
   empty: 'Nothing arrived. Pick a photo first.',
+  noquote: 'Almost — this one needs a sentence they actually said. Type it and send again.',
+  nophoto: 'A quote on its own is only half a portrait. Take the photo too.',
+  // A stale tab, or a prompt list that changed under someone mid-photo. Never a thing a guest
+  // can do wrong by tapping, so it explains itself and points at the only fix.
+  nounit: "That prompt isn't on the list any more. Reopen the tile and pick one from it.",
 };
 
 /**
@@ -561,6 +583,112 @@ function photoStrip(submissions, newestAnim = '') {
 
   return `<p class="statusline">you've sent ${withPhotos.length}</p>
           <div class="shots">${cells}</div>`;
+}
+
+/** The one thumbnail-or-fallback cell, shared by the strip and the prompt checklist. */
+function shotCell(submission, extraClass = '') {
+  const display = displayFor(submission);
+  const inside = display.src
+    ? `<img class="shot__img" src="${escape(display.src)}" alt="" loading="lazy">`
+    : '<span class="shot__none">sent ✓</span>';
+  return `<a class="shot${extraClass}" href="/uploads/${escape(submission.photo_path)}">${inside}</a>`;
+}
+
+/** The camera control, posting one unit of one game. `unit` is null where the units are anonymous. */
+function shootForm(game, { unit = null, face, primary = true, body = null }) {
+  return `<form class="stack stack--tight" method="post" action="/g/${escape(game.id)}/submit"
+                enctype="multipart/form-data">
+            ${unit === null ? '' : `<input type="hidden" name="unit" value="${Number(unit)}">`}
+            <label class="shoot">
+              <input class="shoot__input" type="file" name="photo" accept="image/*" capture="environment">
+              <span class="shoot__face">${escape(face)}</span>
+            </label>
+            ${body ?? ''}
+            <button class="btn ${primary ? 'btn--primary' : ''}" ${gameIsOver() ? 'disabled' : ''}>send</button>
+          </form>`;
+}
+
+/**
+ * The photo scavenger's page: the prompt list IS the page. A done prompt shows the photograph
+ * that closed it; an open one is a camera button wearing the prompt as its face, so tapping the
+ * thing you have to photograph is what opens the camera.
+ *
+ * Showing what is left rather than only what has been sent is the whole reason this shape was
+ * chosen over a dropdown: it makes the dedup rule VISIBLE. A team can see that the seventh photo
+ * of "someone eating" buys nothing, instead of discovering it by not scoring.
+ *
+ * A closed prompt keeps its camera anyway -- retaking is allowed and free, it just never pays
+ * twice. Nothing on this page ever tells anyone to stop taking photographs.
+ */
+function promptChecklist(game, mine, newestAnim) {
+  const labels = unitLabels(game);
+
+  // The latest photo per prompt. Retakes insert new rows rather than overwriting, so the last
+  // one wins on screen while the ledger keeps paying for the first.
+  const shots = new Map();
+  for (const submission of mine) {
+    if (submission.unit !== null && submission.photo_path) shots.set(submission.unit, submission);
+  }
+
+  const newest = mine.filter((submission) => submission.photo_path).at(-1);
+
+  const rows = labels
+    .map((label, unit) => {
+      const done = shots.get(unit);
+      if (!done) {
+        return `<li class="prompt">
+                  ${shootForm(game, { unit, face: label })}
+                </li>`;
+      }
+      const moving = done.id === newest?.id ? newestAnim : '';
+      return `<li class="prompt prompt--done">
+                ${shotCell(done, moving)}
+                <div class="prompt__said">
+                  <p class="prompt__label">✓ ${escape(label)}</p>
+                  ${shootForm(game, { unit, face: 'retake', primary: false })}
+                </div>
+              </li>`;
+    })
+    .join('');
+
+  return `<p class="statusline">${shots.size} of ${labels.length} — ${shots.size} point${
+    shots.size === 1 ? '' : 's'
+  }</p>
+          <ul class="prompts">${rows}</ul>`;
+}
+
+/**
+ * Portrait of a stranger: anonymous units, so there is no list to tick off -- just a count, the
+ * portraits so far with what was said under each, and one form.
+ *
+ * The quote is required here and nowhere else on the site, which is why it sits inside the form
+ * rather than beside it: a photograph with nothing said is not a portrait, and bouncing it is
+ * the tile working rather than the tile failing.
+ */
+function portraitStage(game, mine, newestAnim) {
+  const cap = unitCount(game);
+  const sent = mine.filter((submission) => submission.photo_path);
+  const paid = Math.min(sent.length, cap);
+  const newest = sent.at(-1);
+
+  const gallery = sent.length
+    ? `<ul class="prompts">${sent
+        .map(
+          (submission) => `<li class="prompt prompt--done">
+             ${shotCell(submission, submission.id === newest?.id ? newestAnim : '')}
+             <div class="prompt__said">
+               <p class="prompt__label">“${escape(submission.body ?? '')}”</p>
+             </div>
+           </li>`,
+        )
+        .join('')}</ul>`
+    : '';
+
+  const quote = `<input class="input" name="body" maxlength="140" ${placeholderOf(game)}>`;
+
+  return `<p class="statusline">${paid} of ${cap} — ${paid} point${paid === 1 ? '' : 's'}</p>
+          ${gallery}
+          ${shootForm(game, { face: sent.length ? 'another portrait' : 'take a portrait', body: quote })}`;
 }
 
 function showGame({ req, res, params, url }) {
@@ -615,6 +743,15 @@ function showGame({ req, res, params, url }) {
              ${heroBlock}`;
   } else if (!takesForm(game)) {
     stage = heroBlock;
+  } else if (unitCount(game)) {
+    // A game that pays per unit composes its own stage: the units are the page, and the generic
+    // one-form-and-a-strip below cannot say which of them are still open.
+    stage = `${heroBlock}
+             ${
+               unitLabels(game).length
+                 ? promptChecklist(game, mine, shotAnimation(moment))
+                 : portraitStage(game, mine, shotAnimation(moment))
+             }`;
   } else {
     stage = `${heroBlock}
              ${wantsPhoto ? photoStrip(mine, shotAnimation(moment)) : ''}
@@ -712,7 +849,43 @@ async function submitToGame({ req, res, params }) {
   const body = (fields.get('body') ?? '').trim();
   if (takesPhoto(game) && !photo && !body) return backToGame(res, game, 'empty');
 
+  // Portrait of a stranger is the only game that wants both halves. A photograph with nothing
+  // said is not a portrait, so it bounces with the form -- and the photo it already stored is
+  // left on disk rather than deleted: the party wanted the picture either way, and a half-filled
+  // form is not a reason to throw one away.
+  if (requiresBody(game) && !body) return backToGame(res, game, 'noquote');
+  if (requiresBody(game) && !photo) return backToGame(res, game, 'nophoto');
+
   const mode = judgingMode(game);
+
+  // Which countable thing this submission claims. A labelled game posts the index; an anonymous
+  // one takes the next ordinal, which is simply how many photographs this team has already sent.
+  // Out of range means a stale tab or a hand-typed field: bounce rather than open a submission
+  // against a unit the game does not have.
+  const units = unitCount(game);
+  const alreadySent = submissionsFor(team.id, game.id).filter((row) => row.photo_path);
+  let unit = null;
+
+  // Whether this one is worth a point -- which is NOT whether the ledger is written. A retake
+  // upserts the row its first photo already wrote, at the same value, so the award is a harmless
+  // no-op; what this decides is which of the two honest lines the team gets back. Both photos
+  // are stored either way, and neither line ever suggests they stop.
+  let paid = true;
+
+  if (units) {
+    if (unitLabels(game).length) {
+      unit = Number(fields.get('unit'));
+      if (!Number.isInteger(unit) || unit < 0 || unit >= units) {
+        return backToGame(res, game, 'nounit');
+      }
+      paid = !alreadySent.some((row) => row.unit === unit);
+    } else {
+      // Anonymous units take the next ordinal, which is simply how many this team has sent. Past
+      // the last slot the ordinal runs off the end and the photograph is a spare.
+      unit = alreadySent.length;
+      paid = unit < units;
+    }
+  }
 
   const submissionId = transact(() => {
     const existing = submissionsFor(team.id, game.id);
@@ -742,26 +915,33 @@ async function submitToGame({ req, res, params }) {
     }
 
     const { lastInsertRowid } = run(
-      `insert into submissions (team_id, game_id, body, photo_path, photo_mime, photo_thumb)
-       values (?, ?, ?, ?, ?, ?)`,
+      `insert into submissions (team_id, game_id, body, photo_path, photo_mime, photo_thumb, unit)
+       values (?, ?, ?, ?, ?, ?, ?)`,
       team.id,
       game.id,
       body,
       photo?.filename ?? null,
       photo?.mime ?? null,
       photo?.thumbnailName ?? null,
+      unit,
     );
 
     // Trust games pay on submit -- which is exactly why the gallery gives them no buttons: the
     // points are already banked and a second press would double-pay.
-    if (mode === 'trust') {
+    //
+    // A game with units keys the award on the UNIT rather than on the submission, and that one
+    // substitution is the entire cap: `awards` is unique on (team, game, kind, source_id), so a
+    // second photograph of the same prompt rewrites one row at the same value instead of adding
+    // another. No counting, no ceiling check, no deleting -- and every photograph still stored.
+    // A spare past the last anonymous slot is simply never written.
+    if (mode === 'trust' && paid) {
       award({
         teamId: team.id,
         gameId: game.id,
         kind: game.kind === 'tally' ? 'tally' : 'answer',
         points: game.points,
-        reason: 'on trust',
-        sourceId: Number(lastInsertRowid),
+        reason: unit === null ? 'on trust' : `on trust — ${unitLabel(game, unit) ?? `#${unit + 1}`}`,
+        sourceId: unit === null ? Number(lastInsertRowid) : unit,
       });
     }
 
@@ -790,7 +970,9 @@ async function submitToGame({ req, res, params }) {
   // photo game also takes a text-only submission, and that must not animate a photo.
   return redirect(
     res,
-    gamePath(game.id, { moment: momentForSubmission({ photo: Boolean(photo), mode, verdict }) }),
+    gamePath(game.id, {
+      moment: momentForSubmission({ photo: Boolean(photo), mode, verdict, paid }),
+    }),
   );
 }
 
@@ -1045,9 +1227,14 @@ function adminGame({ req, res, params }) {
              </form>`
           : '';
 
+      // Which prompt this photograph answers, where the game has labelled units. Read from
+      // content rather than stored with the photo, so rewording a prompt relabels the gallery.
+      const prompt = submission.unit === null ? null : unitLabel(game, submission.unit);
+
       return `<article class="card card--${escape(submission.verdict)}">
                 ${media}
                 <p class="card__who">${escape(names.get(submission.team_id) ?? '?')}</p>
+                ${prompt ? `<p class="statusline">${escape(prompt)}</p>` : ''}
                 ${submission.body ? `<p class="card__body">${escape(submission.body)}</p>` : ''}
                 <p class="statusline">${escape(submission.verdict)} · ${escape(submission.created_at)}</p>
                 ${judging}

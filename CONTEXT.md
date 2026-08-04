@@ -95,7 +95,7 @@ A unit of play, defined entirely in `content/games/<id>.js`. Four **kinds**:
 | kind | the game page shows | scored by |
 | --- | --- | --- |
 | `answer` | hero + form, **one** submission, editable until game end | `check()` on submit, or `resolve()` at game end |
-| `tally` | hero + form, **many** submissions (one point per photo) | per submission |
+| `tally` | hero + form, **many** submissions (one point per photo) | per **unit**, see below |
 | `hunt` | the current step's hero and hints, **no form** | auto-awarded **per step**, as each is reached |
 | `trophy` | the hero and nothing else — **no form** | the host awards it by hand at `/admin/game/:id` |
 
@@ -146,6 +146,12 @@ A `trophy` tile has no submissions to read, so the **ledger** is what turns it g
 means correct. A team that was never handed it stays *unlocked* at zero — never *wrong*, since
 they were never asked a question they could get wrong.
 
+A **`trust`** tile reads the ledger for the opposite reason: its submissions are never judged, so
+they sit at `pending` all night and the verdict would paint it *unknown* — "unscoreable until
+game end" — when it holds the only points on the board that are already certain. Green means what
+it means on a hunt: **finished**, every unit paid. A half-filled tile stays *unlocked* and lets
+its points do the talking.
+
 > A tile is a *view* of a game, never a separate entity.
 
 ### Moment
@@ -153,7 +159,7 @@ they were never asked a question they could get wrong.
 The one thing that **just happened**, carried across a redirect so the arriving page can react.
 Every state change here is a POST-and-redirect or a scan redirect, so the only channel is a query
 param on the destination: `?just=<moment>`, with a closed vocabulary in `src/moments.js` —
-`unlock`, `step`, `correct`, `incorrect`, `banked`, `pending`, `shot`, `rescan`.
+`unlock`, `step`, `correct`, `incorrect`, `banked`, `pending`, `shot`, `spare`, `rescan`.
 
 A moment is always delivered to **the page that caused it**. Scanning opens the game and the hero
 plays the unlock; submitting keeps the team on the game page and answers them there. Nobody is
@@ -232,7 +238,11 @@ A submission carries a **verdict** (`pending` | `correct` | `incorrect`) and **n
 A submission is *what the team did*; an award is *what it was worth*.
 
 A game whose form carries a file input declares `photo: true`. Photo games return the team to the
-game page after submitting rather than to the dashboard, so sending another is one tap.
+game page after submitting rather than to the dashboard, so sending another is one tap. A game
+that needs *both* halves declares `requiresBody: true` — Portrait of a stranger is the only one,
+because a photograph with nothing said is not a portrait.
+
+A submission also carries the **unit** it claims (below), or `NULL` where its game has none.
 
 ### Photo
 
@@ -247,6 +257,31 @@ so `data/uploads` is already a labelled archive and needs no export feature. The
 what keeps the URL unguessable: `/uploads/*` has no cookie gate.
 
 > Not "image", not "upload". The thing a team sends is a **photo**; it hangs off a submission.
+
+### Unit
+
+What a `tally` game actually pays for: the countable thing a submission claims. Declared in
+content as either a **count** of anonymous slots or an **array of labels**:
+
+```js
+units: 10                            // ten portraits, one indistinguishable from another
+units: ['Someone eating', ...]       // the photo scavenger's ten prompts
+```
+
+The unit — not the submission — is what the ledger keys on. `awards` is unique on
+`(team, game, kind, source_id)`, so writing the unit into `source_id` makes a second photo of the
+same prompt **upsert one row at the same value**. That single substitution *is* the cap: there is
+no counting, no ceiling check and no deleting anywhere.
+
+Which means **retakes are free, unlimited, and stored**. Dedup happens in the awards table and
+never in the photos, so `submissions` keeps every shot a team ever sent while the score stays
+honest. A photo that moved no points is a **spare** — it says so on arrival, and the wording
+never suggests stopping, because the photographs are what the pair is for.
+
+Anonymous units take the next ordinal, so past the last slot they simply run off the end.
+Boot checks `units × points ≤ tilePoints`, the same arithmetic a hunt gets.
+
+> Not "prompt" in code — a prompt is one **label** of one **unit**. Not "slot".
 
 ### Award
 
@@ -340,7 +375,7 @@ Four modes. Two are *derived* from the presence of a function; two are *declared
 - **`resolve(submissions)`** — a pure function over *every team's* submissions, run at game end.
   This is what "closest to the average height" and "who shares your favourite colour" need, and
   why the Unknown tile design exists.
-- **`trust`** — points land on submit, unjudged. One point per photo, no host involved. A trust
+- **`trust`** — points land on submit, unjudged. One point per **unit**, no host involved. A trust
   game must declare `points`, and the gallery deliberately gives it **no buttons**: the points
   are already banked and a second press would double-pay.
 - **`manual`** — the host judges in the admin gallery: award or reject, per submission.
