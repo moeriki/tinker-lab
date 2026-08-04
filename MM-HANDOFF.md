@@ -93,9 +93,18 @@ true and wants nothing from you:
 
 One consequence worth knowing before you start: `ha.moeriki.com` resolves — publicly, from
 Route 53, same answer from 1.1.1.1 and 8.8.8.8 — to `192.168.128.2`, an RFC1918 address.
-Pointing `bday` at the same place makes **the site LAN-only**. That is fine and probably right,
-but it makes joining the house WiFi step zero of the game, and a guest on cellular gets a
-connection timeout we cannot write a message into.
+Pointing `bday` at the same place makes **the site LAN-only**, and that is the deliberate
+choice, not an accident of copying the `ha` record
+([#20](https://github.com/moeriki/tinker-lab/issues/20)). The house network *is* the boundary:
+nobody outside can touch scores, which is why nothing in the game does anti-cheat.
+
+So please **do not** put `bday` on a tunnel or a port-forward to make it reachable from
+outside. If it were, the boundary argument goes with it.
+
+The cost is accepted rather than solved: joining the house WiFi is step zero of the game, and a
+guest on cellular gets a connection timeout we cannot write a message into — we are not
+reachable to say anything. The mitigation is physical and already in place, a WiFi QR code on
+the wall, and most guests have been to the house before and join automatically.
 
 ### 1. Get the code
 

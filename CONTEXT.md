@@ -63,6 +63,8 @@ b4xk7m: { page: 'rickroll' },
 ```
 
 Slugs are opaque but **not secret** — teams shouting hiding places at each other is the goal.
+Nothing here distrusts a scan, and the other half of that is that the site is only reachable from
+inside the house: see [ADR-0012](docs/adr/0012-the-house-network-is-the-boundary.md).
 
 The roster fixes **19 codes**. Each entry also carries three fields for humans: a `label` (host
 key only — never printed on the card, or a gag announces itself), a `where` (its hiding place, or
