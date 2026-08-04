@@ -49,3 +49,33 @@ export const unlock = (teamId, gameId) =>
 
 export const recordScan = (teamId, slug, accepted) =>
   run('insert into scans (team_id, slug, accepted) values (?, ?, ?)', teamId, slug, accepted ? 1 : 0);
+
+/**
+ * How many times this team has scanned one slug. The motivational gag rotates on it, so the line
+ * advances on a real scan and holds still on a refresh -- which is what lets someone show the
+ * thing they just read to the person next to them without it changing under them.
+ */
+export const scanCountFor = (teamId, slug) =>
+  get('select count(*) as n from scans where team_id = ? and slug = ?', teamId, slug)?.n ?? 0;
+
+/**
+ * Where this team came in the order of teams that found a slug: 1 for the first, 2 for the next,
+ * and so on. Zero if they have never scanned it.
+ *
+ * It is a RANK, not a running total, and the difference is the whole point. `count(distinct
+ * team_id)` grows all night, so a team that re-scanned at midnight would be told they were fifth
+ * when they were second -- their own line would rewrite itself behind them. Anchoring on the id
+ * of their own first scan freezes it forever.
+ *
+ * Keyed on `id` rather than `scanned_at` because `datetime('now')` resolves to the second and two
+ * teams a heartbeat apart would tie; ids cannot.
+ */
+export const finderRankFor = (teamId, slug) =>
+  get(
+    `select count(distinct team_id) as n from scans
+      where slug = ?
+        and id <= (select min(id) from scans where slug = ? and team_id = ?)`,
+    slug,
+    slug,
+    teamId,
+  )?.n ?? 0;

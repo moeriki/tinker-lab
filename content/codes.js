@@ -65,9 +65,17 @@ export default {
 
   // --- Gags: no game, no points -- #17..#19 -----------------------------------------------------
   // Their cards carry no label for the same reason the punchline isn't in the setup.
-  f7ge9z: { page: 'rickroll', label: 'GAG: rickroll', where: null, pending: true },
-  q6dd59: { page: 'motivation', label: 'GAG: motivational message', where: null, pending: true },
-  kyw3bx: { page: 'hidden', label: 'GAG: the hidden page', where: null, pending: true },
+  f7ge9z: { page: 'rickroll', label: 'GAG: rickroll', where: null },
+  q6dd59: { page: 'motivation', label: 'GAG: motivational message', where: null },
+  kyw3bx: {
+    page: 'hidden',
+    label: 'GAG: the hidden page',
+    // Not a free placement. The page tells its finder it was "hidden properly" and names how many
+    // teams got there first, so this card has to earn that: the hardest spot in the house, and
+    // deliberately harder than the other two gags. Settled in #28 -- if it ends up somewhere
+    // obvious, the copy is a lie and the counter is pointless.
+    where: 'THE HARDEST SPOT IN THE HOUSE. Not yet chosen -- see the hiding plan.',
+  },
 
   // Human Bingo and Longest yarn deliberately have no code: both are starter tiles, unlocked for
   // every team at onboarding. `too-soon` and `no-such-code` are pages the app renders directly and

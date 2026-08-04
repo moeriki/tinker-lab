@@ -130,6 +130,18 @@ export function slugsForGame(gameId) {
     .sort((a, b) => (a[1].step ?? 1) - (b[1].step ?? 1));
 }
 
+/**
+ * The slug bound to a page, or null. Gag pages have exactly one code each; `too-soon` and
+ * `no-such-code` are rendered directly by the app and have none, which is why this may be null.
+ *
+ * It exists so a page can be told *about* its own scans without ever reaching for the database
+ * itself -- `showPage` resolves the slug here and does the counting. See ADR-0001: content
+ * describes the game, the database holds player data, and the two never mix.
+ */
+export function slugForPage(pageId) {
+  return listCodes().find(([, target]) => target.page === pageId)?.[0] ?? null;
+}
+
 const QUESTION_SCOPES = ['team', 'member'];
 const QUESTION_INPUTS = ['text', 'number', 'select'];
 

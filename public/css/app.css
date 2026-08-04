@@ -456,6 +456,25 @@ code {
   color: #666;
 }
 
+/* flavour: a video. The frame keeps its outline and shadow and drops its padding, so the picture
+   goes edge to edge inside the border. Ink rather than paper underneath: an embed that is slow,
+   blocked or offline leaves a black rectangle, which reads as a dead screen rather than as a
+   broken page -- and on the one page that uses this, a dead screen is still the joke. */
+.hero--video {
+  padding: 0;
+  background: var(--c-ink);
+  line-height: 0;
+}
+
+/* 16 / 9, not the asset box's 4 / 3: this holds video, and letterboxing the party's one moving
+   picture inside a photo frame would waste a third of a phone screen. */
+.hero__video {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border: 0;
+}
+
 /* --------------------------------- window ---------------------------------- */
 /* Straight off the invite. For anything that wants to feel like a document. */
 

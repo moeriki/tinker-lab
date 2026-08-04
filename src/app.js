@@ -22,6 +22,7 @@ import {
   listGames,
   listQuestions,
   hintsFor,
+  slugForPage,
   stepCount,
   getStep,
   takesForm,
@@ -51,7 +52,16 @@ import {
   membersOf,
   onboardingComplete,
 } from './identity.js';
-import { huntIsComplete, isUnlocked, reachedStep, recordScan, scanIsInOrder, unlock } from './progress.js';
+import {
+  finderRankFor,
+  huntIsComplete,
+  isUnlocked,
+  reachedStep,
+  recordScan,
+  scanCountFor,
+  scanIsInOrder,
+  unlock,
+} from './progress.js';
 import {
   allSubmissionsFor,
   award,
@@ -804,11 +814,39 @@ function showRules({ req, res }) {
   );
 }
 
-function showPage({ res, params }) {
+/**
+ * A gag page: no game, no points, no way back except the close button. See MISSION.md -- "hidden"
+ * describes the page rather than the code, and means unreachable from the dashboard.
+ *
+ * `body` is usually a string. Two of the three gags need to know something about the team holding
+ * the phone -- how many times they have scanned this code, and where they came in the order of
+ * teams that found it -- so a page may instead export a FUNCTION, and this is where it is called.
+ *
+ * The numbers are computed here rather than in `content/`, which keeps the seam intact: content
+ * describes the game and never opens the database (ADR-0001). The page is handed facts, not a
+ * connection.
+ *
+ * A page with no code bound to it, or a visitor with no team, gets zeroes -- `/p/motivation` is a
+ * real URL and someone will eventually reach it without scanning anything.
+ */
+function showPage({ req, res, params }) {
   const page = getPage(params.pageId);
   if (!page) return html(res, notFound(), 404);
 
-  return html(res, layout({ title: page.title, body: page.body, showClose: page.showClose }));
+  let body = page.body;
+
+  if (typeof body === 'function') {
+    const team = currentTeam(req);
+    const slug = slugForPage(page.id);
+
+    body = body({
+      team,
+      scanCount: team && slug ? scanCountFor(team.id, slug) : 0,
+      finderRank: team && slug ? finderRankFor(team.id, slug) : 0,
+    });
+  }
+
+  return html(res, layout({ title: page.title, body, showClose: page.showClose }));
 }
 
 function showShowdown({ req, res }) {
