@@ -5,7 +5,12 @@
 
 import { escape } from './http.js';
 
-export function layout({ title, body, showClose = false }) {
+/**
+ * `still` opts a page out of the arrival animation. The admin board is the only caller that
+ * wants it: it polls, and a page that re-animates every few seconds is unreadable. Team-facing
+ * pages animate by default so a new one never has to remember to.
+ */
+export function layout({ title, body, showClose = false, still = false }) {
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -15,7 +20,7 @@ export function layout({ title, body, showClose = false }) {
   <link rel="stylesheet" href="/css/app.css">
 </head>
 <body class="shell">
-  <div class="app">
+  <div class="app${still ? '' : ' anim-page'}">
     <div class="stack">
       <h1 class="shout">${escape(title)}</h1>
       ${body}
@@ -31,9 +36,10 @@ export function layout({ title, body, showClose = false }) {
  * An honest placeholder. It names the ticket that owns the design, so nobody mistakes a stub for
  * a decision that was already made.
  */
-export function stub({ title, owner, does, data = null }) {
+export function stub({ title, owner, does, data = null, still = false }) {
   return layout({
     title,
+    still,
     body: `
       <p class="banner"><strong>Not designed yet.</strong> Owned by: ${escape(owner)}.</p>
       <p>${escape(does)}</p>

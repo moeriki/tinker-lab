@@ -80,6 +80,25 @@ the game title and the points scored on it.
 
 > A tile is a *view* of a game, never a separate entity.
 
+### Moment
+
+The one thing that **just happened**, carried across a redirect so the arriving page can react.
+Every state change here is a POST-and-redirect or a scan redirect, so the only channel is a query
+param on the destination: `?just=<moment>`, with a closed vocabulary in `src/moments.js` —
+`unlock`, `step`, `correct`, `incorrect`, `banked`, `pending`, `shot`.
+
+A moment is always delivered to **the page that caused it**. Scanning opens the game and the hero
+plays the unlock; submitting keeps the team on the game page and answers them there. Nobody is
+routed to the dashboard to be told something. See
+[ADR-0009](docs/adr/0009-the-page-you-are-on-is-the-stage.md).
+
+The param is **spent on arrival** — `public/js/app.js` strips it after first paint, so refreshing
+does not replay the animation. The animation is never load-bearing: `prefers-reduced-motion`
+flattens all of it, and everything a moment says is also said in text.
+
+> Not "flash", not "toast". There is no notification layer — a moment decorates the page that was
+> already being rendered.
+
 ### Unlock
 
 State: this team may open this game. Created by scanning a code that names the game; permanent
@@ -217,8 +236,8 @@ Team-facing:
 | POST | `/welcome` | create team + members, set cookie → `/questions` | PRG |
 | GET | `/questions` | the questionnaire | ✓ |
 | POST | `/questions` | save profile answers → pending destination or `/` | PRG |
-| GET | `/g/:gameId` | game page; `?step=n` for hunts, clamped to reached | ✓ |
-| POST | `/g/:gameId/submit` | upsert (`answer`) / insert (`tally`); multipart for photos | PRG |
+| GET | `/g/:gameId` | game page; `?step=n` for hunts, clamped to reached; `?just=` is the moment | ✓ |
+| POST | `/g/:gameId/submit` | upsert (`answer`) / insert (`tally`); multipart for photos → back to `/g/:gameId` | PRG |
 | POST | `/g/:gameId/hint` | reveal next hint, write the negative award | PRG |
 | GET | `/rules` | rules; the hidden hint rule appears after the first reveal | ✓ |
 | GET | `/p/:pageId` | gag and hidden pages | ✓ |

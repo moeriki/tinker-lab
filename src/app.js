@@ -60,6 +60,15 @@ import {
 } from './scoring.js';
 import { fireWebhook } from './webhooks.js';
 import { layout, notFound, stub } from './render.js';
+import {
+  gamePath,
+  heroAnimation,
+  momentForSubmission,
+  momentOf,
+  shotAnimation,
+  SUBMITTED,
+  verdictAnimation,
+} from './moments.js';
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -119,7 +128,9 @@ async function handleScan({ req, res, params }) {
   if (game.kind !== 'hunt') {
     recordScan(team.id, params.slug, true);
     unlock(team.id, game.id);
-    return redirect(res, `/g/${game.id}`);
+    // Straight into the game, never via the dashboard: the team scanned a code because they want
+    // to play, and the unlock plays on the hero they are already looking at. ADR-0009.
+    return redirect(res, gamePath(game.id, { moment: 'unlock' }));
   }
 
   const step = target.step;
@@ -140,7 +151,8 @@ async function handleScan({ req, res, params }) {
     award({ teamId: team.id, gameId: game.id, kind: 'hunt', points: game.points ?? 0 });
   }
 
-  return redirect(res, `/g/${game.id}?step=${step}`);
+  // Step 1 is an unlock; every step after it is a step transition, and they look different.
+  return redirect(res, gamePath(game.id, { step, moment: step === 1 ? 'unlock' : 'step' }));
 }
 
 // --- onboarding -------------------------------------------------------------------------------
@@ -311,18 +323,20 @@ const SUBMIT_PROBLEMS = {
  * A team's own photos, back to them. Thumbnails are the extracted EXIF ones where the camera
  * embedded any, so reopening a tile with six photos on it costs kilobytes and not megabytes.
  */
-function photoStrip(submissions) {
+function photoStrip(submissions, newestAnim = '') {
   const withPhotos = submissions.filter((submission) => submission.photo_path);
   if (!withPhotos.length) return '';
 
   const cells = withPhotos
-    .map((submission) => {
+    .map((submission, index) => {
       const display = displayFor(submission);
       const href = `/uploads/${escape(submission.photo_path)}`;
       const inside = display.src
         ? `<img class="shot__img" src="${escape(display.src)}" alt="" loading="lazy">`
         : '<span class="shot__none">sent ✓</span>';
-      return `<a class="shot" href="${href}">${inside}</a>`;
+      // Only the photo that just arrived moves; the rest of the strip stays put.
+      const moving = index === withPhotos.length - 1 ? newestAnim : '';
+      return `<a class="shot${moving}" href="${href}">${inside}</a>`;
     })
     .join('');
 
@@ -350,6 +364,10 @@ function showGame({ req, res, params, url }) {
   const problem = SUBMIT_PROBLEMS[url.searchParams.get('problem')];
   const wantsPhoto = takesPhoto(game);
 
+  // What just happened, delivered here rather than to the dashboard. See ADR-0009.
+  const moment = momentOf(url);
+  const submitted = SUBMITTED[moment];
+
   return html(
     res,
     layout({
@@ -357,12 +375,13 @@ function showGame({ req, res, params, url }) {
       body: `
         <p class="banner"><strong>Composition not designed yet.</strong> Owned by: the per-game tickets.</p>
         ${problem ? `<p class="banner banner--bad">${escape(problem)}</p>` : ''}
+        ${submitted ? `<p class="banner${verdictAnimation(moment)}">${escape(submitted)}</p>` : ''}
         ${
           game.kind === 'hunt'
             ? `<p class="statusline">Step ${step} of ${stepCount(game)} — reached ${reached}</p>
-               <div class="hero hero--text">${escape(getStep(game, step)?.hero?.text ?? '')}</div>`
-            : `<div class="hero hero--text">${escape(game.hero?.text ?? '')}</div>
-               ${wantsPhoto ? photoStrip(mine) : ''}
+               <div class="hero hero--text${heroAnimation(moment)}">${escape(getStep(game, step)?.hero?.text ?? '')}</div>`
+            : `<div class="hero hero--text${heroAnimation(moment)}">${escape(game.hero?.text ?? '')}</div>
+               ${wantsPhoto ? photoStrip(mine, shotAnimation(moment)) : ''}
                <form class="stack" method="post" action="/g/${escape(game.id)}/submit"
                      ${wantsPhoto ? 'enctype="multipart/form-data"' : ''}>
                  ${
@@ -494,8 +513,10 @@ async function submitToGame({ req, res, params }) {
     return Number(lastInsertRowid);
   });
 
+  let verdict = 'pending';
+
   if (mode === 'check') {
-    const verdict = game.check(body) ? 'correct' : 'incorrect';
+    verdict = game.check(body) ? 'correct' : 'incorrect';
     run('update submissions set verdict = ? where id = ?', verdict, submissionId);
     award({
       teamId: team.id,
@@ -506,9 +527,16 @@ async function submitToGame({ req, res, params }) {
     });
   }
 
-  // Photo games send many, so returning to the tile grid would mean reopening the tile every
-  // time. Stay on the game page; everything else goes back to the dashboard as before.
-  return takesPhoto(game) ? backToGame(res, game, null) : redirect(res, '/');
+  // Every submission lands back on the game page -- the one the team is already looking at --
+  // and is answered there. Nobody gets thrown to the dashboard to be told what happened, and
+  // closing the game is the team's call. Photo games needed this anyway: sending another is one
+  // tap. See ADR-0009.
+  // `photo` here is the one that actually arrived, not merely a game that accepts them: a
+  // photo game also takes a text-only submission, and that must not animate a photo.
+  return redirect(
+    res,
+    gamePath(game.id, { moment: momentForSubmission({ photo: Boolean(photo), mode, verdict }) }),
+  );
 }
 
 async function revealHint({ req, res, params }) {
@@ -610,6 +638,7 @@ function adminBoard({ req, res }) {
       owner: 'Admin dashboard and results showdown',
       does: 'Live board with polling, per-game galleries, judging, manual awards, end game.',
       data: { gameOver: gameIsOver(), board },
+      still: true, // it polls; a page that re-animates every few seconds cannot be read
     }),
   );
 }
@@ -676,6 +705,7 @@ function adminGame({ req, res, params }) {
     res,
     layout({
       title: game.title,
+      still: true, // admin surface: judging a gallery, not arriving at a party page
       body: `
         <p class="statusline">${escape(explainer)}</p>
         <p class="statusline">${submissions.length} submission${submissions.length === 1 ? '' : 's'}</p>
@@ -778,6 +808,7 @@ function adminCodes({ req, res }) {
       owner: 'QR inventory and generator script',
       does: 'Slug → target inventory, for printing and for debugging a code someone says is broken.',
       data: listCodes().map(([slug, target]) => ({ slug, ...target })),
+      still: true, // admin surface
     }),
   );
 }
