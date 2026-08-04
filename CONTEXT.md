@@ -366,6 +366,25 @@ in the hint list before the modal exists, and nothing about it waits for a tap. 
 renders it *already open*, so a phone with JavaScript blocked still gets the announcement and
 still dismisses it, because both its buttons are ordinary links.
 
+### Focus
+
+**This site does no focus management** — no trap, no move-in, no restore, nowhere, and that is
+settled rather than outstanding ([ADR-0015](docs/adr/0015-document-order-instead-of-focus-management.md), #31).
+
+The hint modal is the only modal there is, and it is not a conventional dialog: it arrives on a
+**full page load**, so nothing was focused to take focus from and the button that triggered it is
+in a document that no longer exists. What a trap would have been for is done in HTML instead —
+`layout()` renders the modal slot **first in `<body>`**, ahead of `.app`, so the box you see first
+reads first and tabs first. Before that it was last, and a hint reveal put six tab stops behind a
+dim backdrop in front of the thing you were looking at.
+
+It carries **no ARIA role**. `role="alertdialog"` was asserted until #31 and was untrue in every
+clause — nothing focuses the box, nothing behind it is inert, nothing waits for it, and a role
+sitting in the initial HTML never fires as an alert regardless.
+
+> Writing the trap in `public/js/app.js` would have made the JS-blocked phone the only one that
+> does not get it. Document order costs no script and cannot be blocked.
+
 ### Judging
 
 Four modes. Two are *derived* from the presence of a function; two are *declared* as

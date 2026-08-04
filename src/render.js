@@ -18,7 +18,16 @@ import { escape } from './http.js';
  * `modal` is a slot, and it sits **outside `.app` on purpose**: `anim-page` animates a
  * `transform`, and a transformed ancestor becomes the containing block for `position: fixed`, so
  * a modal nested inside would be pinned to the page rather than to the viewport for the length of
- * the arrival animation. The style kit puts it at the end of `<body>` for the same reason.
+ * the arrival animation.
+ *
+ * It sits **first**, ahead of `.app`, and that is this site's entire answer to focus management
+ * (#31, ADR-0015). The box arrives on a full page load rather than being opened by script, so
+ * there is no focus to move in and none to give back -- but document order still decided that the
+ * first six tab stops were the scorebar, the answer box and the close link, all of them behind a
+ * dim backdrop, before you reached the box you were looking at. Putting the markup first makes the
+ * thing you see first the thing you read first and tab to first, in HTML, with no script involved.
+ * `.modal` is `position: fixed; z-index: 500`, so it paints above `.app` whatever the tree order
+ * says. Slot is empty on every page but a hint reveal, so this costs the rest of the site nothing.
  */
 export function layout({ title, body, bar = '', showClose = false, still = false, modal = '' }) {
   return `<!doctype html>
@@ -30,6 +39,7 @@ export function layout({ title, body, bar = '', showClose = false, still = false
   <link rel="stylesheet" href="/css/app.css">
 </head>
 <body class="shell">
+  ${modal}
   <div class="app${still ? '' : ' anim-page'}">
     <div class="stack">
       ${bar}
@@ -38,7 +48,6 @@ export function layout({ title, body, bar = '', showClose = false, still = false
       ${showClose ? '<a class="btn btn--close" href="/">close</a>' : ''}
     </div>
   </div>
-  ${modal}
   <script type="module" src="/js/app.js"></script>
 </body>
 </html>`;
@@ -87,14 +96,22 @@ export function scorebar({ name, score, open = 0, total = 0 }) {
  *
  * Nothing here is load-bearing on animation either. `modal-pop` flattens under
  * `prefers-reduced-motion` and the box still says its piece, in words, standing still.
+ *
+ * It carries **no ARIA role**, which is a correction rather than an omission (#31, ADR-0015).
+ * It used to claim `role="alertdialog"`, and every part of that was untrue here: `alertdialog`
+ * says focus is placed inside on display, that the rest of the page is unavailable behind it, and
+ * that the message is urgent enough to interrupt. Nothing focuses this box, nothing is trapped,
+ * nothing waits for it, and a role present in the initial HTML never fires as an alert anyway --
+ * live regions only announce what changes after the page settles. A titled box of text with two
+ * links is what this is; being first in the document is what makes it heard.
  */
 export function hintModal({ notice, cost, backHref }) {
   const free = notice === 'free';
   const price = `<strong>${Number(cost)} point${Number(cost) === 1 ? '' : 's'}</strong>`;
 
   return `<div class="modal" id="hint-modal">
-    <div class="modal__box" role="alertdialog" aria-labelledby="hint-modal-title">
-      <p class="modal__title" id="hint-modal-title">${free ? 'on the house.' : 'oh yeah.'}</p>
+    <div class="modal__box">
+      <p class="modal__title">${free ? 'on the house.' : 'oh yeah.'}</p>
       <p class="modal__body">${
         free
           ? `that one was <strong>free</strong> — your first one always is. every hint after it costs you ${price}.`

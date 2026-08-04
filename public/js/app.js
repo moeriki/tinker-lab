@@ -35,6 +35,14 @@ requestAnimationFrame(() => {
 // revealed, charged and rendered underneath it -- so there is nothing here that
 // opens it and nothing here that gates it. All this does is dismiss it more
 // smoothly than following the button's own href would.
+//
+// There is deliberately NO focus management here -- no move-in, no trap, no
+// restore -- and that is settled, not forgotten (#31, ADR-0015). The box arrives
+// on a full page load, so nothing was focused to take focus from and nothing
+// exists to hand it back to; and a trap written here would be the one thing
+// about this modal that a phone with JavaScript blocked does not get. What the
+// trap was for is done in HTML instead: `layout()` renders the modal first in
+// the document, so it reads and tabs first. Do not add it back.
 
 const modal = document.getElementById('hint-modal');
 
