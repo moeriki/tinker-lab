@@ -425,6 +425,12 @@ disagreeing rather than one typing badly.
 go through numbered files in `db/migrations/` tracked by `PRAGMA user_version`. See
 [ADR-0004](docs/adr/0004-sqlite-via-node-sqlite.md).
 
+**A migration's version is the number written on its filename**, and the numbers must run `001`,
+`002`, `003` with no gaps and no repeats — boot refuses otherwise. `user_version` is one integer,
+so it can only mean "everything up to N has run"; that sentence is only true while the numbering
+is dense and unique. If you are adding a migration and someone else took your number while you
+were working, renumber yours before you land it.
+
 Everything mutable lives under `$DATA_DIR` (default `./data`):
 
 ```
