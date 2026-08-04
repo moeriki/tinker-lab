@@ -81,7 +81,8 @@ import {
   teamScore,
 } from './scoring.js';
 import { fireWebhook } from './webhooks.js';
-import { hintModal, layout, notFound, scorebar, stub } from './render.js';
+import { field, hero, hintModal, layout, notFound, scorebar, stub, tile } from './render.js';
+import { inject } from './kit.js';
 import {
   ARRIVED,
   gamePath,
@@ -287,13 +288,13 @@ function showWelcome({ req, res, url }) {
   const offered = dealTeamName(url.searchParams.get('word'));
   const typed = url.searchParams.getAll('member');
 
-  const nameField = (index, label, required) => `
-    <label class="field">
-      <span class="field__label">${escape(label)}</span>
-      <input class="input" name="member" maxlength="${MEMBER_NAME_MAX}"
-             autocomplete="off" ${required ? 'required' : ''}
-             value="${escape(typed[index] ?? '')}">
-    </label>`;
+  const nameField = (index, label, required) =>
+    field({
+      label,
+      name: 'member',
+      value: typed[index] ?? '',
+      attrs: { maxlength: MEMBER_NAME_MAX, autocomplete: 'off', required },
+    });
 
   return html(
     res,
@@ -373,15 +374,19 @@ function showQuestions({ req, res, url }) {
       // be" is a question, "what did you want to be (Anna)" is a form field.
       const label = member ? `${member.name}: ${question.label}` : question.label;
 
-      return `
-        <label class="field">
-          <span class="field__label">${escape(label)}</span>
-          <input class="input" name="${escape(key)}" type="${escape(question.input ?? 'text')}"
-                 maxlength="${Number(question.maxLength ?? 40)}"
-                 placeholder="${escape(question.placeholder ?? '')}"
-                 autocomplete="off" autocapitalize="off" required
-                 value="${escape(answered.get(key) ?? '')}">
-        </label>`;
+      return field({
+        label,
+        name: key,
+        type: question.input ?? 'text',
+        value: answered.get(key) ?? '',
+        attrs: {
+          maxlength: Number(question.maxLength ?? 40),
+          placeholder: question.placeholder ?? '',
+          autocomplete: 'off',
+          autocapitalize: 'off',
+          required: true,
+        },
+      });
     })
     .join('');
 
@@ -485,13 +490,9 @@ function showDashboard({ req, res }) {
 
   const grid = tiles.length
     ? tiles
-        .map(({ game, unlocked, state, points }) => {
-          const inner = `<span class="tile__title">${escape(unlocked ? game.title : '???')}</span>
-            <span class="tile__pts">${points} pts</span>`;
-          return unlocked
-            ? `<a class="tile tile--${state}" href="/g/${escape(game.id)}">${inner}</a>`
-            : `<span class="tile tile--locked">${inner}</span>`;
-        })
+        .map(({ game, state, points }) =>
+          tile({ state, title: game.title, points, href: `/g/${game.id}` }),
+        )
         .join('')
     : '<p>No games yet. The roster is still being locked.</p>';
 
@@ -573,9 +574,10 @@ function showGame({ req, res, params, url }) {
   // price to name -- every other visit to this page carries no modal at all.
   const notice = hintNoticeOf(url);
 
-  const heroBlock = `<div class="hero hero--text${heroAnimation(moment)}">${escape(
-    (game.kind === 'hunt' ? getStep(game, step)?.hero?.text : game.hero?.text) ?? '',
-  )}</div>`;
+  const heroBlock = hero({
+    text: (game.kind === 'hunt' ? getStep(game, step)?.hero?.text : game.hero?.text) ?? '',
+    anim: heroAnimation(moment),
+  });
 
   // What sits between the banners and the hints. A hunt says which step it is on; a trophy is the
   // hero and nothing else -- no form, and no explanation of how it is won, because the object is
@@ -1224,8 +1226,13 @@ async function serveFrom(rootDir, relativePath, res, { immutable = false } = {})
   }
 }
 
+/**
+ * The style kit, with the real components swapped in for their markers. Read and injected per
+ * request rather than at boot, so `node --watch` picks up an edit to `kit.html` the same way it
+ * picks up an edit to a component. See `src/kit.js` for the rule this enforces.
+ */
 async function serveKit({ res }) {
-  html(res, await readFile(join(PUBLIC_DIR, 'kit.html'), 'utf8'));
+  html(res, inject(await readFile(join(PUBLIC_DIR, 'kit.html'), 'utf8')));
 }
 
 /**

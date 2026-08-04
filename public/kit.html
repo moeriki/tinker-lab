@@ -14,6 +14,23 @@
       This page is the contract: pages are assembled from the classes shown
       here and make no new design decisions. If a page needs something that is
       not on this page, either the page is wrong or the kit is incomplete.
+
+      A component's markup exists in EXACTLY ONE PLACE (#32). Where the app
+      renders it, that place is src/render.js and this page calls it through a
+      marker comment -- one opening with `@` and naming a primitive, such as
+      `@scorebar name="BADGER" score="47"` -- which src/kit.js swaps for the
+      real function's output at request time. (No example is spelled out in
+      full here: a marker carries its own comment terminator, which would end
+      THIS comment and then be injected into the page.)
+
+      So a marker is not a picture of the component -- it IS the component, and
+      this page cannot show you something the site does not do.
+
+      Where the app does NOT render it yet -- the window frame, the starburst,
+      the standing colours, the marquee -- the markup is written by hand below
+      and this page is its only home. Those sections are the design the site
+      still owes. Building one into a page means moving it into render.js and
+      leaving a marker here IN THE SAME CHANGE, so a second copy is never made.
     -->
 
     <div class="marquee">
@@ -93,38 +110,29 @@
 
         <div class="stack">
           <div>
-            <div class="scorebar">
-              <div class="scorebar__who">
-                <span class="scorebar__label">TEAM</span>
-                <span class="scorebar__name">De Twee Pintjes</span>
-              </div>
-              <div class="scorebar__pts"><span class="scorebar__num">47</span><span class="scorebar__unit">pts</span></div>
-            </div>
+            <!--@scorebar name="BADGER" score="47" open="7" total="10"-->
             <p class="standing standing--top">You are in the top 3 <span class="aside">(amazing)</span></p>
           </div>
 
           <div>
-            <div class="scorebar">
-              <div class="scorebar__who">
-                <span class="scorebar__label">TEAM</span>
-                <span class="scorebar__name">Kelly &amp; The Other One</span>
-              </div>
-              <div class="scorebar__pts"><span class="scorebar__num">22</span><span class="scorebar__unit">pts</span></div>
-            </div>
+            <!--@scorebar name="OTTERSPOOR" score="22" open="4" total="10"-->
             <p class="standing standing--mid">You have a chance for top 3 <span class="aside">(work harder)</span></p>
           </div>
 
           <div>
-            <div class="scorebar">
-              <div class="scorebar__who">
-                <span class="scorebar__label">TEAM</span>
-                <span class="scorebar__name">Team Naamloos</span>
-              </div>
-              <div class="scorebar__pts"><span class="scorebar__num">3</span><span class="scorebar__unit">pts</span></div>
-            </div>
+            <!--@scorebar name="NAAMLOOS" score="3" open="2" total="10"-->
             <p class="standing standing--low">Your effort is appreciated <span class="aside">(it is not, but we are being polite)</span></p>
           </div>
         </div>
+
+        <p class="sect__note">
+          The bar itself comes from <code>scorebar()</code> in <code>src/render.js</code> — this is
+          the real one, not a drawing of it. The whole thing is a link back to the board, and the
+          open-count is what tells a team the starter tiles exist at all.
+          <strong>The three standing colours are the kit running ahead of the site:</strong>
+          <code>.standing--top/--mid/--low</code> are in <code>app.css</code> and no page emits one
+          yet, so those three lines are still written by hand here.
+        </p>
       </section>
 
       <!-- ============================== TILES ============================== -->
@@ -133,42 +141,20 @@
         <p class="sect__note">The dashboard is nothing but a grid of these. Title, state, points. Nothing else.</p>
 
         <div class="tiles">
-          <a class="tile tile--locked" href="#tiles">
-            <span class="tile__lock" aria-hidden="true">🔒</span>
-            <span class="tile__title">???</span>
-            <span class="tile__pts">go find it</span>
-          </a>
-
-          <a class="tile tile--unlocked" href="#tiles">
-            <span class="tile__flag" aria-hidden="true">▶</span>
-            <span class="tile__title">Longest Yarn</span>
-            <span class="tile__pts">not played</span>
-          </a>
-
-          <a class="tile tile--correct" href="#tiles">
-            <span class="tile__flag" aria-hidden="true">✓</span>
-            <span class="tile__title">Average Height</span>
-            <span class="tile__pts">+10 pts</span>
-          </a>
-
-          <a class="tile tile--unknown" href="#tiles">
-            <span class="tile__flag" aria-hidden="true">?</span>
-            <span class="tile__title">Teddy Custody</span>
-            <span class="tile__pts">answered · counts at the end</span>
-          </a>
-
-          <a class="tile tile--wrong" href="#tiles">
-            <span class="tile__flag" aria-hidden="true">✗</span>
-            <span class="tile__title">Favourite Colour</span>
-            <span class="tile__pts">+0 pts</span>
-          </a>
-
-          <a class="tile tile--locked" href="#tiles">
-            <span class="tile__lock" aria-hidden="true">🔒</span>
-            <span class="tile__title">???</span>
-            <span class="tile__pts">go find it</span>
-          </a>
+          <!--@tile state="locked"-->
+          <!--@tile state="unlocked" title="Longest Yarn"-->
+          <!--@tile state="correct" title="Triangle Test" points="10"-->
+          <!--@tile state="unknown" title="Teddy"-->
+          <!--@tile state="wrong" title="Herd Mentality" points="0"-->
+          <!--@tile state="locked"-->
         </div>
+
+        <p class="sect__note">
+          Every one of these is <code>tile()</code> from <code>src/render.js</code>, the same call
+          the dashboard makes — the state and the title are the only things this page supplies.
+          A locked tile is a <code>&lt;span&gt;</code> and not a link, because there is nowhere to
+          go until you have found it.
+        </p>
 
         <p class="sect__note">
           <button class="btn btn--what" type="button" data-replay="unlock">Replay the unlock animation</button>
@@ -181,18 +167,15 @@
         <p class="sect__note">Top half of every game page. Either words or a picture, never both.</p>
 
         <div class="stack">
-          <div class="hero hero--text">
-            <p class="hero__kicker">GAME 04</p>
-            <p class="hero__body">How many other people at this party have the same favourite colour as you? Guess. Be brave. Wrong answers are also answers.</p>
-          </div>
-
-          <div class="hero hero--asset">
-            <p class="hero__kicker">GAME 07</p>
-            <div class="hero__asset" role="img" aria-label="placeholder asset">
-              <span class="hero__assetnote">[ asset goes here ]</span>
-            </div>
-          </div>
+          <!--@hero kicker="GAME 04" text="Most teams answered one of five things to this. Guess which. Be brave — wrong answers are also answers."-->
+          <!--@hero flavour="asset" kicker="GAME 07" text="[ asset goes here ]"-->
         </div>
+
+        <p class="sect__note">
+          Both are <code>hero()</code> from <code>src/render.js</code>. The kicker is optional and
+          the game page passes none today — no game has a number to put in one — so this page is
+          showing a slot that works rather than one that is used.
+        </p>
       </section>
 
       <!-- ============================= WINDOW ============================== -->
@@ -243,29 +226,25 @@
       <section class="sect" id="forms">
         <h2 class="sect__h">9. Form fields</h2>
         <p class="sect__note">Forms POST and redirect. No client-side validation theatre.</p>
-        <div class="field">
-          <label class="field__label" for="k-name">YOUR TEAM NAME</label>
-          <input class="input" id="k-name" type="text" value="De Twee Pintjes" />
-        </div>
-        <div class="field">
-          <label class="field__label" for="k-answer">YOUR ANSWER</label>
-          <input class="input" id="k-answer" type="text" placeholder="type something, anything" />
-        </div>
-        <div class="field">
-          <label class="field__label" for="k-long">EXPLAIN YOURSELF</label>
-          <textarea class="input input--area" id="k-long" rows="3" placeholder="optional, nobody will read it"></textarea>
-        </div>
-        <div class="field">
-          <label class="field__label" for="k-photo">PROOF</label>
-          <input class="input input--file" id="k-photo" type="file" accept="image/*" />
-        </div>
+        <!--@field label="WHAT DID YOU WANT TO BE AT EIGHT" name="k-eight" value="astronaut"-->
+        <!--@field label="YOUR ANSWER" name="k-answer" placeholder="type something, anything"-->
+        <!--@field label="EXPLAIN YOURSELF" name="k-long" rows="3" placeholder="optional, nobody will read it"-->
+        <!--@field label="PROOF" name="k-photo" type="file" accept="image/*"-->
+
+        <p class="sect__note">
+          <code>field()</code> from <code>src/render.js</code>, the same call onboarding makes for
+          all nine of its fields. The label <em>wraps</em> the control instead of pointing at it
+          with <code>for</code> — there is no id to keep in sync, which is the one way this markup
+          can break silently, and it breaks by labelling the wrong box.
+        </p>
       </section>
 
       <!-- ============================== MODAL ============================== -->
       <section class="sect" id="modal">
         <h2 class="sect__h">10. Modal</h2>
-        <p class="sect__note">Fires on every hint reveal, saying a different thing the first time a team ever asks (free, a gift) than every time after (the price, a fine). The real one is built by <code>hintModal()</code> in <code>src/render.js</code> and rendered <em>already open</em> by the server, because the hint has been revealed and charged by the time it appears — it announces, it never asks. This copy is a demo, and needs a button because the kit has no server.</p>
-        <button class="btn btn--hint" type="button" data-open-modal>Open the hint modal</button>
+        <p class="sect__note">Fires on every hint reveal, saying a different thing the first time a team ever asks (free, a gift) than every time after (the price, a fine). Built by <code>hintModal()</code> in <code>src/render.js</code> and rendered <em>already open</em> by the server, because the hint has been revealed and charged by the time it appears — it announces, it never asks. It sits at the end of <code>&lt;body&gt;</code>, outside <code>.app</code>, because <code>anim-page</code> animates a transform and a transformed ancestor would pin a <code>position: fixed</code> box to the page instead of the viewport.</p>
+        <p class="sect__note">Shown here in its <em>paid</em> framing. The free one is the same box with different words, and there is only one <code>#hint-modal</code> on a page — demoing both would mean a second copy, which is the thing this page no longer keeps.</p>
+        <button class="btn btn--hint" type="button" data-open-modal>Open it</button>
       </section>
 
       <!-- ============================= NONSENSE ============================ -->
@@ -290,20 +269,12 @@
 
         <div class="animrow">
           <div class="animdemo">
-            <div class="tile tile--unlocked" data-anim-target="unlock">
-              <span class="tile__flag" aria-hidden="true">▶</span>
-              <span class="tile__title">Snel Enthousiast</span>
-              <span class="tile__pts">not played</span>
-            </div>
+            <!--@tile state="unlocked" title="Human Bingo" data-anim-target="unlock"-->
             <button class="btn btn--what" type="button" data-replay="unlock">tile unlocks</button>
           </div>
 
           <div class="animdemo">
-            <div class="tile tile--correct" data-anim-target="correct">
-              <span class="tile__flag" aria-hidden="true">✓</span>
-              <span class="tile__title">Longest Yarn</span>
-              <span class="tile__pts">+10 pts</span>
-            </div>
+            <!--@tile state="correct" title="Longest Yarn" points="10" data-anim-target="correct"-->
             <button class="btn btn--what" type="button" data-replay="correct">answer is correct</button>
           </div>
 
@@ -318,6 +289,14 @@
 
       <footer class="kit-foot">
         <p class="aside">That is the whole kit. If a page needs something that is not on this page, the page is wrong or the kit is incomplete — say which.</p>
+        <p class="aside">
+          The scorebar, the tiles, the heroes, the fields and the modal above are rendered by
+          <code>src/render.js</code> — the same calls the site makes, so they cannot be out of date.
+          The window frame, the starburst, the speech bubble, the stamp, the marquee, the status bar
+          and the three standing colours are written by hand here, because no page builds them yet.
+          <strong>That list is the design the site still owes.</strong> Building one means moving its
+          markup into <code>render.js</code> and leaving a marker here in the same change.
+        </p>
       </footer>
     </div>
 
@@ -326,21 +305,18 @@
       <span class="mono">✦ BEST VIEWED AT 800×600 ✦</span>
     </div>
 
-    <!-- ============ MODAL — demo copy; src/render.js owns the real one ============ -->
-    <!-- On a game page the server renders this open, with no `hidden`, and both actions are
-         real links: "What?" to the rules, the other back to the same page without `?hint=`. -->
-    <div class="modal" id="hint-modal" hidden>
-      <div class="modal__box" role="alertdialog" aria-labelledby="kit-modal-title">
-        <p class="modal__title" id="kit-modal-title">oh yeah.</p>
-        <p class="modal__body">that hint cost you <strong>3 points</strong>.</p>
-        <div class="modal__actions">
-          <button class="btn btn--what" type="button" data-close-modal>What?</button>
-          <button class="btn btn--primary" type="button" data-close-modal>fine</button>
-        </div>
-      </div>
-    </div>
+    <!-- ================================ MODAL ================================= -->
+    <!-- The real one, from hintModal() in src/render.js. A game page renders it already open,
+         because the hint has been revealed and charged by the time it appears. Only this page
+         wants it shut on arrival, so kit.js hides it and the button in §10 opens it. -->
+    <!--@hintmodal notice="paid" cost="3"-->
 
-    <script src="/js/app.js"></script>
-    <script src="/js/kit.js"></script>
+    <!-- Both as modules, exactly as layout() loads app.js. As classic scripts they shared one
+         global lexical scope and both declare a top-level `const modal`, so kit.js — the second
+         one — died with "Identifier 'modal' has already been declared" before it ran a line.
+         app.js was fine, which is why this was invisible: the modal still closed. Nothing could
+         OPEN it, and no animation could be replayed, because both live in kit.js. -->
+    <script type="module" src="/js/app.js"></script>
+    <script type="module" src="/js/kit.js"></script>
   </body>
 </html>

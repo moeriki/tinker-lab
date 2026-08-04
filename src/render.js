@@ -109,6 +109,106 @@ export function hintModal({ notice, cost, backHref }) {
 }
 
 /**
+ * A dashboard tile, in one of the five states the style kit ships.
+ *
+ * This function is the ONLY markup for a tile. `/kit` does not keep a copy -- it calls this, with
+ * demo arguments, through the injection in `src/kit.js`. That is the rule settled in #32: a
+ * component's markup exists once, so a change to it cannot land in one place and not the other.
+ *
+ * The badge and the pts copy come from the kit, which had them from the start while the dashboard
+ * was rendering neither -- `.tile__lock`, `.tile__flag` and `.tile--wrong .tile__flag` were all
+ * styled in `app.css` and emitted by nothing. A locked tile says "go find it" rather than "0 pts",
+ * because zero is what you scored and this is a tile you have not met.
+ */
+const TILE_BADGE = {
+  locked: '<span class="tile__lock" aria-hidden="true">🔒</span>',
+  unlocked: '<span class="tile__flag" aria-hidden="true">▶</span>',
+  correct: '<span class="tile__flag" aria-hidden="true">✓</span>',
+  unknown: '<span class="tile__flag" aria-hidden="true">?</span>',
+  wrong: '<span class="tile__flag" aria-hidden="true">✗</span>',
+};
+
+const TILE_PTS = {
+  locked: () => 'go find it',
+  unlocked: () => 'not played',
+  correct: (points) => `+${points} pts`,
+  unknown: () => 'answered · counts at the end',
+  wrong: (points) => `+${points} pts`,
+};
+
+/**
+ * Extra HTML attributes from an object, every value escaped on the way out. Taking an object
+ * rather than a raw string is what stops a caller opening a hole by interpolating content into an
+ * attribute; `true` renders a bare boolean attribute, `false`/null/undefined render nothing.
+ */
+function attrsHtml(attrs = {}) {
+  return Object.entries(attrs)
+    .map(([key, value]) => {
+      if (value === false || value === null || value === undefined) return '';
+      return value === true ? ` ${key}` : ` ${key}="${escape(String(value))}"`;
+    })
+    .join('');
+}
+
+export function tile({ state = 'locked', title = '', points = 0, href = '', attrs = {} }) {
+  const known = TILE_BADGE[state] ? state : 'locked';
+  const inner = `${TILE_BADGE[known]}
+      <span class="tile__title">${escape(known === 'locked' ? '???' : title)}</span>
+      <span class="tile__pts">${escape(TILE_PTS[known](Number(points) || 0))}</span>`;
+
+  // A locked tile is not a link: there is nowhere to go until it is found.
+  return known === 'locked'
+    ? `<span class="tile tile--locked"${attrsHtml(attrs)}>${inner}</span>`
+    : `<a class="tile tile--${known}" href="${escape(href)}"${attrsHtml(attrs)}>${inner}</a>`;
+}
+
+/**
+ * The top half of a game page: either words or a picture, never both.
+ *
+ * `.hero__body` carries the font, the size and the line-height. The game page used to drop its
+ * text straight into `.hero`, which meant every hero on the site was rendering in the inherited
+ * font rather than the designed one -- invisible in code, obvious on a phone.
+ *
+ * The kicker is optional because no game has a number to put in one yet; the kit passes one to
+ * show the slot works. `anim` is a class from the closed vocabulary in `src/moments.js`.
+ */
+export function hero({ text = '', kicker = '', flavour = 'text', anim = '' }) {
+  const inside =
+    flavour === 'asset'
+      ? `<div class="hero__asset" role="img" aria-label="${escape(text)}">
+        <span class="hero__assetnote">${escape(text)}</span>
+      </div>`
+      : `<p class="hero__body">${escape(text)}</p>`;
+
+  return `<div class="hero hero--${escape(flavour)}${anim}">
+      ${kicker ? `<p class="hero__kicker">${escape(kicker)}</p>\n      ` : ''}${inside}
+    </div>`;
+}
+
+/**
+ * A labelled form control.
+ *
+ * The label WRAPS the control rather than pointing at it with `for`. Both are valid HTML and the
+ * kit demonstrated the other one, but this shape has no id to keep in sync -- which is the single
+ * way this markup can silently break, and it breaks by labelling the wrong box.
+ *
+ * `attrs` is an object, not a string, so everything it carries is escaped on the way out and a
+ * caller cannot accidentally open a hole by interpolating content into an attribute.
+ */
+export function field({ label, name, type = 'text', value = '', rows = 0, attrs = {} }) {
+  const extra = attrsHtml(attrs);
+
+  const control = rows
+    ? `<textarea class="input input--area" name="${escape(name)}" rows="${Number(rows)}"${extra}>${escape(value)}</textarea>`
+    : `<input class="input${type === 'file' ? ' input--file' : ''}" name="${escape(name)}" type="${escape(type)}"${extra} value="${escape(value)}">`;
+
+  return `<label class="field">
+      <span class="field__label">${escape(label)}</span>
+      ${control}
+    </label>`;
+}
+
+/**
  * An honest placeholder. It names the ticket that owns the design, so nobody mistakes a stub for
  * a decision that was already made.
  */

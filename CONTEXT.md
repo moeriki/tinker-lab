@@ -109,7 +109,11 @@ night can work one out. It declares no judging: there is nothing to judge.
 
 A game as it appears on the dashboard grid. Five designs: locked, unlocked, answered-correctly,
 answered-incorrectly, and **unknown** (submitted, but not judgeable until game end). A tile shows
-the game title and the points scored on it.
+the game title, a corner badge for its state, and a line about points — which is a *number* only
+once there is one to report: a locked tile says `go find it` and an unlocked, unplayed one says
+`not played`, because zero is what you scored, not what an unmet tile is worth.
+
+Built by `tile()` in `src/render.js`, which is the only markup for one (see **Component**).
 
 A `trophy` tile has no submissions to read, so the **ledger** is what turns it green: awarded
 means correct. A team that was never handed it stays *unlocked* at zero — never *wrong*, since
@@ -394,7 +398,26 @@ Admin, all behind one cookie gate ([ADR-0005](docs/adr/0005-admin-is-a-one-time-
 | GET | `/admin/codes` | slug → target inventory with scan counts, for debugging a code someone says is broken |
 
 Static: `/css/*`, `/js/*`, `/fonts/*`, `/img/*` from `public/`; `/uploads/*` from `$DATA_DIR`;
-`/kit` is the style kit.
+`/kit` is the style kit — served from `public/kit.html`, with the real components injected into it
+(see **Component** below).
+
+## Component
+
+A piece of markup the design system ships: a tile, a hero, a form field, the scorebar, the hint
+modal. The styles are shared by construction — `public/css/app.css` is linked by every page and by
+`/kit`, so appearance cannot drift. The markup is what had to be settled.
+
+> **A component's markup exists in exactly one place** ([ADR-0013](docs/adr/0013-a-component-has-one-markup.md)).
+
+Where the app renders a component, that place is a function in `src/render.js`, and `/kit` calls it
+through a marker comment — `@tile state="unlocked" title="Longest Yarn"` — which `src/kit.js` swaps
+for the real output. The kit holds no copy, so it cannot show something the site does not do.
+
+Where the app does **not** render it yet — the window frame, the starburst, the speech bubble, the
+stamp, the marquee, the status bar, the three `.standing--*` colours — the markup is hand-written in
+`kit.html` and that page is its only home. Those sections are the design the site still owes.
+Building one into a page means **moving** its markup into `render.js` and leaving a marker behind in
+the same change, so a second copy is never created.
 
 `GET /healthz` is the container health check and the pre-party liveness probe — JSON, no cookie
 required, `503` if the database is unreachable. It reports nothing about teams or scores, being

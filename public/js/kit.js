@@ -5,6 +5,11 @@
 const modal = document.getElementById('hint-modal');
 
 if (modal) {
+  // The modal on this page is the REAL one, injected from hintModal() (see src/kit.js), and the
+  // server renders it already open because on a game page the hint has been revealed and charged
+  // by the time it appears. This page is the one place that wants it shut on arrival.
+  modal.hidden = true;
+
   for (const button of document.querySelectorAll('[data-open-modal]')) {
     button.addEventListener('click', () => {
       modal.hidden = false;
