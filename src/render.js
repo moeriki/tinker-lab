@@ -163,24 +163,58 @@ export function tile({ state = 'locked', title = '', points = 0, href = '', attr
 }
 
 /**
+/**
  * The top half of a game page: either words or a picture, never both.
  *
  * `.hero__body` carries the font, the size and the line-height. The game page used to drop its
  * text straight into `.hero`, which meant every hero on the site was rendering in the inherited
  * font rather than the designed one -- invisible in code, obvious on a phone.
  *
+ * Text splits on blank lines into paragraphs. Without that a two-beat hero collapses into one
+ * run-on line, because nothing in the CSS preserves newlines.
+ *
+ * The asset flavour has two states. With a real file behind it the frame holds the picture; with
+ * none it holds the kit's placeholder, which is what `/kit` renders and what a game whose
+ * photograph has not been shot yet renders too -- never a broken image, and never a refusal to
+ * boot. Boot has already shouted about the missing file (see content.js).
+ *
+ * A game that needs a picture AND a sentence puts the sentence in its `blurb`, which the game
+ * page renders underneath this frame rather than inside it.
+ *
  * The kicker is optional because no game has a number to put in one yet; the kit passes one to
  * show the slot works. `anim` is a class from the closed vocabulary in `src/moments.js`.
  */
-export function hero({ text = '', kicker = '', flavour = 'text', anim = '' }) {
-  const inside =
-    flavour === 'asset'
-      ? `<div class="hero__asset" role="img" aria-label="${escape(text)}">
-        <span class="hero__assetnote">${escape(text)}</span>
-      </div>`
-      : `<p class="hero__body">${escape(text)}</p>`;
+export function hero({
+  text = '',
+  kicker = '',
+  flavour = '',
+  anim = '',
+  asset = '',
+  alt = '',
+  assetExists = true,
+}) {
+  // A path implies the flavour, so content says `hero: { asset, alt }` and nothing else. The kit
+  // passes `flavour` on its own, with no file behind it, to demonstrate the empty frame.
+  const known = flavour || (asset ? 'asset' : 'text');
 
-  return `<div class="hero hero--${escape(flavour)}${anim}">
+  let inside;
+  if (known === 'asset') {
+    inside =
+      asset && assetExists
+        ? `<img class="hero__img" src="${escape(asset)}" alt="${escape(alt || text)}">`
+        : `<div class="hero__asset" role="img" aria-label="${escape(alt || text || 'placeholder asset')}">
+        <span class="hero__assetnote">${escape(text || '[ asset goes here ]')}</span>
+      </div>`;
+  } else {
+    inside = String(text)
+      .split(/\n\s*\n/)
+      .map((part) => part.trim())
+      .filter(Boolean)
+      .map((part) => `<p class="hero__body">${escape(part)}</p>`)
+      .join('\n      ');
+  }
+
+  return `<div class="hero hero--${escape(known)}${anim}">
       ${kicker ? `<p class="hero__kicker">${escape(kicker)}</p>\n      ` : ''}${inside}
     </div>`;
 }

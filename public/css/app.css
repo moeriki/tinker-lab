@@ -1,4 +1,4 @@
-/* ============================================================================
+/* =====================================================================
    app.css — the design system. Every page links exactly this file.
 
    Pages are assembled from the named classes below. If a page needs something
@@ -473,6 +473,22 @@ code {
   width: 100%;
   aspect-ratio: 16 / 9;
   border: 0;
+}
+
+/* the same asset frame, once a real picture has arrived to fill it */
+.hero__img {
+  display: block;
+  width: 100%;
+  border: var(--edge-2) solid var(--c-ink);
+}
+
+/* Words underneath an asset hero. The hero itself is words OR a picture, never both, so a game
+   that needs a picture AND a sentence says the sentence out here. */
+.blurb {
+  margin: 0.7rem 0 0;
+  font-family: var(--font-body);
+  font-size: 1.15rem;
+  line-height: 1.35;
 }
 
 /* --------------------------------- window ---------------------------------- */

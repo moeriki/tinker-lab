@@ -1,16 +1,38 @@
-# One file per game, default-exporting the game object.
+# One file per game, default-exporting the game object. The database never learns what games
+# exist -- it refers to them by bare `game_id` with no foreign key (ADR-0001), so RENAMING A
+# GAME'S `id` ORPHANS EVERY ROW ALREADY WRITTEN AGAINST IT.
 #
-# answer -- hero + form, one editable submission
-#   { id, title, kind: 'answer', points, hero: { text } | { asset },
-#     form: { type: 'text', label, placeholder }, hints: [],
-#     check(value, ctx) {},              // judged immediately; return true/false/points
-#     resolve(submissions, ctx) {} }     // OR judged at game end across every team
+# Shared by every kind:
 #
-# tally -- hero + form, many submissions (one point per photo)
-#   { id, title, kind: 'tally', points, hero, form: { type: 'photo' }, hints: [] }
+#   id, title      identity, and the words on the tile
+#   hero           the top half of the page: { text } OR { asset, alt }, never both
+#   blurb          a sentence UNDER the hero, for the one case the kit forbids inside it --
+#                  a picture that still needs words
+#   starter        true if the tile is open for every team from onboarding, with no code. Only
+#                  where learning about it late is unrecoverable (#7). A hunt may not be one.
+#   hints          revealed one at a time, priced by content/economy.js. The first is free.
+#   unfinished()   returns the reasons this game is not finished; boot warns loudly for each.
+#                  Same bargain as `pending: true` in codes.js -- the hole is loud in the log
+#                  and honest on the page, and never stops the site coming up.
 #
-# hunt -- ordered steps, no form, auto-awarded on the final step
-#   { id, title, kind: 'hunt', points,
-#     steps: [{ hero: { text: 'Nothing happens?' }, hints: [], webhook: 'hallway-lights' }] }
+# answer -- hero + form, ONE submission per team, editable until game end
+#   { id, title, kind: 'answer', hero, form: { placeholder, inputmode }, hints: [],
+#     check(value, ctx) {},           // judged on submit; return true/false/points
+#     resolve(submissions, ctx) {} }  // OR judged at game end across every team, returning
+#                                     // [{ teamId, submissionId, points, verdict, reason }]
+#   It spends its share of the tile budget inside check/resolve, where boot cannot check the
+#   arithmetic -- so the ticket that writes the game owns it. See yarn.js.
 #
-# Populated once the roster locks -- see the "Lock the game roster" ticket.
+# tally -- hero + form, MANY submissions (one point per photo)
+#   { id, title, kind: 'tally', points, hero, photo: true, judging: 'trust' | 'manual', hints: [] }
+#
+# hunt -- ordered steps, no form. Banks PER STEP as each is reached, so the points live on the
+# step and a game-level `points` is a boot error.
+#   { id, title, kind: 'hunt',
+#     steps: [{ hero: { text }, hints: [], webhook: 'hallway-lights', points: 2 }] }
+#   Every step needs exactly one slug in content/codes.js, or boot fails.
+#
+# trophy -- a physical object in the house: hero and blurb, no form, no steps, no judging. The
+# host awards it by hand at /admin/game/:id, so it must declare `points` -- the award button has
+# to print a number and nothing later in the night can work one out. See teddy.js.
+#   { id, title, kind: 'trophy', points, hero, blurb }

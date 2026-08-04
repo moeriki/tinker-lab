@@ -2,12 +2,12 @@
 // boot. The database never learns what games exist -- see
 // docs/adr/0001-game-content-lives-on-disk.md.
 
-import { readdirSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import economy from '../content/economy.js';
-import { CONTENT_DIR } from './config.js';
+import { CONTENT_DIR, PUBLIC_DIR } from './config.js';
 import { all } from './db.js';
 import { fuzzyEquals } from './matching.js';
 
@@ -49,6 +49,14 @@ export function judgingMode(game) {
 
 /** Whether the game's form carries a file input. */
 export const takesPhoto = (game) => Boolean(game.photo);
+
+/**
+ * Hero assets that content names but `public/` does not have, resolved once at boot rather than
+ * stat-ing the disk on every page render. A game page asks this to decide between an `<img>` and
+ * the style kit's placeholder frame.
+ */
+const missingAssets = new Set();
+export const assetIsPresent = (asset) => Boolean(asset) && !missingAssets.has(asset);
 
 async function loadDirectory(name) {
   const dir = join(CONTENT_DIR, name);
@@ -211,9 +219,33 @@ function teamNameProblems() {
 function validate() {
   const problems = [];
 
+  // Games that admit, in their own words, that something in them is still a hole -- the day-of
+  // numbers in `yarn`, most obviously. Same bargain as `pending: true` on a code: the site comes
+  // up, the page degrades honestly, and the log will not let you forget.
+  const unfinished = [];
+
+  missingAssets.clear();
+
   for (const game of games.values()) {
     if (!GAME_KINDS.includes(game.kind)) {
       problems.push(`game "${game.id}" has unknown kind "${game.kind}"`);
+    }
+
+    for (const hole of game.unfinished?.() ?? []) unfinished.push(`${game.id}: ${hole}`);
+
+    // A hero asset is a path under public/, served by the /img/ static route. An absent file is a
+    // warning and not a boot error, so a photograph can arrive after the code that shows it --
+    // but a path that could never resolve is a typo, and stays fatal.
+    const asset = game.hero?.asset;
+    if (asset) {
+      if (!asset.startsWith('/')) {
+        problems.push(`game "${game.id}" has hero asset "${asset}"; it must be an absolute path`);
+      } else if (!existsSync(join(PUBLIC_DIR, asset.slice(1)))) {
+        missingAssets.add(asset);
+      }
+    }
+    if (game.hero?.text && asset) {
+      problems.push(`game "${game.id}" has a hero with both words and a picture; use \`blurb\` for the words`);
     }
     if (game.kind === 'hunt' && !game.steps?.length) {
       problems.push(`hunt "${game.id}" has no steps`);
@@ -331,6 +363,22 @@ function validate() {
       `\n!! STALE \`pending: true\` in content/codes.js -- the content landed, the flag did not:` +
         `\n!!   ${stale.join(', ')}` +
         `\n!! Delete the flag, or the sheet generator will keep refusing to print.\n`,
+    );
+  }
+
+  if (unfinished.length) {
+    console.warn(
+      `\n!! GAME CONTENT IS STILL UNFINISHED:` +
+        `\n!!   ${unfinished.join('\n!!   ')}` +
+        `\n!! The night will run, but these games are not playing at full strength.\n`,
+    );
+  }
+
+  if (missingAssets.size) {
+    console.warn(
+      `\n!! HERO ASSET(S) MISSING FROM public/:` +
+        `\n!!   ${[...missingAssets].join(', ')}` +
+        `\n!! Those pages show the placeholder frame instead of a picture.\n`,
     );
   }
 

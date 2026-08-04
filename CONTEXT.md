@@ -105,6 +105,33 @@ accident. A trophy is a physical object in the house — Mr Bean's Teddy in his 
 must declare `points`, since the admin button has to print a number and nothing later in the
 night can work one out. It declares no judging: there is nothing to judge.
 
+### Hero, and blurb
+
+The top half of a game page. Two flavours, and the style kit's rule is **words or a picture,
+never both**: `hero: { text }` or `hero: { asset, alt }`. Declaring both is a boot error.
+
+A game that needs a picture *and* a sentence puts the sentence in its **blurb**, which renders
+underneath the frame rather than inside it. Teddy is the case that forced it: a photograph, then
+the one rule that matters.
+
+Hero text splits on blank lines into paragraphs — nothing in the CSS preserves newlines, so
+without that a two-beat hero collapses into one run-on line.
+
+An asset is a path under `public/`, served by the existing `/img/` static route. A file that is
+**missing** is a loud boot warning and the style kit's placeholder frame on the page — never a
+broken image, and never a refusal to boot. A path that could never resolve is a typo, and stays
+fatal.
+
+### Unfinished content
+
+A game may export `unfinished()`, returning the reasons it is not done. Boot warns loudly for
+each. It is the same bargain `pending: true` strikes for a code whose game is unwritten: the hole
+is loud in the log and honest on the page, and it never stops the site coming up.
+
+Longest yarn uses it for the two numbers that cannot exist before the day — the true length of
+the longest yarn, and the tolerance band around it. Until they land, `resolve()` still pays the
+floor and the ranking, and simply awards no jackpot.
+
 ### Tile
 
 A game as it appears on the dashboard grid. Five designs: locked, unlocked, answered-correctly,

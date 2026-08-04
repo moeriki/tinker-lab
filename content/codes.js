@@ -60,7 +60,6 @@ export default {
     game: 'teddy',
     label: 'Teddy',
     where: "On Teddy's timer lockbox -- deliberately the most visible object in the house.",
-    pending: true,
   },
 
   // --- Gags: no game, no points -- #17..#19 -----------------------------------------------------

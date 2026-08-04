@@ -13,6 +13,7 @@ import {
 } from './config.js';
 import { all, get, run, transact } from './db.js';
 import {
+  assetIsPresent,
   getGame,
   getPage,
   getCode,
@@ -511,6 +512,14 @@ function showDashboard({ req, res }) {
 }
 
 /** Honest, short, and never a dead end -- the form is always still underneath. */
+/**
+ * A game's own words in its empty input. It matters more than it looks on the yarn tile, where
+ * the whole submission is a bare number and nothing else on the page says which unit -- pair it
+ * with `form.inputmode` so a phone opens the right keyboard.
+ */
+const placeholderOf = (game) =>
+  game.form?.placeholder ? `placeholder="${escape(game.form.placeholder)}"` : '';
+
 const SUBMIT_PROBLEMS = {
   toobig: 'That photo was too big to send. Take a new one and try again.',
   notaphoto: "That file wasn't a photo — at least, not one we know how to read.",
@@ -574,16 +583,20 @@ function showGame({ req, res, params, url }) {
   // price to name -- every other visit to this page carries no modal at all.
   const notice = hintNoticeOf(url);
 
-  const heroBlock = hero({
-    text: (game.kind === 'hunt' ? getStep(game, step)?.hero?.text : game.hero?.text) ?? '',
-    anim: heroAnimation(moment),
-  });
+  // A hunt's hero belongs to the step it is on; every other kind has one of its own.
+  const source = game.kind === 'hunt' ? getStep(game, step)?.hero : game.hero;
+
+  const heroBlock =
+    hero({ ...source, anim: heroAnimation(moment), assetExists: assetIsPresent(source?.asset) }) +
+    // Words underneath the frame, for the one case the kit forbids inside it: a picture that
+    // still needs a sentence. Teddy is a photograph plus the only rule that matters.
+    (game.blurb ? `<p class="blurb">${escape(game.blurb)}</p>` : '');
 
   // What sits between the banners and the hints. A hunt says which step it is on; a trophy is the
-  // hero and nothing else -- no form, and no explanation of how it is won, because the object is
-  // in the room and the host decides who ends the night holding it. Everything else takes an
-  // answer. The last branch asks `takesForm` rather than naming the three kinds, so a fifth
-  // formless kind cannot quietly inherit a form.
+  // hero and its blurb and nothing else -- no form, because the object is in the room and the
+  // host decides who ends the night holding it. Everything else takes an answer. The last branch
+  // asks `takesForm` rather than naming the three kinds, so a fifth formless kind cannot quietly
+  // inherit a form.
   let stage;
   if (game.kind === 'hunt') {
     stage = `<p class="statusline">Step ${step} of ${stepCount(game)} — reached ${reached}</p>
@@ -604,7 +617,9 @@ function showGame({ req, res, params, url }) {
                       </label>`
                    : ''
                }
-               <input class="input" name="body" ${wantsPhoto ? 'placeholder="say something about it (optional)"' : ''}
+               <input class="input" name="body"
+                      ${wantsPhoto ? 'placeholder="say something about it (optional)"' : placeholderOf(game)}
+                      ${game.form?.inputmode ? `inputmode="${escape(game.form.inputmode)}"` : ''}
                       value="${escape(game.kind === 'tally' ? '' : mine.at(-1)?.body ?? '')}">
                <button class="btn btn--primary" ${gameIsOver() ? 'disabled' : ''}>Submit</button>
              </form>`;
@@ -619,7 +634,6 @@ function showGame({ req, res, params, url }) {
         ? hintModal({ notice, cost: hintCost(), backHref: gamePath(game.id, { step }) })
         : '',
       body: `
-        <p class="banner"><strong>Composition not designed yet.</strong> Owned by: the per-game tickets.</p>
         ${problem ? `<p class="banner banner--bad">${escape(problem)}</p>` : ''}
         ${arrival ? `<p class="banner">${escape(arrival)}</p>` : ''}
         ${submitted ? `<p class="banner${verdictAnimation(moment)}">${escape(submitted)}</p>` : ''}
