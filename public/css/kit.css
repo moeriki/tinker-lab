@@ -1,0 +1,182 @@
+/* ============================================================================
+   kit.css — documentation chrome for the /kit page ONLY.
+
+   Nothing in here is a primitive. No other page links this file. If a rule
+   here starts being useful on a real page, it belongs in app.css instead.
+   ========================================================================== */
+
+.kit-head {
+  padding: 1.5rem 0 0.5rem;
+  text-align: center;
+}
+
+.kit-foot {
+  margin: 2rem 0 1rem;
+  text-align: center;
+}
+
+.kit-foot .aside {
+  display: inline-block;
+  background: var(--c-paper);
+  border: var(--edge-1) solid var(--c-ink);
+  box-shadow: var(--shadow-1);
+  padding: 0.5rem 0.7rem;
+  font-size: 0.9rem;
+}
+
+/* ------------------------------- kit sections ------------------------------ */
+
+.sect {
+  background: var(--c-paper);
+  border: var(--edge-2) solid var(--c-ink);
+  box-shadow: var(--shadow-2);
+  border-radius: var(--radius);
+  padding: 1rem 0.9rem 1.2rem;
+  margin: 1.6rem 0;
+}
+
+/* every other one leans the other way, like a pile of printouts */
+.sect:nth-of-type(odd) { transform: rotate(-0.4deg); }
+.sect:nth-of-type(even) { transform: rotate(0.35deg); }
+
+.sect__h {
+  margin: 0 0 0.4rem;
+  font-family: var(--font-shout);
+  font-size: 1.15rem;
+  text-transform: uppercase;
+  background: var(--c-yellow);
+  border: var(--edge-1) solid var(--c-ink);
+  box-shadow: var(--shadow-1);
+  padding: 0.3rem 0.5rem;
+}
+
+.sect__note {
+  margin: 0.5rem 0 1rem;
+  font-size: 0.92rem;
+}
+
+/* -------------------------------- swatches --------------------------------- */
+
+.swatches {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(7.5rem, 1fr));
+  gap: 0.5rem;
+  max-width: 100%;
+}
+
+.swatch {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+}
+
+.swatch__chip {
+  width: 1.8rem;
+  height: 1.8rem;
+  flex: none;
+  background: var(--sw);
+  border: var(--edge-1) solid var(--c-ink);
+  box-shadow: var(--shadow-1);
+}
+
+.gradbar {
+  height: 3rem;
+  margin-top: 1rem;
+  background: var(--grad-party);
+  border: var(--edge-2) solid var(--c-ink);
+  box-shadow: var(--shadow-1);
+}
+
+/* ------------------------------ type specimens ----------------------------- */
+
+.typespec {
+  border-bottom: 1px dashed var(--c-ink);
+  padding: 0.6rem 0;
+}
+
+.typespec:last-child { border-bottom: 0; }
+
+.type-demo {
+  margin: 0 0 0.3rem;
+  font-size: 1.15rem;
+}
+
+.display.type-demo {
+  font-size: 1.5rem;
+  color: var(--c-magenta);
+  text-shadow: 3px 3px 0 var(--c-ink);
+  transform: none;
+}
+
+/* ------------------------------- edge specimens ---------------------------- */
+
+.edgerow {
+  display: flex;
+  gap: 1.1rem;
+  flex-wrap: wrap;
+}
+
+.edgebox {
+  flex: 1 1 6rem;
+  min-height: 4.5rem;
+  display: grid;
+  place-items: center;
+  background: var(--c-cyan);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+}
+
+.edgebox--1 { border: var(--edge-1) solid var(--c-ink); box-shadow: var(--shadow-1); }
+.edgebox--2 { border: var(--edge-2) solid var(--c-ink); box-shadow: var(--shadow-2); }
+.edgebox--3 { border: var(--edge-3) solid var(--c-ink); box-shadow: var(--shadow-3); }
+
+/* --------------------------- decoration specimens -------------------------- */
+
+.nonsense {
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+  align-items: flex-start;
+}
+
+.nonsense .starburst,
+.nonsense .stamp { align-self: center; }
+
+/* --------------------------- animation specimens --------------------------- */
+
+.animrow {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: 0.9rem;
+  max-width: 100%;
+}
+
+.animdemo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.animdemo .btn {
+  font-size: 0.7rem;
+  padding: 0.4rem 0.5rem;
+  min-height: 2.2rem;
+}
+
+.pagedemo {
+  min-height: 6.5rem;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  padding: 0.5rem;
+  background: var(--grad-party);
+  border: var(--edge-2) solid var(--c-ink);
+  box-shadow: var(--shadow-2);
+  font-family: var(--font-shout);
+  font-size: 0.85rem;
+}

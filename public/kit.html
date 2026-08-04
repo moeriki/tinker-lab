@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>STYLE KIT — bday.moeriki.com</title>
+    <link rel="stylesheet" href="/css/app.css" />
+    <link rel="stylesheet" href="/css/kit.css" />
+  </head>
+  <body class="shell">
+    <!--
+      The style kit. Every primitive on this site, on one page.
+
+      This page is the contract: pages are assembled from the classes shown
+      here and make no new design decisions. If a page needs something that is
+      not on this page, either the page is wrong or the kit is incomplete.
+    -->
+
+    <div class="marquee">
+      <div class="marquee__track">
+        <span class="marquee__item">★ ★ ★ THIS IS NOT THE PARTY SITE ★ THIS IS THE STYLE KIT ★ EVERY BOX HERE GETS REUSED ★ NOTHING HERE IS A GAME ★ BEST VIEWED ON A PHONE, IN A KITCHEN, SLIGHTLY DRUNK ★</span>
+        <span class="marquee__item" aria-hidden="true">★ ★ ★ THIS IS NOT THE PARTY SITE ★ THIS IS THE STYLE KIT ★ EVERY BOX HERE GETS REUSED ★ NOTHING HERE IS A GAME ★ BEST VIEWED ON A PHONE, IN A KITCHEN, SLIGHTLY DRUNK ★</span>
+      </div>
+    </div>
+
+    <div class="app">
+      <header class="kit-head">
+        <h1 class="display">STYLE KIT</h1>
+        <p class="banner">▶ EVERY PIECE OF THIS WEBSITE, LAID OUT LIKE A CRIME SCENE ◀</p>
+      </header>
+
+      <!-- ============================= TOKENS ============================== -->
+      <section class="sect" id="colour">
+        <h2 class="sect__h">1. Colour tokens</h2>
+        <p class="sect__note">Lifted off the invite with an eyedropper and then made louder.</p>
+        <ul class="swatches">
+          <li class="swatch" style="--sw: var(--c-cyan)"><span class="swatch__chip"></span><code>--c-cyan</code></li>
+          <li class="swatch" style="--sw: var(--c-green)"><span class="swatch__chip"></span><code>--c-green</code></li>
+          <li class="swatch" style="--sw: var(--c-lime)"><span class="swatch__chip"></span><code>--c-lime</code></li>
+          <li class="swatch" style="--sw: var(--c-yellow)"><span class="swatch__chip"></span><code>--c-yellow</code></li>
+          <li class="swatch" style="--sw: var(--c-orange)"><span class="swatch__chip"></span><code>--c-orange</code></li>
+          <li class="swatch" style="--sw: var(--c-pink)"><span class="swatch__chip"></span><code>--c-pink</code></li>
+          <li class="swatch" style="--sw: var(--c-magenta)"><span class="swatch__chip"></span><code>--c-magenta</code></li>
+          <li class="swatch" style="--sw: var(--c-red)"><span class="swatch__chip"></span><code>--c-red</code></li>
+          <li class="swatch" style="--sw: var(--c-blue)"><span class="swatch__chip"></span><code>--c-blue</code></li>
+          <li class="swatch" style="--sw: var(--c-gray)"><span class="swatch__chip"></span><code>--c-gray</code></li>
+          <li class="swatch" style="--sw: var(--c-ink)"><span class="swatch__chip"></span><code>--c-ink</code></li>
+          <li class="swatch" style="--sw: var(--c-paper)"><span class="swatch__chip"></span><code>--c-paper</code></li>
+        </ul>
+        <div class="gradbar" aria-hidden="true"></div>
+        <p class="sect__note"><code>--grad-party</code> — the invite's whole vertical run, cyan at the top, pink at the bottom. Also <code>--grad-tile</code> (cool, for unlocked tiles and heroes) and <code>--grad-hot</code> (warm, for the score header and primary buttons).</p>
+      </section>
+
+      <section class="sect" id="type">
+        <h2 class="sect__h">2. Type</h2>
+        <p class="sect__note">Four fonts that should not be in the same room, plus a serif to do the actual reading. Self-hosted; nothing is fetched from a CDN on the night.</p>
+        <div class="typespec">
+          <p class="display type-demo">Bungee — display</p>
+          <code>--font-display</code>
+        </div>
+        <div class="typespec">
+          <p class="shout type-demo">Archivo Black — shout</p>
+          <code>--font-shout</code>
+        </div>
+        <div class="typespec">
+          <p class="type-demo">Georgia / serif — body. This is the font that has to survive four paragraphs of rules without anybody's eyes falling out.</p>
+          <code>--font-body</code>
+        </div>
+        <div class="typespec">
+          <p class="mono type-demo">Courier Prime — chrome, scores, counters</p>
+          <code>--font-mono</code>
+        </div>
+        <div class="typespec">
+          <p class="aside type-demo">Comic Neue — asides, jokes, things in brackets</p>
+          <code>--font-aside</code>
+        </div>
+      </section>
+
+      <section class="sect" id="edges">
+        <h2 class="sect__h">3. Borders &amp; shadows</h2>
+        <p class="sect__note">One border width per weight class, one shadow offset to match. No blur anywhere, ever.</p>
+        <div class="edgerow">
+          <div class="edgebox edgebox--1"><code>--edge-1</code></div>
+          <div class="edgebox edgebox--2"><code>--edge-2</code></div>
+          <div class="edgebox edgebox--3"><code>--edge-3</code></div>
+        </div>
+      </section>
+
+      <!-- =========================== SCORE HEADER ========================== -->
+      <section class="sect" id="score">
+        <h2 class="sect__h">4. Score header</h2>
+        <p class="sect__note">Sits at the top of the dashboard. The standing message is deliberately vague — never a number, never a rank.</p>
+
+        <div class="stack">
+          <div>
+            <div class="scorebar">
+              <div class="scorebar__who">
+                <span class="scorebar__label">TEAM</span>
+                <span class="scorebar__name">De Twee Pintjes</span>
+              </div>
+              <div class="scorebar__pts"><span class="scorebar__num">47</span><span class="scorebar__unit">pts</span></div>
+            </div>
+            <p class="standing standing--top">You are in the top 3 <span class="aside">(amazing)</span></p>
+          </div>
+
+          <div>
+            <div class="scorebar">
+              <div class="scorebar__who">
+                <span class="scorebar__label">TEAM</span>
+                <span class="scorebar__name">Kelly &amp; The Other One</span>
+              </div>
+              <div class="scorebar__pts"><span class="scorebar__num">22</span><span class="scorebar__unit">pts</span></div>
+            </div>
+            <p class="standing standing--mid">You have a chance for top 3 <span class="aside">(work harder)</span></p>
+          </div>
+
+          <div>
+            <div class="scorebar">
+              <div class="scorebar__who">
+                <span class="scorebar__label">TEAM</span>
+                <span class="scorebar__name">Team Naamloos</span>
+              </div>
+              <div class="scorebar__pts"><span class="scorebar__num">3</span><span class="scorebar__unit">pts</span></div>
+            </div>
+            <p class="standing standing--low">Your effort is appreciated <span class="aside">(it is not, but we are being polite)</span></p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================== TILES ============================== -->
+      <section class="sect" id="tiles">
+        <h2 class="sect__h">5. Game tiles — all five states</h2>
+        <p class="sect__note">The dashboard is nothing but a grid of these. Title, state, points. Nothing else.</p>
+
+        <div class="tiles">
+          <a class="tile tile--locked" href="#tiles">
+            <span class="tile__lock" aria-hidden="true">🔒</span>
+            <span class="tile__title">???</span>
+            <span class="tile__pts">go find it</span>
+          </a>
+
+          <a class="tile tile--unlocked" href="#tiles">
+            <span class="tile__flag" aria-hidden="true">▶</span>
+            <span class="tile__title">Longest Yarn</span>
+            <span class="tile__pts">not played</span>
+          </a>
+
+          <a class="tile tile--correct" href="#tiles">
+            <span class="tile__flag" aria-hidden="true">✓</span>
+            <span class="tile__title">Average Height</span>
+            <span class="tile__pts">+10 pts</span>
+          </a>
+
+          <a class="tile tile--unknown" href="#tiles">
+            <span class="tile__flag" aria-hidden="true">?</span>
+            <span class="tile__title">Teddy Custody</span>
+            <span class="tile__pts">answered · counts at the end</span>
+          </a>
+
+          <a class="tile tile--wrong" href="#tiles">
+            <span class="tile__flag" aria-hidden="true">✗</span>
+            <span class="tile__title">Favourite Colour</span>
+            <span class="tile__pts">+0 pts</span>
+          </a>
+
+          <a class="tile tile--locked" href="#tiles">
+            <span class="tile__lock" aria-hidden="true">🔒</span>
+            <span class="tile__title">???</span>
+            <span class="tile__pts">go find it</span>
+          </a>
+        </div>
+
+        <p class="sect__note">
+          <button class="btn btn--what" type="button" data-replay="unlock">Replay the unlock animation</button>
+        </p>
+      </section>
+
+      <!-- ============================== HERO =============================== -->
+      <section class="sect" id="hero">
+        <h2 class="sect__h">6. Hero — two flavours</h2>
+        <p class="sect__note">Top half of every game page. Either words or a picture, never both.</p>
+
+        <div class="stack">
+          <div class="hero hero--text">
+            <p class="hero__kicker">GAME 04</p>
+            <p class="hero__body">How many other people at this party have the same favourite colour as you? Guess. Be brave. Wrong answers are also answers.</p>
+          </div>
+
+          <div class="hero hero--asset">
+            <p class="hero__kicker">GAME 07</p>
+            <div class="hero__asset" role="img" aria-label="placeholder asset">
+              <span class="hero__assetnote">[ asset goes here ]</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================= WINDOW ============================== -->
+      <section class="sect" id="window">
+        <h2 class="sect__h">7. The window frame</h2>
+        <p class="sect__note">Straight off the invite. Used for anything that wants to feel like a document: the rules, the results, the handoff.</p>
+
+        <div class="win">
+          <div class="win__bar">
+            <span class="win__icon" aria-hidden="true">📄</span>
+            <span class="win__title">de_regels.txt</span>
+            <span class="win__btns">
+              <button class="win__btn" type="button" aria-label="minimise">_</button>
+              <button class="win__btn" type="button" aria-label="maximise">□</button>
+              <button class="win__btn win__btn--x" type="button" aria-label="close">×</button>
+            </span>
+          </div>
+          <div class="win__body">
+            <ol class="rules">
+              <li>Have fun.</li>
+              <li>Be nice.</li>
+              <li>The bedroom is off limits. <span class="aside">(this one is real)</span></li>
+              <li>There is no rule 4, this box just looked empty.</li>
+            </ol>
+            <p class="statusline mono">4 rule(s) · 1 of them enforced</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================= BUTTONS ============================= -->
+      <section class="sect" id="buttons">
+        <h2 class="sect__h">8. Buttons</h2>
+        <p class="sect__note">Four jobs, four looks. Everything is thumb-sized because everyone is holding a drink.</p>
+        <div class="stack">
+          <div class="btnrow">
+            <button class="btn btn--primary" type="button">SUBMIT ANSWER</button>
+            <button class="btn btn--hint" type="button" data-open-modal>Hint?</button>
+            <button class="btn btn--close" type="button">✕ back to dashboard</button>
+            <button class="btn btn--what" type="button">What?</button>
+          </div>
+          <div class="btnrow">
+            <button class="btn btn--primary" type="button" disabled>ALREADY ANSWERED</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================== FORMS ============================== -->
+      <section class="sect" id="forms">
+        <h2 class="sect__h">9. Form fields</h2>
+        <p class="sect__note">Forms POST and redirect. No client-side validation theatre.</p>
+        <div class="field">
+          <label class="field__label" for="k-name">YOUR TEAM NAME</label>
+          <input class="input" id="k-name" type="text" value="De Twee Pintjes" />
+        </div>
+        <div class="field">
+          <label class="field__label" for="k-answer">YOUR ANSWER</label>
+          <input class="input" id="k-answer" type="text" placeholder="type something, anything" />
+        </div>
+        <div class="field">
+          <label class="field__label" for="k-long">EXPLAIN YOURSELF</label>
+          <textarea class="input input--area" id="k-long" rows="3" placeholder="optional, nobody will read it"></textarea>
+        </div>
+        <div class="field">
+          <label class="field__label" for="k-photo">PROOF</label>
+          <input class="input input--file" id="k-photo" type="file" accept="image/*" />
+        </div>
+      </section>
+
+      <!-- ============================== MODAL ============================== -->
+      <section class="sect" id="modal">
+        <h2 class="sect__h">10. Modal</h2>
+        <p class="sect__note">Fires exactly once per team, the first time anybody touches a hint.</p>
+        <button class="btn btn--hint" type="button" data-open-modal>Open the hint modal</button>
+      </section>
+
+      <!-- ============================= NONSENSE ============================ -->
+      <section class="sect" id="nonsense">
+        <h2 class="sect__h">11. Structural nonsense</h2>
+        <p class="sect__note">Load-bearing. Do not remove.</p>
+
+        <div class="nonsense">
+          <div class="starburst"><span class="starburst__top">100% REAL</span><span class="starburst__big">POINTS</span><span class="starburst__fine">*points subject to availability</span></div>
+          <div class="bubble"><p>"i did not consent to this scoring system but i DID scan the code, so please give me my points."</p></div>
+          <p class="stamp">R.S.V.P. OR ELSE</p>
+          <p>Some words are <span class="mark">highlighted like this</span> because they matter more than the other words.</p>
+          <p class="blink">NEW!!</p>
+          <p class="aside">↑ that is a real <code>blink</code>, implemented in CSS because the tag was taken away from us</p>
+        </div>
+      </section>
+
+      <!-- ============================ ANIMATIONS =========================== -->
+      <section class="sect" id="anim">
+        <h2 class="sect__h">12. Animations</h2>
+        <p class="sect__note">Three moments. Everything else stays still.</p>
+
+        <div class="animrow">
+          <div class="animdemo">
+            <div class="tile tile--unlocked" data-anim-target="unlock">
+              <span class="tile__flag" aria-hidden="true">▶</span>
+              <span class="tile__title">Snel Enthousiast</span>
+              <span class="tile__pts">not played</span>
+            </div>
+            <button class="btn btn--what" type="button" data-replay="unlock">tile unlocks</button>
+          </div>
+
+          <div class="animdemo">
+            <div class="tile tile--correct" data-anim-target="correct">
+              <span class="tile__flag" aria-hidden="true">✓</span>
+              <span class="tile__title">Longest Yarn</span>
+              <span class="tile__pts">+10 pts</span>
+            </div>
+            <button class="btn btn--what" type="button" data-replay="correct">answer is correct</button>
+          </div>
+
+          <div class="animdemo">
+            <div class="pagedemo" data-anim-target="page">
+              <span>a whole page arriving</span>
+            </div>
+            <button class="btn btn--what" type="button" data-replay="page">page transition</button>
+          </div>
+        </div>
+      </section>
+
+      <footer class="kit-foot">
+        <p class="aside">That is the whole kit. If a page needs something that is not on this page, the page is wrong or the kit is incomplete — say which.</p>
+      </footer>
+    </div>
+
+    <div class="statusbar">
+      <span class="mono">Made in MS Paint™ (spiritually)</span>
+      <span class="mono">✦ BEST VIEWED AT 800×600 ✦</span>
+    </div>
+
+    <!-- ===================== MODAL (hidden by default) ==================== -->
+    <div class="modal" id="hint-modal" hidden>
+      <div class="modal__box">
+        <p class="modal__title">oh yeah.</p>
+        <p class="modal__body">a hint costs you <strong>3 points</strong>.</p>
+        <div class="modal__actions">
+          <button class="btn btn--what" type="button" data-close-modal>What?</button>
+          <button class="btn btn--primary" type="button" data-close-modal>fine, show me</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="/js/app.js"></script>
+    <script src="/js/kit.js"></script>
+  </body>
+</html>

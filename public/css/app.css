@@ -1,0 +1,831 @@
+/* ============================================================================
+   app.css — the design system. Every page links exactly this file.
+
+   Pages are assembled from the named classes below. If a page needs something
+   that is not in here, either the page is wrong or this file is incomplete —
+   add the primitive here, never a one-off rule on the page.
+
+   Settled in "Build the style kit at /kit" (#5), variant A — POSTER.
+   The rule that holds the whole look together: thick black outlines, hard
+   offset shadows, no blur anywhere, ever.
+   ========================================================================== */
+
+/* ---------------------------------- fonts --------------------------------- */
+/* Self-hosted. Nothing is fetched from a CDN on the night of the party. */
+
+@font-face {
+  font-family: 'Bungee';
+  src: url('/fonts/bungee.woff2') format('woff2');
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Archivo Black';
+  src: url('/fonts/archivo-black.woff2') format('woff2');
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Courier Prime';
+  src: url('/fonts/courier-prime.woff2') format('woff2');
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Courier Prime';
+  src: url('/fonts/courier-prime-bold.woff2') format('woff2');
+  font-weight: 700;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Comic Neue';
+  src: url('/fonts/comic-neue-bold.woff2') format('woff2');
+  font-weight: 700;
+  font-display: swap;
+}
+
+/* ---------------------------------- tokens -------------------------------- */
+
+:root {
+  /* colour — lifted off the invite with an eyedropper, then made louder */
+  --c-cyan: #16e0d8;
+  --c-green: #4fe04f;
+  --c-lime: #a8ee1e;
+  --c-yellow: #f2e00c;
+  --c-orange: #ff9b2f;
+  --c-pink: #ff6fa8;
+  --c-magenta: #ff17a3;
+  --c-red: #ee1c14;
+  --c-blue: #0a2a8f;
+  --c-gray: #c0c0c0;
+  --c-ink: #000;
+  --c-paper: #fff;
+
+  --grad-party: linear-gradient(
+    180deg,
+    var(--c-cyan) 0%,
+    var(--c-green) 22%,
+    var(--c-lime) 42%,
+    var(--c-yellow) 60%,
+    var(--c-orange) 80%,
+    var(--c-pink) 100%
+  );
+  --grad-tile: linear-gradient(150deg, var(--c-cyan), var(--c-lime) 55%, var(--c-yellow));
+  --grad-hot: linear-gradient(150deg, var(--c-yellow), var(--c-orange) 60%, var(--c-magenta));
+
+  /* type — four fonts that should not be in the same room */
+  --font-display: 'Bungee', Impact, 'Arial Black', sans-serif;
+  --font-shout: 'Archivo Black', Impact, sans-serif;
+  --font-body: Georgia, 'Times New Roman', serif;
+  --font-mono: 'Courier Prime', ui-monospace, 'Courier New', monospace;
+  --font-aside: 'Comic Neue', 'Comic Sans MS', cursive;
+
+  /* edges — one border width per weight class, one shadow offset to match */
+  --edge-1: 2px;
+  --edge-2: 4px;
+  --edge-3: 6px;
+  --shadow-1: 3px 3px 0 var(--c-ink);
+  --shadow-2: 6px 6px 0 var(--c-ink);
+  --shadow-3: 10px 10px 0 var(--c-ink);
+
+  --radius: 6px;
+  --tap: 3rem; /* minimum thumb target — everyone is holding a drink */
+}
+
+/* ---------------------------------- reset --------------------------------- */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  overflow-x: hidden;
+}
+
+img {
+  max-width: 100%;
+  display: block;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+code {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  background: var(--c-lime);
+  border: 1px solid var(--c-ink);
+  padding: 0 0.25rem;
+}
+
+/* --------------------------------- the page -------------------------------- */
+
+.shell {
+  background: var(--grad-party) fixed;
+  font-family: var(--font-body);
+  font-size: 17px;
+  line-height: 1.45;
+  color: var(--c-ink);
+  padding-bottom: 3rem;
+}
+
+.app {
+  max-width: 42rem;
+  margin: 0 auto;
+  padding: 0 0.85rem;
+}
+
+/* --------------------------------- marquee --------------------------------- */
+
+.marquee {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  overflow: hidden;
+  background: var(--c-ink);
+  border-bottom: var(--edge-2) solid var(--c-ink);
+  padding: 0.4rem 0;
+}
+
+.marquee__track {
+  display: flex;
+  width: max-content;
+  animation: marquee 34s linear infinite;
+}
+
+.marquee__item {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  letter-spacing: 0.12em;
+  color: #2bff2b;
+  padding-right: 3rem;
+  white-space: nowrap;
+}
+
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+/* --------------------------------- headings -------------------------------- */
+
+.display {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(2.6rem, 15vw, 4.5rem);
+  line-height: 0.95;
+  color: var(--c-yellow);
+  text-transform: uppercase;
+  letter-spacing: 0.01em;
+  /* the invite's layered offset stack: magenta, orange, then a black slab */
+  text-shadow:
+    2px 2px 0 var(--c-magenta),
+    4px 4px 0 var(--c-orange),
+    6px 6px 0 var(--c-ink),
+    7px 7px 0 var(--c-ink),
+    8px 8px 0 var(--c-ink);
+  transform: rotate(-1.5deg);
+}
+
+.banner {
+  display: inline-block;
+  margin: 0.9rem auto 0;
+  font-family: var(--font-shout);
+  font-size: 0.8rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--c-ink);
+  background: var(--c-paper);
+  border: var(--edge-2) solid var(--c-ink);
+  box-shadow: var(--shadow-1);
+  padding: 0.4rem 0.7rem;
+}
+
+/* --------------------------------- layout ---------------------------------- */
+/* Primitives carry no outer margin. Stacking is the caller's job, via .stack. */
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.stack--tight { gap: 0.4rem; }
+.stack--loose { gap: 1.8rem; }
+
+/* ------------------------------ type utilities ----------------------------- */
+
+.shout { font-family: var(--font-shout); text-transform: uppercase; }
+.mono { font-family: var(--font-mono); }
+.aside { font-family: var(--font-aside); font-weight: 700; }
+
+/* ------------------------------- score header ------------------------------ */
+
+.scorebar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  background: var(--grad-hot);
+  border: var(--edge-2) solid var(--c-ink);
+  box-shadow: var(--shadow-2);
+  padding: 0.55rem 0.75rem;
+}
+
+.scorebar__who {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.scorebar__label {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.2em;
+}
+
+.scorebar__name {
+  font-family: var(--font-shout);
+  font-size: 1.15rem;
+  line-height: 1.1;
+  text-transform: uppercase;
+  overflow-wrap: anywhere;
+}
+
+.scorebar__pts {
+  flex: none;
+  display: flex;
+  align-items: baseline;
+  gap: 0.2rem;
+  background: var(--c-paper);
+  border: var(--edge-2) solid var(--c-ink);
+  box-shadow: var(--shadow-1);
+  padding: 0.15rem 0.5rem;
+}
+
+.scorebar__num {
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+  color: var(--c-red);
+}
+
+.scorebar__unit {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+}
+
+/* the vague standing message — deliberately never a number or a rank */
+.standing {
+  margin: 0.4rem 0 0;
+  font-family: var(--font-body);
+  font-style: italic;
+  font-size: 0.95rem;
+  padding-left: 0.2rem;
+}
+
+.standing--top { color: #0a7a0a; }
+.standing--mid { color: #a35b00; }
+.standing--low { color: #8a0d0d; }
+
+/* ---------------------------------- tiles ---------------------------------- */
+
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.7rem;
+  max-width: 100%;
+}
+
+.tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 0.15rem;
+  min-height: 6.5rem;
+  padding: 0.6rem;
+  text-decoration: none;
+  color: var(--c-ink);
+  border: var(--edge-2) solid var(--c-ink);
+  box-shadow: var(--shadow-2);
+  background: var(--c-gray);
+  transition: transform 0.08s ease-out, box-shadow 0.08s ease-out;
+}
+
+.tile:active {
+  transform: translate(3px, 3px);
+  box-shadow: var(--shadow-1);
+}
+
+.tile__title {
+  font-family: var(--font-shout);
+  font-size: 1rem;
+  line-height: 1.05;
+  text-transform: uppercase;
+  overflow-wrap: anywhere;
+}
+
+.tile__pts {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+}
+
+.tile__lock,
+.tile__flag {
+  position: absolute;
+  top: 0.35rem;
+  right: 0.45rem;
+  font-size: 1.3rem;
+  line-height: 1;
+}
+
+.tile__flag {
+  font-family: var(--font-display);
+  width: 1.7rem;
+  height: 1.7rem;
+  display: grid;
+  place-items: center;
+  border: var(--edge-1) solid var(--c-ink);
+  background: var(--c-paper);
+  font-size: 0.9rem;
+}
+
+/* state: locked — greyed out and dashed, obviously not yours yet */
+.tile--locked {
+  background: repeating-linear-gradient(45deg, #b9b9b9 0 8px, #a9a9a9 8px 16px);
+  border-style: dashed;
+  box-shadow: var(--shadow-1);
+  color: #4a4a4a;
+}
+
+.tile--locked .tile__title {
+  font-family: var(--font-display);
+  letter-spacing: 0.1em;
+}
+
+/* state: unlocked — the loud one, this is where you should tap */
+.tile--unlocked { background: var(--grad-tile); }
+
+/* state: answered correctly */
+.tile--correct { background: linear-gradient(150deg, #7bf07b, #24c024); }
+
+/* state: answered, but only scored at game end */
+.tile--unknown { background: linear-gradient(150deg, var(--c-yellow), var(--c-orange)); }
+
+/* state: answered, wrong */
+.tile--wrong {
+  background: linear-gradient(150deg, #ff9a9a, var(--c-red));
+  color: var(--c-paper);
+}
+
+.tile--wrong .tile__flag { color: var(--c-red); }
+
+/* ----------------------------------- hero ---------------------------------- */
+
+/* .hero holds the shared frame; a flavour modifier is required, not optional */
+.hero {
+  border: var(--edge-3) solid var(--c-ink);
+  box-shadow: var(--shadow-2);
+  padding: 1rem 0.9rem;
+  background: var(--c-paper);
+}
+
+.hero__kicker {
+  display: inline-block;
+  margin: 0 0 0.5rem;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.25em;
+  background: var(--c-ink);
+  color: var(--c-lime);
+  padding: 0.1rem 0.45rem;
+}
+
+.hero__body {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 1.3rem;
+  line-height: 1.3;
+}
+
+/* flavour: words — question, statement, riddle */
+.hero--text { background: var(--grad-tile); }
+
+/* flavour: a picture */
+.hero--asset { background: var(--c-paper); }
+
+.hero__asset {
+  aspect-ratio: 4 / 3;
+  display: grid;
+  place-items: center;
+  background: repeating-linear-gradient(135deg, #eee 0 12px, #ddd 12px 24px);
+  border: var(--edge-2) dashed var(--c-ink);
+}
+
+.hero__assetnote {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: #666;
+}
+
+/* --------------------------------- window ---------------------------------- */
+/* Straight off the invite. For anything that wants to feel like a document. */
+
+.win {
+  background: var(--c-gray);
+  border: var(--edge-1) solid var(--c-ink);
+  box-shadow: var(--shadow-2);
+  border-top-color: #fff;
+  border-left-color: #fff;
+  border-right-color: #6b6b6b;
+  border-bottom-color: #6b6b6b;
+}
+
+.win__bar {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.25rem 0.3rem;
+  background: linear-gradient(90deg, #0a2a8f, #1c8ad6);
+  color: #fff;
+}
+
+.win__icon { font-size: 0.85rem; }
+
+.win__title {
+  flex: 1;
+  min-width: 0;
+  font-family: Verdana, Tahoma, sans-serif;
+  font-weight: 700;
+  font-size: 0.8rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.win__btns {
+  display: flex;
+  gap: 0.15rem;
+  flex: none;
+}
+
+.win__btn {
+  width: 1.4rem;
+  height: 1.2rem;
+  display: grid;
+  place-items: center;
+  background: var(--c-gray);
+  color: #000;
+  border: 1px solid #000;
+  border-top-color: #fff;
+  border-left-color: #fff;
+  font-family: Verdana, Tahoma, sans-serif;
+  font-size: 0.7rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.win__btn:active { border-color: #000 #fff #fff #000; }
+
+/* the close button is the one that actually does something on a hidden page */
+.win__btn--x {
+  font-weight: 700;
+  font-size: 0.85rem;
+  padding-bottom: 1px;
+}
+
+.win__body {
+  padding: 0.8rem;
+  font-family: var(--font-body);
+}
+
+.rules {
+  margin: 0;
+  padding-left: 1.3rem;
+}
+
+.rules li { margin-bottom: 0.3rem; }
+
+.statusline {
+  margin: 0.8rem 0 0;
+  font-size: 0.7rem;
+  padding: 0.2rem 0.4rem;
+  border: 1px solid #6b6b6b;
+  border-top-color: #fff;
+  border-left-color: #fff;
+  background: var(--c-gray);
+}
+
+/* --------------------------------- buttons --------------------------------- */
+
+.btnrow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  max-width: 100%;
+}
+
+.btn {
+  min-height: var(--tap);
+  padding: 0.6rem 1rem;
+  border: var(--edge-2) solid var(--c-ink);
+  box-shadow: var(--shadow-1);
+  background: var(--c-paper);
+  font-family: var(--font-shout);
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: transform 0.06s ease-out, box-shadow 0.06s ease-out;
+}
+
+.btn:active {
+  transform: translate(3px, 3px);
+  box-shadow: none;
+}
+
+.btn:disabled {
+  background: var(--c-gray);
+  color: #6b6b6b;
+  box-shadow: none;
+  transform: none;
+  cursor: not-allowed;
+}
+
+.btn--primary {
+  flex: 1 1 100%;
+  background: var(--grad-hot);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  box-shadow: var(--shadow-2);
+  font-size: 1.05rem;
+}
+
+.btn--hint {
+  background: var(--c-yellow);
+  font-family: var(--font-aside);
+  font-size: 1.05rem;
+}
+
+.btn--close {
+  background: var(--c-paper);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  text-transform: none;
+}
+
+.btn--what {
+  background: var(--c-magenta);
+  color: var(--c-paper);
+  font-family: var(--font-aside);
+  font-size: 1rem;
+  transform: rotate(-2deg);
+}
+
+.btn--what:active { transform: rotate(-2deg) translate(3px, 3px); }
+
+/* ---------------------------------- forms ---------------------------------- */
+
+.field { margin-bottom: 1rem; }
+
+.field__label {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.18em;
+  margin-bottom: 0.25rem;
+}
+
+.input {
+  width: 100%;
+  min-height: var(--tap);
+  padding: 0.5rem 0.6rem;
+  background: var(--c-paper);
+  border: var(--edge-2) solid var(--c-ink);
+  box-shadow: inset 3px 3px 0 rgb(0 0 0 / 12%);
+  font-family: var(--font-body);
+  font-size: 1.05rem;
+  border-radius: 0;
+  -webkit-appearance: none;
+}
+
+.input:focus {
+  outline: var(--edge-2) solid var(--c-magenta);
+  outline-offset: 2px;
+}
+
+.input--area {
+  min-height: 5rem;
+  resize: vertical;
+}
+
+.input--file {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  padding: 0.7rem 0.6rem;
+}
+
+/* ---------------------------------- modal ---------------------------------- */
+
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  display: grid;
+  place-items: center;
+  padding: 1.2rem;
+  background: rgb(0 0 0 / 55%);
+}
+
+.modal[hidden] { display: none; }
+
+.modal__box {
+  width: min(22rem, 100%);
+  background: var(--c-paper);
+  border: var(--edge-3) solid var(--c-ink);
+  box-shadow: var(--shadow-3);
+  padding: 1.2rem 1rem;
+  animation: modal-pop 0.22s cubic-bezier(0.2, 1.6, 0.4, 1) both;
+}
+
+@keyframes modal-pop {
+  from { transform: scale(0.7) rotate(-4deg); opacity: 0; }
+  to { transform: scale(1) rotate(-1deg); opacity: 1; }
+}
+
+.modal__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+  color: var(--c-magenta);
+  text-shadow: 3px 3px 0 var(--c-ink);
+}
+
+.modal__body {
+  margin: 0.7rem 0 1.1rem;
+  font-size: 1.2rem;
+}
+
+.modal__actions {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.modal__actions .btn { flex: 1 1 auto; font-size: 0.85rem; }
+
+/* ------------------------------ decoration --------------------------------- */
+/* Load-bearing. Do not remove. */
+
+.starburst {
+  width: 11rem;
+  height: 11rem;
+  display: grid;
+  place-content: center;
+  text-align: center;
+  color: var(--c-paper);
+  background: var(--c-red);
+  filter: drop-shadow(5px 5px 0 var(--c-ink));
+  clip-path: polygon(
+    50% 0%, 60% 12%, 74% 5%, 76% 21%, 92% 18%, 87% 33%, 100% 38%,
+    89% 50%, 100% 62%, 87% 67%, 92% 82%, 76% 79%, 74% 95%, 60% 88%,
+    50% 100%, 40% 88%, 26% 95%, 24% 79%, 8% 82%, 13% 67%, 0% 62%,
+    11% 50%, 0% 38%, 13% 33%, 8% 18%, 24% 21%, 26% 5%, 40% 12%
+  );
+}
+
+.starburst__top { font-family: var(--font-shout); font-size: 0.8rem; }
+.starburst__big { font-family: var(--font-display); font-size: 1.7rem; line-height: 1; }
+.starburst__fine { font-family: var(--font-body); font-size: 0.55rem; }
+
+.bubble {
+  position: relative;
+  background: var(--c-paper);
+  border: var(--edge-2) solid var(--c-ink);
+  border-radius: 14px;
+  box-shadow: var(--shadow-2);
+  padding: 0.8rem 0.9rem;
+  margin-left: 1.4rem;
+}
+
+.bubble p { margin: 0; font-size: 1.05rem; }
+
+.bubble::before {
+  content: '';
+  position: absolute;
+  left: -1.4rem;
+  top: 1.4rem;
+  border: 0.75rem solid transparent;
+  border-right-color: var(--c-ink);
+  border-left-width: 0.7rem;
+}
+
+.stamp {
+  margin: 0;
+  padding: 0.4rem 1rem;
+  color: var(--c-red);
+  font-family: var(--font-body);
+  font-size: 1.2rem;
+  border: 3px dashed var(--c-red);
+  transform: rotate(-8deg);
+  background: rgb(255 255 255 / 70%);
+}
+
+.mark {
+  background: var(--c-yellow);
+  box-shadow: 0 0 0 3px var(--c-yellow);
+  font-weight: 700;
+}
+
+.blink {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  color: var(--c-red);
+  animation: blink 0.9s steps(1) infinite;
+}
+
+@keyframes blink {
+  50% { opacity: 0; }
+}
+
+/* -------------------------------- animations -------------------------------- */
+/* Three moments only. Everything else stays still. */
+
+/* a tile going from locked to yours */
+.anim-unlock {
+  animation: unlock 0.75s cubic-bezier(0.2, 1.5, 0.4, 1) both;
+}
+
+@keyframes unlock {
+  0% { transform: scale(0.85) rotate(-6deg); filter: grayscale(1) contrast(0.6); }
+  35% { transform: scale(1.14) rotate(4deg); filter: grayscale(0.2); }
+  55% { transform: scale(0.97) rotate(-2deg); filter: none; }
+  75% { transform: scale(1.04) rotate(1deg); }
+  100% { transform: scale(1) rotate(0); filter: none; }
+}
+
+/* an answer landing right */
+.anim-correct {
+  animation: correct 0.7s ease-out both;
+}
+
+@keyframes correct {
+  0% { transform: scale(1); box-shadow: var(--shadow-2); }
+  20% { transform: scale(1.08); box-shadow: 0 0 0 0.5rem var(--c-yellow), var(--shadow-2); }
+  40% { transform: scale(0.98) rotate(-2deg); box-shadow: 0 0 0 1rem rgb(242 224 12 / 0%), var(--shadow-2); }
+  60% { transform: scale(1.03) rotate(2deg); }
+  100% { transform: scale(1) rotate(0); box-shadow: var(--shadow-2); }
+}
+
+/* a page arriving */
+.anim-page {
+  animation: page-in 0.4s cubic-bezier(0.2, 0.9, 0.3, 1) both;
+}
+
+@keyframes page-in {
+  from { transform: translateY(1.5rem) scale(0.97); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+
+/* --------------------------------- statusbar -------------------------------- */
+
+.statusbar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.4rem 1.2rem;
+  background: var(--c-ink);
+  color: var(--c-paper);
+  padding: 0.6rem 0.8rem;
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-align: center;
+}
+
+/* ------------------------------- motion guard ------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+
+  .marquee__track {
+    animation: none !important;
+    transform: none !important;
+  }
+}
