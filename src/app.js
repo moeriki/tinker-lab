@@ -194,7 +194,7 @@ const noSuchCode = (res) => {
  * that flash IS the clue pointing at the next code; firing it a minute late, while the team is
  * still head-down in a questionnaire, spends the clue on an empty room. So a deferred scan keeps
  * the scan row and the unlock and drops the webhook, and the game page asks them to go and scan
- * it again for real. See ADR-0011.
+ * it again for real. See ADR-0014.
  *
  * Returns the path to send them to, or null when the code points at a game content does not
  * define -- which the caller turns into a 404.
@@ -461,7 +461,7 @@ async function saveQuestions({ req, res }) {
  *
  * It is applied HERE rather than by redirecting back through `/q/:slug`, because this scan is a
  * minute stale and a hunt step's webhook must not fire into an empty room -- see `applyCode` and
- * ADR-0011. A team who arrived by typing the address instead of scanning anything has no pending
+ * ADR-0014. A team who arrived by typing the address instead of scanning anything has no pending
  * slug and simply lands on their board.
  */
 function afterOnboarding(req, res, team) {
@@ -716,7 +716,7 @@ function showGame({ req, res, params, url }) {
   const submitted = SUBMITTED[moment];
 
   // The one arrival that carries an instruction rather than a verdict: a hunt code scanned before
-  // this team existed, whose webhook was deliberately not fired. ADR-0011.
+  // this team existed, whose webhook was deliberately not fired. ADR-0014.
   const arrival = ARRIVED[moment];
 
   // A reveal that has already happened, announcing what it cost. Rendered only when there is a

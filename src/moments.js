@@ -32,7 +32,7 @@ export const MOMENTS = new Set([
  * on the replay would flash a lamp in an empty room while the team is still head-down in a form,
  * spending the clue that lamp was supposed to be. So the replay keeps the unlock and drops the
  * webhook, and this line asks for the one thing that puts it right: scan it again, on purpose,
- * standing in front of it. See ADR-0011.
+ * standing in front of it. See ADR-0014.
  */
 export const ARRIVED = {
   rescan: "You're in — and this one is yours now. Go back and scan that code again: this time, something happens.",

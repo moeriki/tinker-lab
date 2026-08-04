@@ -1,4 +1,4 @@
-# ADR-0011: The first scan is not live
+# ADR-0014: The first scan is not live
 
 **Status:** accepted · **Date:** 2026-08-05 · **Ticket:** [Onboarding flow and questionnaire](https://github.com/moeriki/tinker-lab/issues/9)
 

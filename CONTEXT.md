@@ -191,7 +191,7 @@ which is the retry loop the hunt was already built on.
 
 Derived, never declared: the discriminator is whether the step has a `webhook` at all, so the
 riddle hunt needs no prompt and gets none. See
-[ADR-0011](docs/adr/0011-the-first-scan-is-not-live.md).
+[ADR-0014](docs/adr/0014-the-first-scan-is-not-live.md).
 
 ### Unlock
 
