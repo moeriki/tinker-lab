@@ -468,6 +468,15 @@ Admin, all behind one cookie gate ([ADR-0005](docs/adr/0005-admin-is-a-one-time-
 | POST | `/admin/rescore` | re-run content scoring over existing player data |
 | GET | `/admin/codes` | slug → target inventory with scan counts, for debugging a code someone says is broken |
 
+**`HEAD` is answered wherever `GET` is** — `route()` matches a HEAD against a GET route and Node
+drops the body — so `curl -I` and the uptime monitors that default to HEAD read a healthy site as
+healthy ([#40](https://github.com/moeriki/tinker-lab/issues/40)). Every route above is safe to
+answer that way except one: `HEAD /q/:slug` has a route of its own that reports whether the code
+exists (`200` / `404`) and touches nothing, because computing the `303` a GET returns IS the scan
+([ADR-0003](docs/adr/0003-qr-entry-mutates-on-get.md)) — a link-preview crawler must not spend a
+code or flash a lamp. The only other GET that can mutate is `/questions`, which replays a held
+code once onboarding completes; that replay is skipped on a HEAD and the slug stays pending.
+
 Static: `/css/*`, `/js/*`, `/fonts/*`, `/img/*` from `public/`; `/uploads/*` from `$DATA_DIR`;
 `/kit` is the style kit — served from `public/kit.html`, with the real components injected into it
 (see **Component** below).

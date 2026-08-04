@@ -294,6 +294,22 @@ and the number climbs as games land. `"ok":true` is the part that matters.
 file is not healthy. It reports `503` if the database is unreachable. It deliberately exposes
 nothing about teams or scores — it is the only route reachable without a cookie.
 
+`curl -I` works too, on every path — the app answers `HEAD` the same way it answers `GET`, minus
+the body:
+
+```bash
+curl -I https://bday.moeriki.com/healthz   # 200
+curl -I https://bday.moeriki.com/          # 303, Location: /welcome
+```
+
+**If a `HEAD` 404s on a path a browser loads fine, the app is older than 5 August 2026.** Until
+then `HEAD` matched no route at all and the app answered every one of them with its own 404 — so
+`curl -I` and any uptime monitor (they default to `HEAD`) called a perfectly healthy site dead.
+Rebuild from `main` and it stops. There is one deliberate exception, and it is not a fault:
+`HEAD /q/<slug>` answers `200` where a `GET` would answer `303`, because working out that redirect
+means *performing the scan* — unlocking a tile, banking hunt progress, flashing a lamp. A HEAD says
+only whether the code exists.
+
 Then, in a browser:
 
 | URL | Expected |
@@ -316,10 +332,21 @@ If it does not work, the failure mode names itself:
 | Symptom | What it means |
 | --- | --- |
 | Cannot resolve, or times out | DNS record missing — or the phone is not on the house WiFi |
-| **404** from `openresty` | DNS is fine; the NPM Proxy Host is missing or the domain is misspelled |
+| **404 whose body is nginx's own page** — `<h1>404 Not Found</h1>` and `openresty` in the footer | DNS is fine; the NPM Proxy Host is missing or the domain is misspelled |
+| **404 whose body says `there is no rule 4 either`** | **The proxy is fine — this is the app answering.** The path genuinely does not exist. `/admin` 404s on purpose (ADR-0005), as does any typo |
 | **502** | Proxy Host exists but cannot reach the container — `BIND_ADDR` unset, or the container is down |
 | Container exits on boot | `data/` owned by root instead of uid 1000 |
 | `/kit` fine but `/welcome` loops | TLS is not really terminating — the `Secure` cookie is being dropped |
+
+**A 404 on its own does not name a cause — read the body.** Both a missing Proxy Host and a
+perfectly healthy app answer `404`, and `Server: openresty` is not a reliable way to tell them
+apart: NPM may stamp that header on responses it merely *proxies* as well as on the ones it
+generates itself. Nobody here has confirmed which it does on Tower, so don't lean on it. The
+body is unambiguous — use `curl -s`, not `curl -I`:
+
+```bash
+curl -s https://bday.moeriki.com/nothing-here | head -5
+```
 
 Please **do not** visit `/admin/key/<secret>` yourself unless you're debugging; it sets the admin
 cookie on whatever browser you use. That URL is the host's, for the start of the night.
@@ -568,7 +595,8 @@ docker compose start bday
 
 | Situation | Do this |
 | --- | --- |
-| Check it's alive | `curl -s https://bday.moeriki.com/healthz` |
+| Check it's alive | `curl -s https://bday.moeriki.com/healthz` — or `curl -I` on any path; `HEAD` is answered like `GET` |
+| Point an uptime monitor at it | `HEAD https://bday.moeriki.com/healthz`, expecting `200`. Never point one at `/q/<slug>` — that URL is a game move |
 | Watch what's happening | `docker compose logs -f bday` |
 | It's wedged | `docker compose restart bday` — data is on the bind mount and survives |
 | Ship a content fix | `git pull && docker compose up -d --build` — roughly 10 seconds of downtime |

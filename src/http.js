@@ -138,6 +138,14 @@ export const escape = (value) =>
 /**
  * `/g/:gameId/submit` → a matcher returning params, or null. Deliberately tiny: the route
  * inventory is short and fixed (see CONTEXT.md).
+ *
+ * A `HEAD` matches a `GET` route, because a HEAD is a GET whose body is thrown away and Node
+ * throws it away for us. Before that it did not, so `curl -I` answered 404 on a healthy site and
+ * `MM-HANDOFF.md` read that as a missing proxy host (#40).
+ *
+ * A route declared `HEAD` still matches only HEAD, so a path whose GET is not safe to replay can
+ * claim the HEAD for itself by sitting above it in the inventory -- which is exactly what
+ * `/q/:slug` does.
  */
 export function route(method, pattern, handler) {
   const names = [];
@@ -156,7 +164,8 @@ export function route(method, pattern, handler) {
     method,
     handler,
     match(reqMethod, pathname) {
-      if (reqMethod !== method) return null;
+      const matchesMethod = reqMethod === method || (reqMethod === 'HEAD' && method === 'GET');
+      if (!matchesMethod) return null;
       const found = regex.exec(pathname);
       if (!found) return null;
       return Object.fromEntries(names.map((name, index) => [name, decodeURIComponent(found[index + 1])]));

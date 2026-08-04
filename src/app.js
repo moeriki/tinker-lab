@@ -245,6 +245,29 @@ function applyCode({ team, slug, target, deferred = false }) {
   return gamePath(game.id, { step, moment: step === 1 ? 'unlock' : 'step' });
 }
 
+/**
+ * A `HEAD` on the front door, which is deliberately NOT a dry run of the scan behind it.
+ *
+ * Every other route answers a HEAD by running its GET and letting Node drop the body, which is
+ * free because those routes only read. This one is the exception named in ADR-0003: a scan writes
+ * a scan row, unlocks a tile, banks hunt progress and fires the Home Assistant webhook, so the
+ * lights in a room are part of the response. A link-preview crawler unfurling a code in a chat
+ * app, or an uptime monitor pointed at a printed URL, would otherwise play the game for whoever
+ * owns the cookie it happens to be carrying -- and flash a lamp at an empty room, spending the
+ * clue. Silence is a far better failure than that.
+ *
+ * So this answers the only question a HEAD can honestly ask about a code -- does it exist -- and
+ * touches nothing. 200 for a real slug, 404 for one the inventory does not know, matching the
+ * `noSuchCode` 404 a GET would give. It does not preview the `303`, because working out where
+ * that redirect goes IS the scan.
+ */
+function peekScan({ res, params }) {
+  const target = getCode(params.slug);
+  noCache(res);
+  res.writeHead(target ? 200 : 404, { 'Content-Type': 'text/html; charset=utf-8' });
+  res.end();
+}
+
 async function handleScan({ req, res, params }) {
   const target = getCode(params.slug);
   if (!target) return noSuchCode(res);
@@ -467,6 +490,11 @@ async function saveQuestions({ req, res }) {
 function afterOnboarding(req, res, team) {
   const pending = parseCookies(req)[PENDING_COOKIE];
   if (!pending) return '/';
+
+  // The second and last way a GET reaches `applyCode`: `GET /questions` by a team already through
+  // the gate. A HEAD gets the same 303 without spending the held code -- the slug stays in the
+  // cookie, so the team's own next GET still gets everything it was owed.
+  if (req.method === 'HEAD') return '/';
 
   clearCookie(res, PENDING_COOKIE);
 
@@ -1488,6 +1516,8 @@ function healthz({ res }) {
 // --- the inventory ------------------------------------------------------------------------------
 
 const routes = [
+  // Above the GET on purpose: first match wins, so this is what claims the HEAD. See `peekScan`.
+  route('HEAD', '/q/:slug', peekScan),
   route('GET', '/q/:slug', handleScan),
 
   route('GET', '/', showDashboard),
