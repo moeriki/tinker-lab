@@ -14,10 +14,18 @@ export const MIGRATIONS_DIR = new URL('../db/migrations/', import.meta.url).path
 
 // Visited once at the start of the night: /admin/key/<ADMIN_SECRET>.
 export const ADMIN_SECRET = process.env.ADMIN_SECRET ?? 'change-me';
+export const ADMIN_SECRET_IS_DEFAULT = !process.env.ADMIN_SECRET;
 
-// Home Assistant automations hang off this. The container holds no HA credentials -- MM wires
-// the far end. Left empty, webhook firing is logged and skipped.
-export const WEBHOOK_BASE_URL = process.env.WEBHOOK_BASE_URL ?? '';
+// ONE fully-qualified Home Assistant webhook URL, id included:
+//   http://homeassistant:8123/api/webhook/<WEBHOOK_ID>
+//
+// It is deliberately not composed from parts. The webhook id is the only thing protecting that
+// endpoint -- HA does not authenticate it -- and THIS REPOSITORY IS PUBLIC, so the id can never
+// live in content/. Which effect to run is carried in the payload as `node`, and MM branches on
+// it inside a single automation. See docs/adr/0007-one-home-assistant-webhook.md.
+//
+// Unset is valid and means "skip the call": every hunt still works, the lights just stay put.
+export const HA_WEBHOOK_URL = process.env.HA_WEBHOOK_URL ?? '';
 
 export const TEAM_COOKIE = 'team';
 export const ADMIN_COOKIE = 'admin';

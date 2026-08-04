@@ -123,6 +123,8 @@ async function handleScan({ req, res, params }) {
   recordScan(team.id, params.slug, true);
   if (step === 1) unlock(team.id, game.id);
 
+  // The step's `webhook` is a logical node name, never a Home Assistant id -- see
+  // docs/adr/0007-one-home-assistant-webhook.md.
   fireWebhook(getStep(game, step)?.webhook, { team: team.name, game: game.id, step });
 
   if (huntIsComplete(team.id, game)) {
@@ -629,6 +631,34 @@ async function serveKit({ res }) {
   html(res, await readFile(join(PUBLIC_DIR, 'kit.html'), 'utf8'));
 }
 
+/**
+ * Liveness for MM's container health check and for the pre-party walkthrough. Deliberately says
+ * nothing about teams or scores -- it is the one route reachable without a cookie and without the
+ * admin secret, so it must stay boring. It touches the database on purpose: a process that is
+ * listening but cannot read its own file is not healthy.
+ */
+function healthz({ res }) {
+  let body;
+  let status = 200;
+
+  try {
+    get('select 1 as ok');
+    body = {
+      ok: true,
+      games: listGames().length,
+      uptime: Math.round(process.uptime()),
+      node: process.version,
+    };
+  } catch (error) {
+    status = 503;
+    body = { ok: false, error: error.message };
+  }
+
+  noCache(res);
+  res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
+  res.end(JSON.stringify(body));
+}
+
 // --- the inventory ------------------------------------------------------------------------------
 
 const routes = [
@@ -658,6 +688,7 @@ const routes = [
   route('GET', '/admin/codes', adminCodes),
 
   route('GET', '/kit', serveKit),
+  route('GET', '/healthz', healthz),
 ];
 
 export async function handle(req, res) {

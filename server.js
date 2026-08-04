@@ -7,7 +7,7 @@
 
 import { createServer } from 'node:http';
 
-import { PORT } from './src/config.js';
+import { PORT, ADMIN_SECRET_IS_DEFAULT, HA_WEBHOOK_URL } from './src/config.js';
 import { migrate } from './src/db.js';
 import { loadContent, warnAboutOrphans } from './src/content.js';
 import { handle } from './src/app.js';
@@ -31,4 +31,13 @@ const server = createServer(async (req, res) => {
 server.listen(PORT, () => {
   console.log(`bday → http://localhost:${PORT}`);
   console.log(`kit  → http://localhost:${PORT}/kit`);
+
+  // Said at boot rather than left to be discovered: the container logs are the only place MM
+  // will look, and both of these are silent failures otherwise.
+  if (ADMIN_SECRET_IS_DEFAULT) {
+    console.warn('WARNING: ADMIN_SECRET is unset — /admin/key/change-me is guessable. Set it.');
+  }
+  if (!HA_WEBHOOK_URL) {
+    console.warn('note: HA_WEBHOOK_URL is unset — hunt scans will not reach Home Assistant.');
+  }
 });
