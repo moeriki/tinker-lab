@@ -26,8 +26,8 @@
       So a marker is not a picture of the component -- it IS the component, and
       this page cannot show you something the site does not do.
 
-      Where the app does NOT render it yet -- the window frame, the starburst,
-      the standing colours, the marquee -- the markup is written by hand below
+      Where the app does NOT render it yet -- the starburst, the standing
+      colours, the marquee -- the markup is written by hand below
       and this page is its only home. Those sections are the design the site
       still owes. Building one into a page means moving it into render.js and
       leaving a marker here IN THE SAME CHANGE, so a second copy is never made.
@@ -181,28 +181,9 @@
       <!-- ============================= WINDOW ============================== -->
       <section class="sect" id="window">
         <h2 class="sect__h">7. The window frame</h2>
-        <p class="sect__note">Straight off the invite. Used for anything that wants to feel like a document: the rules, the results, the handoff.</p>
+        <p class="sect__note">Straight off the invite. Used for anything that wants to feel like a document: the rules, the results, the handoff. <code>/rules</code> was the first page to build one, so it lives in <code>render.js</code> now — this is the real frame, shown in its rule-4 state.</p>
 
-        <div class="win">
-          <div class="win__bar">
-            <span class="win__icon" aria-hidden="true">📄</span>
-            <span class="win__title">de_regels.txt</span>
-            <span class="win__btns">
-              <button class="win__btn" type="button" aria-label="minimise">_</button>
-              <button class="win__btn" type="button" aria-label="maximise">□</button>
-              <button class="win__btn win__btn--x" type="button" aria-label="close">×</button>
-            </span>
-          </div>
-          <div class="win__body">
-            <ol class="rules">
-              <li>Have fun.</li>
-              <li>Be nice.</li>
-              <li>The bedroom is off limits. <span class="aside">(this one is real)</span></li>
-              <li>There is no rule 4, this box just looked empty.</li>
-            </ol>
-            <p class="statusline mono">4 rule(s) · 1 of them enforced</p>
-          </div>
-        </div>
+        <!--@win title="the_rules.txt" status="4 rule(s) · 2 of them enforced" rules="Have fun. This is not a suggestion.|Be nice. Even to the people you are about to lie to.|Stay out of the bedroom. There is nothing in there. That is why it is a rule.|Hints cost you 3 points. This rule was always here."-->
       </section>
 
       <!-- ============================= BUTTONS ============================= -->
@@ -290,9 +271,9 @@
       <footer class="kit-foot">
         <p class="aside">That is the whole kit. If a page needs something that is not on this page, the page is wrong or the kit is incomplete — say which.</p>
         <p class="aside">
-          The scorebar, the tiles, the heroes, the fields and the modal above are rendered by
+          The scorebar, the tiles, the heroes, the fields, the modal and the window frame above are rendered by
           <code>src/render.js</code> — the same calls the site makes, so they cannot be out of date.
-          The window frame, the starburst, the speech bubble, the stamp, the marquee, the status bar
+          The starburst, the speech bubble, the stamp, the marquee, the status bar
           and the three standing colours are written by hand here, because no page builds them yet.
           <strong>That list is the design the site still owes.</strong> Building one means moving its
           markup into <code>render.js</code> and leaving a marker here in the same change.

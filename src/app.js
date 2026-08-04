@@ -83,7 +83,18 @@ import {
   teamScore,
 } from './scoring.js';
 import { fireWebhook } from './webhooks.js';
-import { field, hero, hintModal, layout, notFound, scorebar, stub, tile } from './render.js';
+import {
+  field,
+  hero,
+  hintModal,
+  layout,
+  notFound,
+  rulesList,
+  scorebar,
+  stub,
+  tile,
+  win,
+} from './render.js';
 import { inject } from './kit.js';
 import {
   ARRIVED,
@@ -832,21 +843,7 @@ function showRules({ req, res }) {
       bar: team ? teamBar(team) : '',
       showClose: true,
       body: `
-        <div class="win">
-          <div class="win__bar">
-            <span class="win__icon" aria-hidden="true">📄</span>
-            <span class="win__title">${escape(rulesCopy.filename)}</span>
-            <span class="win__btns">
-              <span class="win__btn" aria-hidden="true">_</span>
-              <span class="win__btn" aria-hidden="true">□</span>
-              <a class="win__btn win__btn--x" href="/" aria-label="close">×</a>
-            </span>
-          </div>
-          <div class="win__body">
-            <ol class="rules">${rules.map((rule) => `<li>${escape(rule)}</li>`).join('')}</ol>
-            <p class="statusline mono">${escape(status)}</p>
-          </div>
-        </div>
+        ${win({ title: rulesCopy.filename, body: rulesList(rules), status })}
         <h2 class="shout">${escape(rulesCopy.pointsTitle)}</h2>
         ${rulesCopy.points.map((para) => `<p>${escape(para)}</p>`).join('')}
       `,

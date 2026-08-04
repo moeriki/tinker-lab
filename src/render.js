@@ -243,6 +243,47 @@ export function field({ label, name, type = 'text', value = '', rows = 0, attrs 
 }
 
 /**
+ * The window frame, straight off the invite. Anything that wants to feel like a document: the
+ * rules, and later the results and the handoff.
+ *
+ * It lived only in `kit.html` until `/rules` became the first page to render one, which is the
+ * moment `src/kit.js` says it moves here -- so there is never a second copy of the markup.
+ *
+ * The two chrome buttons are **decorative spans, not buttons**. They do nothing, and a control
+ * that does nothing is worse than an ornament for anyone on a screen reader, so they are
+ * `aria-hidden`. The close one is a real link, which is what the stylesheet's own comment beside
+ * `.win__btn--x` always said it was for.
+ *
+ * `title` is a filename because the frame is pretending to be a text file. The joke is the
+ * extension; nothing else here depends on it.
+ */
+/**
+ * The numbered list inside the window on `/rules`. Its own component rather than part of `win`,
+ * because the frame is generic -- the results and the handoff will want one too -- and because
+ * this is the markup both the page and the kit would otherwise each keep a copy of.
+ */
+export const rulesList = (rules = []) =>
+  `<ol class="rules">${rules.map((rule) => `<li>${escape(rule)}</li>`).join('')}</ol>`;
+
+export function win({ title = '', body = '', status = '', closeHref = '/' }) {
+  return `<div class="win">
+    <div class="win__bar">
+      <span class="win__icon" aria-hidden="true">📄</span>
+      <span class="win__title">${escape(title)}</span>
+      <span class="win__btns">
+        <span class="win__btn" aria-hidden="true">_</span>
+        <span class="win__btn" aria-hidden="true">□</span>
+        <a class="win__btn win__btn--x" href="${escape(closeHref)}" aria-label="close">×</a>
+      </span>
+    </div>
+    <div class="win__body">
+      ${body}
+      ${status ? `<p class="statusline mono">${escape(status)}</p>` : ''}
+    </div>
+  </div>`;
+}
+
+/**
  * An honest placeholder. It names the ticket that owns the design, so nobody mistakes a stub for
  * a decision that was already made.
  */

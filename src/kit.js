@@ -17,7 +17,7 @@
 // place is `kit.html`, and the ticket that first builds it into a page moves it here in the same
 // change, so a second copy is never created.
 
-import { field, hero, hintModal, scorebar, tile } from './render.js';
+import { field, hero, hintModal, rulesList, scorebar, tile, win } from './render.js';
 
 /** `<!--@name key="value" bare-key-->` */
 const MARKER = /<!--@([\w-]+)((?:\s+[\w-]+(?:="[^"]*")?)*)\s*-->/g;
@@ -56,6 +56,18 @@ const RENDERERS = {
 
   hintmodal: (a) =>
     hintModal({ notice: a.notice ?? 'paid', cost: num(a.cost, 3), backHref: a.href ?? '#modal' }),
+
+  // `/rules` was the first page to render the window frame, so it moved out of kit.html and into
+  // render.js in the same change -- the rule this file's header states. The body is a rules list
+  // because that is the only thing wearing the frame so far; `rules` is pipe-separated because a
+  // marker attribute is one flat string and a list has to survive being flattened into one.
+  win: (a) =>
+    win({
+      title: a.title ?? 'the_rules.txt',
+      body: rulesList((a.rules ?? '').split('|').filter(Boolean)),
+      status: a.status ?? '',
+      closeHref: a.href ?? '#window',
+    }),
 };
 
 function parseAttrs(source) {
