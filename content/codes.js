@@ -8,6 +8,15 @@
 //
 // Every hunt step must have exactly one slug or content validation fails at boot.
 
+// PROTOTYPE FIXTURE — throwaway slugs for the animation-choreography prototype only. The real
+// inventory is populated once the roster locks. Delete with the branch.
 export default {
-  // Populated once the roster locks -- see the "Lock the game roster" ticket.
+  k7f2qx: { game: 'yarn' },
+  w9d4tn: { game: 'snaps' },
+
+  m3p8zz: { game: 'lights', step: 1 },
+  r6h1vb: { game: 'lights', step: 2 },
+  z2c5jq: { game: 'lights', step: 3 },
+
+  b4xk7m: { page: 'too-soon' },
 };

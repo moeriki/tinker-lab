@@ -60,6 +60,18 @@ import {
 } from './scoring.js';
 import { fireWebhook } from './webhooks.js';
 import { layout, notFound, stub } from './render.js';
+// PROTOTYPE (issue #14) — animation choreography. Comes out with the branch.
+import {
+  heroAnimation,
+  pageAnimation,
+  scanLanding,
+  shotAnimation,
+  submitLanding,
+  switcherBar,
+  tileAnimation,
+  variantOf,
+  verdictAnimation,
+} from './prototype-anim.js';
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -92,7 +104,8 @@ const blockedByGameEnd = (res) => {
 
 // --- the front door ---------------------------------------------------------------------------
 
-async function handleScan({ req, res, params }) {
+async function handleScan({ req, res, params, url }) {
+  const scheme = variantOf(req, res, url); // PROTOTYPE
   const target = getCode(params.slug);
   if (!target) return html(res, notFound(), 404);
 
@@ -119,7 +132,7 @@ async function handleScan({ req, res, params }) {
   if (game.kind !== 'hunt') {
     recordScan(team.id, params.slug, true);
     unlock(team.id, game.id);
-    return redirect(res, `/g/${game.id}`);
+    return redirect(res, scanLanding(scheme, { game, step: 0, firstUnlock: true }));
   }
 
   const step = target.step;
@@ -140,7 +153,7 @@ async function handleScan({ req, res, params }) {
     award({ teamId: team.id, gameId: game.id, kind: 'hunt', points: game.points ?? 0 });
   }
 
-  return redirect(res, `/g/${game.id}?step=${step}`);
+  return redirect(res, scanLanding(scheme, { game, step, firstUnlock: step === 1 }));
 }
 
 // --- onboarding -------------------------------------------------------------------------------
@@ -245,9 +258,11 @@ function afterOnboarding(req, res) {
 
 // --- dashboard, games, rules ------------------------------------------------------------------
 
-function showDashboard({ req, res }) {
+function showDashboard({ req, res, url }) {
   const team = requireTeam(req, res);
   if (!team) return undefined;
+
+  const scheme = variantOf(req, res, url); // PROTOTYPE
 
   // The five tile designs the style kit ships: locked, unlocked, correct, wrong, unknown.
   const tiles = listGames().map((game) => {
@@ -271,9 +286,10 @@ function showDashboard({ req, res }) {
         .map(({ game, unlocked, state, points }) => {
           const inner = `<span class="tile__title">${escape(unlocked ? game.title : '???')}</span>
             <span class="tile__pts">${points} pts</span>`;
+          const moving = tileAnimation(scheme, url, game.id); // PROTOTYPE
           return unlocked
-            ? `<a class="tile tile--${state}" href="/g/${escape(game.id)}">${inner}</a>`
-            : `<span class="tile tile--locked">${inner}</span>`;
+            ? `<a class="tile tile--${state}${moving}" href="/g/${escape(game.id)}">${inner}</a>`
+            : `<span class="tile tile--locked${moving}">${inner}</span>`;
         })
         .join('')
     : '<p>No games yet. The roster is still being locked.</p>';
@@ -282,6 +298,8 @@ function showDashboard({ req, res }) {
     res,
     layout({
       title: escape(team.name),
+      proto: switcherBar(scheme, url), // PROTOTYPE
+      pageAnim: pageAnimation(), // PROTOTYPE
       body: `
         <div class="scorebar">
           <div class="scorebar__who">
@@ -311,18 +329,20 @@ const SUBMIT_PROBLEMS = {
  * A team's own photos, back to them. Thumbnails are the extracted EXIF ones where the camera
  * embedded any, so reopening a tile with six photos on it costs kilobytes and not megabytes.
  */
-function photoStrip(submissions) {
+function photoStrip(submissions, newestAnim = '') {
   const withPhotos = submissions.filter((submission) => submission.photo_path);
   if (!withPhotos.length) return '';
 
   const cells = withPhotos
-    .map((submission) => {
+    .map((submission, index) => {
       const display = displayFor(submission);
       const href = `/uploads/${escape(submission.photo_path)}`;
       const inside = display.src
         ? `<img class="shot__img" src="${escape(display.src)}" alt="" loading="lazy">`
         : '<span class="shot__none">sent ✓</span>';
-      return `<a class="shot" href="${href}">${inside}</a>`;
+      // PROTOTYPE: only the photo that just landed moves.
+      const moving = index === withPhotos.length - 1 ? newestAnim : '';
+      return `<a class="shot${moving}" href="${href}">${inside}</a>`;
     })
     .join('');
 
@@ -350,19 +370,37 @@ function showGame({ req, res, params, url }) {
   const problem = SUBMIT_PROBLEMS[url.searchParams.get('problem')];
   const wantsPhoto = takesPhoto(game);
 
+  // PROTOTYPE (issue #14): where this scheme puts the moment.
+  const scheme = variantOf(req, res, url);
+  const hero = heroAnimation(scheme, url);
+  const verdict = url.searchParams.get('verdict');
+  const verdictLine =
+    scheme === 'C' && verdict
+      ? `<p class="banner${verdictAnimation(scheme, url)}">${
+          verdict === 'correct'
+            ? 'Correct. That is worth points.'
+            : verdict === 'incorrect'
+              ? 'Not that. Try again — you can change your answer until the end.'
+              : 'Sent. Nobody knows yet whether it was any good.'
+        }</p>`
+      : '';
+
   return html(
     res,
     layout({
       title: escape(game.title),
+      proto: switcherBar(scheme, url), // PROTOTYPE
+      pageAnim: pageAnimation(), // PROTOTYPE
       body: `
         <p class="banner"><strong>Composition not designed yet.</strong> Owned by: the per-game tickets.</p>
         ${problem ? `<p class="banner banner--bad">${escape(problem)}</p>` : ''}
+        ${verdictLine}
         ${
           game.kind === 'hunt'
             ? `<p class="statusline">Step ${step} of ${stepCount(game)} — reached ${reached}</p>
-               <div class="hero hero--text">${escape(getStep(game, step)?.hero?.text ?? '')}</div>`
-            : `<div class="hero hero--text">${escape(game.hero?.text ?? '')}</div>
-               ${wantsPhoto ? photoStrip(mine) : ''}
+               <div class="hero hero--text${hero}">${escape(getStep(game, step)?.hero?.text ?? '')}</div>`
+            : `<div class="hero hero--text${hero}">${escape(game.hero?.text ?? '')}</div>
+               ${wantsPhoto ? photoStrip(mine, shotAnimation(scheme, url)) : ''}
                <form class="stack" method="post" action="/g/${escape(game.id)}/submit"
                      ${wantsPhoto ? 'enctype="multipart/form-data"' : ''}>
                  ${
@@ -403,7 +441,8 @@ function showGame({ req, res, params, url }) {
 const backToGame = (res, game, problem) =>
   redirect(res, `/g/${game.id}${problem ? `?problem=${problem}` : ''}`);
 
-async function submitToGame({ req, res, params }) {
+async function submitToGame({ req, res, params, url }) {
+  const scheme = variantOf(req, res, url); // PROTOTYPE
   const team = requireTeam(req, res);
   if (!team) return undefined;
   if (blockedByGameEnd(res)) return undefined;
@@ -494,8 +533,10 @@ async function submitToGame({ req, res, params }) {
     return Number(lastInsertRowid);
   });
 
+  let verdict = 'pending'; // PROTOTYPE: hoisted so the redirect can carry it
+
   if (mode === 'check') {
-    const verdict = game.check(body) ? 'correct' : 'incorrect';
+    verdict = game.check(body) ? 'correct' : 'incorrect';
     run('update submissions set verdict = ? where id = ?', verdict, submissionId);
     award({
       teamId: team.id,
@@ -508,7 +549,8 @@ async function submitToGame({ req, res, params }) {
 
   // Photo games send many, so returning to the tile grid would mean reopening the tile every
   // time. Stay on the game page; everything else goes back to the dashboard as before.
-  return takesPhoto(game) ? backToGame(res, game, null) : redirect(res, '/');
+  // PROTOTYPE: which of those is true is now the scheme's call.
+  return redirect(res, submitLanding(scheme, { game, verdict, photo: takesPhoto(game) }));
 }
 
 async function revealHint({ req, res, params }) {
@@ -551,11 +593,22 @@ function showRules({ req, res }) {
   );
 }
 
-function showPage({ res, params }) {
+function showPage({ req, res, params, url }) {
   const page = getPage(params.pageId);
   if (!page) return html(res, notFound(), 404);
 
-  return html(res, layout({ title: page.title, body: page.body, showClose: page.showClose }));
+  const scheme = variantOf(req, res, url); // PROTOTYPE
+
+  return html(
+    res,
+    layout({
+      title: page.title,
+      body: page.body,
+      showClose: page.showClose,
+      proto: switcherBar(scheme, url), // PROTOTYPE
+      pageAnim: pageAnimation(), // PROTOTYPE
+    }),
+  );
 }
 
 function showShowdown({ req, res }) {
