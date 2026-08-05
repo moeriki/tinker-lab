@@ -180,7 +180,6 @@ export function tile({ state = 'locked', title = '', points = 0, href = '', attr
 }
 
 /**
-/**
  * The top half of a game page: either words or a picture, never both.
  *
  * `.hero__body` carries the font, the size and the line-height. The game page used to drop its
@@ -245,13 +244,36 @@ export function hero({
  *
  * `attrs` is an object, not a string, so everything it carries is escaped on the way out and a
  * caller cannot accidentally open a hole by interpolating content into an attribute.
+ *
+ * `options` makes it a `<select>`. Entries are either a bare string, or `{ value, label }` where
+ * the two differ -- which is Guess Who's case, since a card names a member by id and shows a
+ * person's name. `content/questions.js` has been allowed to declare `input: 'select'` with options
+ * since #9, and boot has been *enforcing* that a select carries options, while this function had
+ * no branch for one: the questionnaire would have rendered `<input type="select">`, which every
+ * browser quietly treats as a text box. A validated promise nothing kept.
  */
-export function field({ label, name, type = 'text', value = '', rows = 0, attrs = {} }) {
+export function field({ label, name, type = 'text', value = '', rows = 0, options = null, attrs = {} }) {
   const extra = attrsHtml(attrs);
 
-  const control = rows
-    ? `<textarea class="input input--area" name="${escape(name)}" rows="${Number(rows)}"${extra}>${escape(value)}</textarea>`
-    : `<input class="input${type === 'file' ? ' input--file' : ''}" name="${escape(name)}" type="${escape(type)}"${extra} value="${escape(value)}">`;
+  const choice = (option) => (typeof option === 'string' ? { value: option, label: option } : option);
+
+  let control;
+  if (options) {
+    const items = options
+      .map(choice)
+      .map(
+        (option) =>
+          `<option value="${escape(option.value)}"${
+            String(option.value) === String(value) ? ' selected' : ''
+          }>${escape(option.label)}</option>`,
+      )
+      .join('');
+    control = `<select class="input input--select" name="${escape(name)}"${extra}>${items}</select>`;
+  } else if (rows) {
+    control = `<textarea class="input input--area" name="${escape(name)}" rows="${Number(rows)}"${extra}>${escape(value)}</textarea>`;
+  } else {
+    control = `<input class="input${type === 'file' ? ' input--file' : ''}" name="${escape(name)}" type="${escape(type)}"${extra} value="${escape(value)}">`;
+  }
 
   return `<label class="field">
       <span class="field__label">${escape(label)}</span>

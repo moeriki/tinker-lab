@@ -79,9 +79,28 @@ export const requiresBody = (game) => Boolean(game.requiresBody);
  * Returns 0 for a game that declares none, which is every other kind on the roster.
  */
 export function unitCount(game) {
+  // A dealt hand IS the unit list, so its size is the count and declaring `units` as well would be
+  // two numbers that can disagree. See `handSize` for what a hand is.
+  if (game.hand) return handSize(game);
   if (typeof game.units === 'number') return game.units;
   return Array.isArray(game.units) ? game.units.length : 0;
 }
+
+/**
+ * A **hand**: units that are not the same for every team.
+ *
+ * Every other tally game's units are content -- the scavenger's ten prompts are ten strings on
+ * disk, identical for everybody, so nothing about them is player data. Guess Who's ten cards are
+ * drawn per team out of what other guests answered at the door, so they cannot be. A game declares
+ *
+ *   hand: { size: 10, fromLadder: 'guess-who' }
+ *
+ * and the engine deals it (src/deals.js), tops it up, and hands the game its own cards back as
+ * facts. Content never opens the database -- ADR-0001 -- so a game with a hand still knows nothing
+ * about how one is stored.
+ */
+export const hasHand = (game) => Boolean(game.hand);
+export const handSize = (game) => Number(game.hand?.size ?? 0);
 
 /** The prompts, where the units are labelled. Anonymous units have none, and that is not a lack. */
 export const unitLabels = (game) => (Array.isArray(game.units) ? game.units : []);
@@ -141,7 +160,57 @@ export const isPending = (slug) => {
 /** Every code whose content is still missing, for the boot warning and for /admin/codes. */
 export const listPendingCodes = () => listCodes().filter(([slug]) => isPending(slug));
 export const listQuestions = () => questions;
+export const getQuestion = (id) => questions.find((question) => question.id === id) ?? null;
 export const listTeamNames = () => teamNames;
+
+// --- ladders ------------------------------------------------------------------------------------
+//
+// A **ladder** is several questions sharing one `ladder` id, of which a subject answers exactly
+// ONE. Onboarding shows the first rung; "ask me something else" walks down the list; the last rung
+// has no skip under it.
+//
+// It exists because rung 1 of the Guess Who ladder is a memory question, and a person who cannot
+// remember what they wanted to be has nothing to type into a required field. Without a ladder the
+// options were a worse question or a hole in the deck.
+//
+// A ladder is ONE SLOT at the gate, not five. That is the only thing the rest of the site has to
+// know about it -- see `questionSlots`, which is what onboarding counts.
+
+/** The rungs of one ladder, in file order, which is the order skipping walks. */
+export const ladderRungs = (ladder) => questions.filter((question) => question.ladder === ladder);
+
+/** Every ladder id, in the order its first rung appears. */
+export const listLadders = () => [
+  ...new Set(questions.filter((question) => question.ladder).map((question) => question.ladder)),
+];
+
+/**
+ * What onboarding actually owes: one entry per answer a team has to produce, where a whole ladder
+ * collapses to a single slot however many rungs it has.
+ *
+ * Counting question ROWS instead of slots is the bug this exists to prevent -- it would make the
+ * gate demand all five Guess Who rungs from every member, which is the opposite of a ladder.
+ */
+export function questionSlots() {
+  const slots = [];
+  const seen = new Set();
+
+  for (const question of questions) {
+    if (!question.ladder) {
+      slots.push({ id: question.id, scope: question.scope, rungs: [question] });
+      continue;
+    }
+    if (seen.has(question.ladder)) continue;
+    seen.add(question.ladder);
+    slots.push({
+      id: question.ladder,
+      scope: question.scope,
+      rungs: ladderRungs(question.ladder),
+    });
+  }
+
+  return slots;
+}
 
 /**
  * Games every team has before they have found anything, unlocked during onboarding on top of
@@ -207,6 +276,25 @@ function questionProblems() {
     }
     if (question.input === 'select' && !question.options?.length) {
       problems.push(`question "${question.id}" is a select with no options`);
+    }
+    // A rung's `card` is the only words a Guess Who card wears above the answer. Without one the
+    // card reads "a purple Fiat Panda" with nothing saying what question that answered, which is
+    // not a puzzle -- it is a fragment.
+    if (question.ladder && !question.card) {
+      problems.push(`ladder rung "${question.id}" has no \`card\`; a dealt card needs its prompt`);
+    }
+  }
+
+  // A ladder's rungs are alternatives to each other, so they have to be interchangeable. Differing
+  // scopes would mean the gate owes a different number of answers depending on which rung a person
+  // stopped at, which is not a thing the gate can express.
+  for (const ladder of listLadders()) {
+    const rungs = ladderRungs(ladder);
+    if (rungs.length < 2) {
+      problems.push(`ladder "${ladder}" has one rung; that is a question wearing a costume`);
+    }
+    if (new Set(rungs.map((rung) => rung.scope)).size > 1) {
+      problems.push(`ladder "${ladder}" mixes scopes across its rungs; they must be interchangeable`);
     }
   }
 
@@ -339,6 +427,39 @@ function validate() {
     }
     if (game.requiresBody && !takesForm(game)) {
       problems.push(`${game.kind} "${game.id}" requires a body, but has no form to type one into`);
+    }
+
+    // A hand is units that differ per team. Its size still has to be knowable at boot, because the
+    // tile budget is checked the same way a fixed unit list's is -- ten cards at a point each.
+    if (game.hand !== undefined) {
+      if (!takesForm(game)) {
+        problems.push(`${game.kind} "${game.id}" deals a hand, but has no form to answer one with`);
+      }
+      if (game.units !== undefined) {
+        problems.push(
+          `game "${game.id}" declares both \`hand\` and \`units\`; a hand IS its units, and two ` +
+            `counts can disagree`,
+        );
+      }
+      if (!Number.isInteger(game.hand.size) || game.hand.size < 1) {
+        problems.push(`game "${game.id}" deals a hand of ${game.hand.size}; expected a positive whole number`);
+      }
+      // The pool. Today the only source is a question ladder, and naming one that does not exist
+      // deals an empty hand to every team -- a tile that renders, submits nothing and pays nothing,
+      // which is exactly the failure that looks like it works.
+      if (!game.hand.fromLadder) {
+        problems.push(`game "${game.id}" deals a hand with no \`fromLadder\`; there is nothing to deal`);
+      } else if (!listLadders().includes(game.hand.fromLadder)) {
+        problems.push(
+          `game "${game.id}" deals from ladder "${game.hand.fromLadder}", which no question declares`,
+        );
+      }
+      const budget = unitCount(game) * (game.points ?? 0);
+      if (budget > economy.tilePoints) {
+        problems.push(
+          `game "${game.id}" pays ${budget} across its hand, over the ${economy.tilePoints}-point tile budget`,
+        );
+      }
     }
 
     // Units. A tally game spends its ten points across countable things, and the arithmetic is

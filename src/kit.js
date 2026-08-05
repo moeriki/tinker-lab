@@ -71,8 +71,30 @@ const RENDERERS = {
   // Everything `field` does not name itself is a real HTML attribute on the control, escaped on
   // the way out by `field` -- so a marker can demo `required` or a `placeholder` without this
   // file knowing the list.
-  field: ({ label, name, type, value, rows, ...attrs }) =>
-    field({ label: label ?? '', name: name ?? '', type, value, rows: num(rows), attrs }),
+  //
+  // `options` makes it a select, pipe separated the way `shots` and `win` flatten their lists.
+  // A cell may be `value=label` where the two differ, which is Guess Who's shape: a card names a
+  // member by id and shows a person's name.
+  field: ({ label, name, type, value, rows, options, ...attrs }) =>
+    field({
+      label: label ?? '',
+      name: name ?? '',
+      type,
+      value,
+      rows: num(rows),
+      options: options
+        ? options
+            .split('|')
+            .filter(Boolean)
+            .map((cell) => {
+              const split = cell.indexOf('=');
+              return split === -1
+                ? cell
+                : { value: cell.slice(0, split), label: cell.slice(split + 1) };
+            })
+        : null,
+      attrs,
+    }),
 
   hintmodal: (a) =>
     hintModal({ notice: a.notice ?? 'paid', cost: num(a.cost, 3), backHref: a.href ?? '#modal' }),

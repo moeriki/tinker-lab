@@ -18,11 +18,15 @@ import {
   getGame,
   getPage,
   getCode,
+  getQuestion,
+  hasHand,
   isPending,
   judgingMode,
+  ladderRungs,
   listCodes,
   listGames,
   listQuestions,
+  questionSlots,
   hintsFor,
   slugForPage,
   stepCount,
@@ -34,6 +38,7 @@ import {
   unitLabel,
   unitLabels,
 } from './content.js';
+import { handFor, namesFor } from './deals.js';
 import {
   escape,
   html,
@@ -388,16 +393,23 @@ const QUESTION_PROBLEMS = {
 
 /**
  * Screen two: the questionnaire, which is a gate rather than a form (#9). Every answer here is
- * consumed by a game somebody else plays hours from now -- the aged-eight answers become Guess
- * Who's answer key, and the five one-word answers are the corpus Herd Mentality scores against.
- * A team that skips does not merely skip their own tile; they put a hole in everyone's.
+ * consumed by a game somebody else plays hours from now -- one answer per member becomes a Guess
+ * Who card, and the five one-word answers are the corpus Herd Mentality scores against. A team
+ * that skips does not merely skip their own tile; they put a hole in everyone's.
+ *
+ * One slot may be a LADDER (#22): several interchangeable questions of which a member answers one,
+ * with "ask me something else" walking down them. Rung 1 asks what you wanted to be when you were
+ * young, and that is a memory question -- somebody who genuinely cannot remember has nothing to
+ * type into a required field, and the alternatives were a worse question or a hole in the deck.
+ *
+ * Skipping re-submits the whole form as a GET, so nothing typed is lost and no client JS comes
+ * anywhere near onboarding -- the same trick the team name's reroll uses on screen one.
  */
 function showQuestions({ req, res, url }) {
   const team = requireTeam(req, res);
   if (!team) return undefined;
   if (onboardingComplete(team.id)) return redirect(res, afterOnboarding(req, res, team));
 
-  const questions = listQuestions();
   const members = membersOf(team.id);
   const answered = new Map(
     all('select member_id, question_id, value from profile_answers where team_id = ?', team.id).map(
@@ -405,23 +417,48 @@ function showQuestions({ req, res, url }) {
     ),
   );
 
-  const fields = questions
-    .flatMap((question) =>
-      question.scope === 'member'
-        ? members.map((member) => ({ question, member }))
-        : [{ question, member: null }],
+  // Which subject just tapped skip, as `slotId:memberId`. A button's own name/value is only
+  // submitted for the button actually pressed, which is what makes one form able to carry two
+  // members' skips without either of them knowing about the other.
+  const skipped = url.searchParams.get('skip');
+
+  /**
+   * The rung a subject is looking at. Carried on the query string while they are skipping;
+   * otherwise the rung they have already answered, so reopening a half-filled form does not quietly
+   * undo somebody's skipping and lose the answer underneath it.
+   */
+  const rungFor = (slot, member) => {
+    const subject = `${slot.id}:${member?.id ?? ''}`;
+    const carried = url.searchParams.get(`rung:${subject}`);
+    const saved = slot.rungs.findIndex((rung) => answered.has(`${rung.id}:${member?.id ?? ''}`));
+
+    let index = carried === null ? Math.max(saved, 0) : Number(carried);
+    if (!Number.isInteger(index) || index < 0) index = 0;
+    if (skipped === subject) index += 1;
+
+    return Math.min(index, slot.rungs.length - 1);
+  };
+
+  const fields = questionSlots()
+    .flatMap((slot) =>
+      (slot.scope === 'member' ? members : [null]).map((member) => ({ slot, member })),
     )
-    .map(({ question, member }) => {
+    .map(({ slot, member }) => {
+      const index = rungFor(slot, member);
+      const question = slot.rungs[index];
       const key = `${question.id}:${member?.id ?? ''}`;
+      const subject = `${slot.id}:${member?.id ?? ''}`;
+
       // The member's name goes in the question, not in brackets after it: "what did ANNA want to
       // be" is a question, "what did you want to be (Anna)" is a form field.
       const label = member ? `${member.name}: ${question.label}` : question.label;
 
-      return field({
+      const control = field({
         label,
         name: key,
         type: question.input ?? 'text',
-        value: answered.get(key) ?? '',
+        options: question.input === 'select' ? question.options : null,
+        value: url.searchParams.get(key) ?? answered.get(key) ?? '',
         attrs: {
           maxlength: Number(question.maxLength ?? 40),
           placeholder: question.placeholder ?? '',
@@ -430,6 +467,23 @@ function showQuestions({ req, res, url }) {
           required: true,
         },
       });
+
+      // The rung has to survive the round trip, or a second skip would start again from the top.
+      const carry =
+        slot.rungs.length > 1
+          ? `<input type="hidden" name="rung:${escape(subject)}" value="${index}">`
+          : '';
+
+      // No skip under the last rung. Everyone contributes exactly one answer, which is what lets
+      // this stay a gate with nothing to represent an opt-out -- and it is why the last rung is a
+      // possession rather than a memory: everybody owns something useless.
+      const skip =
+        index < slot.rungs.length - 1
+          ? `<button class="btn" formmethod="get" formaction="/questions" formnovalidate
+                     name="skip" value="${escape(subject)}">ask me something else</button>`
+          : '';
+
+      return `${control}${carry}${skip}`;
     })
     .join('');
 
@@ -461,6 +515,13 @@ async function saveQuestions({ req, res }) {
   transact(() => {
     for (const [key, value] of form.entries()) {
       const [questionId, rawMemberId] = key.split(':');
+
+      // Only fields naming a real question become answers. The form also carries `rung:` markers
+      // and a `skip` button, and the old loop would have written those in as questions of their
+      // own -- rows nothing ever reads, under ids no content declares.
+      const question = getQuestion(questionId);
+      if (!question) continue;
+
       const memberId = rawMemberId ? Number(rawMemberId) : null;
       run(
         `insert into profile_answers (team_id, member_id, question_id, value)
@@ -472,6 +533,28 @@ async function saveQuestions({ req, res }) {
         questionId,
         value,
       );
+
+      // A member holds exactly ONE rung of a ladder, so answering this one drops whatever they
+      // typed into a rung they have since skipped past. Without this a member who typed something,
+      // skipped, and answered the next rung would leave two answers behind -- and the abandoned one
+      // would be dealt to somebody as a card whose owner never claims it, since the question they
+      // remember answering is the other one.
+      if (question.ladder) {
+        const siblings = ladderRungs(question.ladder)
+          .map((rung) => rung.id)
+          .filter((id) => id !== questionId);
+
+        if (siblings.length) {
+          run(
+            `delete from profile_answers
+              where team_id = ? and ifnull(member_id, -1) = ?
+                and question_id in (${siblings.map(() => '?').join(', ')})`,
+            team.id,
+            memberId ?? -1,
+            ...siblings,
+          );
+        }
+      }
     }
   });
 
@@ -707,6 +790,67 @@ function portraitStage(game, mine, newestAnim) {
           ${shootForm(game, { face: sent.length ? 'another portrait' : 'take a portrait', body: quote })}`;
 }
 
+/**
+ * Guess Who: the ten cards this team was dealt, each an answer somebody gave at the door, wearing
+ * the question it answered, with a dropdown naming who you think wrote it.
+ *
+ * ONE form and one save button, not ten. Every other unit game posts a unit at a time because each
+ * one carries a photograph; these are ten dropdowns on one screen, and making a team tap save ten
+ * times would be the two-taps-twenty-times complaint of #49 with nothing bought for it.
+ *
+ * A DROPDOWN rather than a typed name, and that is not a convenience. A member's name is whatever
+ * their partner typed at the door: you know her as Sofie, her boyfriend entered Sofietje, and under
+ * typing you would have had the actual conversation, got the actual answer and lost the point
+ * anyway. Picking a person by id deletes that failure, and the two-people-called-Jan case with it.
+ *
+ * The list is the WHOLE party, not the ten people on the cards -- narrowing it to the answer key
+ * would hand the game away. It grows all night at no cost: the cards were dealt from people who
+ * already existed, so the right name is always in the list and a late arrival only adds a wrong one.
+ *
+ * Nothing here says how many are RIGHT. This game resolves at the end of the night, and it has to:
+ * a verdict on submit would let a team sit on the sofa cycling names until the tile went green,
+ * which is the one way to score this tile without talking to anybody.
+ */
+function cardStage(game, team, mine) {
+  const hand = handFor(team.id, game);
+
+  if (!hand.length) {
+    return `<p class="statusline">No cards yet — nobody else has been through the door.</p>
+            <p>Come back in a bit. This tile deals from what other guests answered on their way
+              in, so it fills up as the house does.</p>`;
+  }
+
+  const people = namesFor(team.id);
+  const guesses = new Map(
+    mine.filter((submission) => submission.unit !== null).map((row) => [row.unit, row.body]),
+  );
+
+  const named = hand.filter((card) => guesses.get(card.unit)).length;
+
+  const rows = hand
+    .map(
+      (card) => `<li class="prompt prompt--done">
+          <div class="prompt__said">
+            <p class="prompt__label">${escape(card.prompt)}</p>
+            <p class="bubble">${escape(card.answer)}</p>
+            ${field({
+              label: 'who wrote this?',
+              name: `card-${card.unit}`,
+              value: guesses.get(card.unit) ?? '',
+              options: [{ value: '', label: '— no idea yet —' }, ...people],
+            })}
+          </div>
+        </li>`,
+    )
+    .join('');
+
+  return `<p class="statusline">${named} of ${hand.length} named</p>
+          <form class="stack" method="post" action="/g/${escape(game.id)}/submit">
+            <ul class="prompts">${rows}</ul>
+            <button class="btn btn--primary" ${gameIsOver() ? 'disabled' : ''}>Save my guesses</button>
+          </form>`;
+}
+
 function showGame({ req, res, params, url }) {
   const team = requireOnboardedTeam(req, res);
   if (!team) return undefined;
@@ -759,6 +903,11 @@ function showGame({ req, res, params, url }) {
              ${heroBlock}`;
   } else if (!takesForm(game)) {
     stage = heroBlock;
+  } else if (hasHand(game)) {
+    // Units dealt per team rather than declared in content, so the stage has to ask the database
+    // what this team is even holding before it can draw anything.
+    stage = `${heroBlock}
+             ${cardStage(game, team, mine)}`;
   } else if (unitCount(game)) {
     // A game that pays per unit composes its own stage: the units are the page, and the generic
     // one-form-and-a-strip below cannot say which of them are still open.
@@ -825,6 +974,58 @@ function showGame({ req, res, params, url }) {
 const backToGame = (res, game, problem) =>
   redirect(res, `/g/${game.id}${problem ? `?problem=${problem}` : ''}`);
 
+/**
+ * Every card of a dealt hand, saved in one press.
+ *
+ * One submission row per (team, unit), rewritten in place, because a guess is a thing you CHANGE
+ * rather than a thing you add to -- there is no history worth keeping of who you briefly suspected.
+ * Nothing is judged and nothing is awarded here: the game resolves across every team at the end of
+ * the night, which is what stops a team brute-forcing the list from the sofa.
+ *
+ * A name that is not somebody at this party -- a stale tab, a hand-edited option -- is stored as no
+ * guess at all rather than bounced. Nine good guesses must not be lost to one bad option, and the
+ * card is still sitting there to be answered again.
+ */
+async function saveHand({ req, res, team, game }) {
+  const form = await readForm(req);
+  const hand = handFor(team.id, game);
+  const known = new Set(namesFor(team.id).map((person) => person.value));
+
+  transact(() => {
+    for (const card of hand) {
+      const posted = String(form.get(`card-${card.unit}`) ?? '').trim();
+      const body = known.has(posted) ? posted : '';
+
+      const existing = get(
+        'select id from submissions where team_id = ? and game_id = ? and unit = ?',
+        team.id,
+        game.id,
+        card.unit,
+      );
+
+      if (existing) {
+        run(
+          "update submissions set body = ?, updated_at = datetime('now') where id = ?",
+          body,
+          existing.id,
+        );
+      } else if (body) {
+        // A card nobody has guessed yet gets no row at all, so an untouched hand leaves the
+        // database exactly as it found it.
+        run(
+          'insert into submissions (team_id, game_id, body, unit) values (?, ?, ?, ?)',
+          team.id,
+          game.id,
+          body,
+          card.unit,
+        );
+      }
+    }
+  });
+
+  return redirect(res, gamePath(game.id, { moment: 'pending' }));
+}
+
 async function submitToGame({ req, res, params }) {
   const team = requireOnboardedTeam(req, res);
   if (!team) return undefined;
@@ -836,6 +1037,11 @@ async function submitToGame({ req, res, params }) {
   // with a terminal. Bounce it rather than opening a submission row against a game that has no
   // way to judge one.
   if (!takesForm(game)) return redirect(res, `/g/${game.id}`);
+
+  // A dealt hand posts every card at once -- ten dropdowns under one save button -- so it takes its
+  // own path rather than squeezing ten units through the one-unit-per-post shape the photo tiles
+  // use. It never carries a photograph, so everything below this line is irrelevant to it.
+  if (hasHand(game)) return saveHand({ req, res, team, game });
 
   let fields;
   let photo = null;

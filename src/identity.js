@@ -5,7 +5,7 @@
 import { randomBytes } from 'node:crypto';
 
 import { TEAM_COOKIE } from './config.js';
-import { listQuestions, listStarterGames, listTeamNames } from './content.js';
+import { listStarterGames, listTeamNames, questionSlots } from './content.js';
 import { all, get, run, transact } from './db.js';
 import { parseCookies, setCookie } from './http.js';
 import { unlock } from './progress.js';
@@ -113,14 +113,14 @@ function insertTeam(name, memberNames) {
 
 // --- the gate ----------------------------------------------------------------------------------
 
-/** How many answers a complete questionnaire has, for this team's number of members. */
-export function questionsExpected(teamId) {
-  const members = membersOf(teamId).length;
-  return listQuestions().reduce(
-    (total, question) => total + (question.scope === 'member' ? members : 1),
-    0,
+/** Every answer this team has actually given, as `questionId:memberId` (team answers end in `:`). */
+const answeredKeys = (teamId) =>
+  new Set(
+    all(
+      "select member_id, question_id from profile_answers where team_id = ? and trim(value) <> ''",
+      teamId,
+    ).map((row) => `${row.question_id}:${row.member_id ?? ''}`),
   );
-}
 
 /**
  * Onboarding is a gate, and this is the definition of being through it. A team exists after the
@@ -128,16 +128,28 @@ export function questionsExpected(teamId) {
  * team-facing route sends them back. Otherwise a team that closed the tab mid-questionnaire plays
  * all night while Herd Mentality counts a corpus with holes in it -- and the holes belong to
  * everyone's tile, not just theirs. Settled in #9.
+ *
+ * It asks per SLOT rather than counting rows, which is what a ladder needs (#22): the five Guess
+ * Who rungs are one slot and any one of them satisfies it. Counting rows against a total would
+ * demand all five from every member -- the exact opposite of a ladder -- and would also let a
+ * member who answered two rungs mask somebody else's blank.
  */
 export function onboardingComplete(teamId) {
-  const expected = questionsExpected(teamId);
-  if (!expected) return true;
+  const slots = questionSlots();
+  if (!slots.length) return true;
 
-  const { count } = get(
-    "select count(*) as count from profile_answers where team_id = ? and trim(value) <> ''",
-    teamId,
-  );
-  return count >= expected;
+  const answered = answeredKeys(teamId);
+  const memberIds = membersOf(teamId).map((member) => member.id);
+
+  for (const slot of slots) {
+    const subjects = slot.scope === 'member' ? memberIds : [null];
+    for (const subject of subjects) {
+      const satisfied = slot.rungs.some((rung) => answered.has(`${rung.id}:${subject ?? ''}`));
+      if (!satisfied) return false;
+    }
+  }
+
+  return true;
 }
 
 export const attachTeam = (res, team) => setCookie(res, TEAM_COOKIE, team.token);

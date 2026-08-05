@@ -688,6 +688,22 @@ code {
   padding: 0.7rem 0.6rem;
 }
 
+/* A select has to draw its own arrow, because `-webkit-appearance: none` up in `.input` has just
+   taken the native one away -- and a select with no arrow is a text box that refuses to be typed
+   in, which is a worse affordance than either. Two hard-edged gradients rather than an image: no
+   asset to ship, and no blur anywhere ever (#5). */
+.input--select {
+  padding-right: 2.2rem;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--c-ink) 50%),
+    linear-gradient(135deg, var(--c-ink) 50%, transparent 50%);
+  background-position:
+    calc(100% - 1.15rem) calc(50% - 1px),
+    calc(100% - 0.8rem) calc(50% - 1px);
+  background-size: 0.38rem 0.38rem;
+  background-repeat: no-repeat;
+}
+
 /* ---------------------------------- modal ---------------------------------- */
 
 .modal {

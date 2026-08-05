@@ -39,8 +39,8 @@ export default {
   // --- Roaming tiles, two slugs each so a tile is findable from more than one room -- #07..#14 ---
   // A slug is not consumed when it is scanned; every team can scan the same one. Two slugs buy
   // findability across rooms, not capacity.
-  c4jm8x: { game: 'guess-who', label: 'Guess Who (a)', where: null, pending: true },
-  awyuv2: { game: 'guess-who', label: 'Guess Who (b)', where: null, pending: true },
+  c4jm8x: { game: 'guess-who', label: 'Guess Who (a)', where: null },
+  awyuv2: { game: 'guess-who', label: 'Guess Who (b)', where: null },
   bgue88: { game: 'herd', label: 'Herd Mentality (a)', where: null, pending: true },
   '46ezp7': { game: 'herd', label: 'Herd Mentality (b)', where: null, pending: true },
   '38bpnu': { game: 'scavenger', label: 'Photo scavenger (a)', where: null },

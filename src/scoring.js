@@ -3,7 +3,9 @@
 
 import economy from '../content/economy.js';
 import { all, get, run, transact, setting, setSetting } from './db.js';
-import { getGame, listGames, hintsFor } from './content.js';
+import { getGame, hasHand, listGames, hintsFor } from './content.js';
+import { dealsByUnit, ladderAnswers, memberNames } from './deals.js';
+import { normalise } from './matching.js';
 import { reachedStep } from './progress.js';
 
 export const GAME_ENDED_AT = 'game_ended_at';
@@ -240,15 +242,47 @@ export function rescore() {
 }
 
 /**
+ * What a resolver is handed besides its submissions. Content never opens the database (ADR-0001),
+ * so anything a game needs to know about players arrives here as a plain function over facts
+ * already read.
+ *
+ * A game with a dealt hand gets three, because a guess it has to judge is three lookups away from
+ * the submission row: which member the card belonged to, what any member wrote, and whether two
+ * answers are the same thing.
+ *
+ * `sameAnswer` is normalised equality and deliberately NOT the fuzzy matcher. Two people who both
+ * wrote "astronaut" are genuinely indistinguishable, so naming either has to count -- that is the
+ * one failure this tile cannot afford, since it punishes a team for doing exactly what the tile
+ * asks. But "vet" and "bet" are two different people's answers, and a matcher generous enough to
+ * merge them would hand out points nobody earned.
+ */
+function factsFor(game) {
+  const facts = { getGame };
+  if (!hasHand(game)) return facts;
+
+  const answers = ladderAnswers(game.hand.fromLadder);
+  const owners = dealsByUnit(game.id);
+  const names = memberNames();
+
+  facts.cardOwner = (teamId, unit) => owners.get(`${teamId}:${unit}`) ?? null;
+  facts.answerOf = (memberId) => answers.get(Number(memberId)) ?? null;
+  facts.nameOf = (memberId) => names.get(Number(memberId)) ?? null;
+  facts.sameAnswer = (left, right) =>
+    Boolean(left) && Boolean(right) && normalise(left) === normalise(right);
+
+  return facts;
+}
+
+/**
  * Games judged across every team at once -- "closest to the average height", "who shares your
  * favourite colour". A resolver is a pure function in content returning
- * [{ teamId, points, verdict, submissionId }].
+ * [{ teamId, points, verdict, submissionId, sourceId }].
  */
 function runResolvers() {
   for (const game of listGames()) {
     if (typeof game.resolve !== 'function') continue;
 
-    const outcomes = game.resolve(allSubmissionsFor(game.id), { getGame }) ?? [];
+    const outcomes = game.resolve(allSubmissionsFor(game.id), factsFor(game)) ?? [];
 
     for (const outcome of outcomes) {
       if (outcome.submissionId && outcome.verdict) {
@@ -258,13 +292,22 @@ function runResolvers() {
           outcome.submissionId,
         );
       }
+      // The ledger's kind has to match the game, not the moment: a tally game's rows are `tally`
+      // rows wherever they are written, or the same unit ends up with an `answer` row from here and
+      // a `tally` row from /admin/judge, and the unique index sees two different things. This was
+      // hardcoded to 'answer' and had never been wrong, because no tally game had a resolver until
+      // Guess Who -- the same latent shape #10 found in /admin/judge.
+      //
+      // `sourceId` likewise: a unit game keys on its UNIT, so a guess edited five times and a
+      // submission row rebuilt underneath it still upsert one award. Falling back to the submission
+      // keeps every existing resolver (`yarn`) writing exactly what it wrote before.
       award({
         teamId: outcome.teamId,
         gameId: game.id,
-        kind: 'answer',
+        kind: game.kind === 'tally' ? 'tally' : 'answer',
         points: outcome.points ?? 0,
         reason: outcome.reason ?? 'resolved at game end',
-        sourceId: outcome.submissionId ?? null,
+        sourceId: outcome.sourceId ?? outcome.submissionId ?? null,
       });
     }
   }

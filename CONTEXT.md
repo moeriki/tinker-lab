@@ -17,7 +17,7 @@ or shows a gag **page**. Games are content on disk; the database holds only what
 **Game content is code. The database is player data.** Nothing else.
 
 `content/` holds every game, code mapping, onboarding question and gag page, in version control.
-The database holds teams, scans, unlocks, submissions, hint reveals and awards — and refers to
+The database holds teams, scans, unlocks, submissions, deals, hint reveals and awards — and refers to
 content by bare string id (`game_id TEXT`), with **no foreign key**. The database does not know
 what games exist. See [ADR-0001](docs/adr/0001-game-content-lives-on-disk.md).
 
@@ -285,6 +285,28 @@ Boot checks `units × points ≤ tilePoints`, the same arithmetic a hunt gets.
 
 > Not "prompt" in code — a prompt is one **label** of one **unit**. Not "slot".
 
+### Hand
+
+Units that are **not the same for every team**. A game declares one instead of `units`:
+
+```js
+hand: { size: 10, fromLadder: 'guess-who' }
+```
+
+The scavenger's ten prompts are ten strings on disk, identical for everybody, so nothing about
+them is player data. Guess Who's ten cards are drawn out of what *other guests* answered at the
+door — so which ten a team holds is a fact about that team, and lives in `deals`.
+
+`src/deals.js` owns dealing and hands the game back plain facts; content never learns the table
+exists, and the table never learns what a `ref` means — it is an opaque integer belonging to the
+game that dealt it ([ADR-0001](docs/adr/0001-game-content-lives-on-disk.md) intact). A hand
+**tops up** on every open until it holds `size`, and a dealt card is never re-dealt or displaced,
+so a guess made at 21:00 cannot be taken away by somebody arriving at 23:00. See
+[ADR-0016](docs/adr/0016-units-may-be-dealt-per-team.md).
+
+> Not "deck" — the **pool** is what is available, a **hand** is what one team holds, and a
+> **card** is one unit of it. Declaring both `hand` and `units` is a boot error.
+
 ### Award
 
 One row per point movement: `(team_id, game_id, kind, points, reason, source_id)`. `kind` is one
@@ -311,7 +333,7 @@ The numbers live in `content/economy.js`. The scale is deliberately fine-grained
 
 **Every tile is flat 10**, and a game spends that budget however its own shape wants: per square,
 per photo, per step, plus a completion bonus where the units don't divide evenly (Human Bingo's
-nine squares, the photo scavenger's six prompts). `economy.tilePoints` is the contract the
+nine squares, Guess Who's ten cards). `economy.tilePoints` is the contract the
 per-game tickets author against; only hunts can have it checked at boot, since answer and tally
 games spend theirs inside `check()` and `resolve()`.
 
@@ -429,11 +451,39 @@ An onboarding questionnaire answer, keyed by `question_id` from `content/questio
 `scope: 'team' | 'member'`; member-scoped ones are asked once per member.
 
 Every question is here because **a game eats it** — that is the whole admission test. One
-member-scoped question (what you wanted to be aged eight) is Guess Who's answer key; five
-team-scoped ones are the honest **harvest** that Herd Mentality asks you to predict hours later.
-A team that skipped would put a hole in everyone's tile, not just their own, which is why
-onboarding is a **gate**: `onboardingComplete()` means the team exists *and* owes no answers, and
-every route past the door asks that rather than merely 'has a cookie'.
+member-scoped answer per person becomes a Guess Who card; five team-scoped ones are the honest
+**harvest** that Herd Mentality asks you to predict hours later. A team that skipped would put a
+hole in everyone's tile, not just their own, which is why onboarding is a **gate**:
+`onboardingComplete()` means the team exists *and* owes no answers, and every route past the door
+asks that rather than merely 'has a cookie'.
+
+The two blocks want **opposite things**, which is the one thing to know before editing the file.
+A herd question wants answers that **cluster** — four to six plausible ones, so the crowd has a
+shape to guess at. A Guess Who rung wants answers that **separate**, because two identical
+answers are indistinguishable by definition. Do not improve one into the other.
+
+### Ladder, and slot
+
+Several questions sharing a `ladder` id are **rungs**, of which a subject answers exactly **one**.
+Onboarding shows rung 1; *"ask me something else"* walks down the list; the last rung has **no
+skip**, so everybody contributes exactly one answer and there is no opt-out to represent.
+
+It exists because rung 1 of the Guess Who ladder — *what did you want to be when you were young* —
+is a **memory** question, and somebody who genuinely cannot remember has nothing to type into a
+required field. The alternatives were a weaker question for everyone, or a hole in the deck.
+
+A **slot** is what the gate actually counts: one answer a team owes. A whole ladder is **one
+slot**, however many rungs it has (`questionSlots()`). Counting question *rows* instead would
+demand all five rungs from every member — the exact opposite of a ladder — so `onboardingComplete`
+asks per slot and never totals. Answering a rung **deletes** the member's answer to any rung they
+have skipped past, so a member holds exactly one and no abandoned answer is ever dealt as a card.
+
+Skipping re-submits the form as a **GET**, so nothing typed is lost and no client JS comes near
+onboarding — the same trick the team name's reroll uses on screen one. See
+[ADR-0017](docs/adr/0017-a-question-may-be-a-ladder.md).
+
+> A **rung** is one question of a ladder. A **slot** is one answer owed. Not "optional question" —
+> nothing here is optional; the ladder always ends in one that is answered.
 
 Answers are stored **verbatim** and normalised only when counted. `src/matching.js` owns that —
 lowercase, accents, punctuation, a trailing plural, then roughly one edit of slack per five

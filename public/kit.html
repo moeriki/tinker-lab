@@ -218,16 +218,24 @@
       <section class="sect" id="forms">
         <h2 class="sect__h">9. Form fields</h2>
         <p class="sect__note">Forms POST and redirect. No client-side validation theatre.</p>
-        <!--@field label="WHAT DID YOU WANT TO BE AT EIGHT" name="k-eight" value="astronaut"-->
+        <!--@field label="WHAT DID YOU WANT TO BE WHEN YOU WERE YOUNG" name="k-young" value="astronaut"-->
         <!--@field label="YOUR ANSWER" name="k-answer" placeholder="type something, anything"-->
         <!--@field label="EXPLAIN YOURSELF" name="k-long" rows="3" placeholder="optional, nobody will read it"-->
         <!--@field label="PROOF" name="k-photo" type="file" accept="image/*"-->
+        <!--@field label="WHO WROTE THIS" name="k-who" value="3" options="=nobody yet|1=Anna|2=Bram|3=Sofie|4=Wouter"-->
 
         <p class="sect__note">
           <code>field()</code> from <code>src/render.js</code>, the same call onboarding makes for
           all nine of its fields. The label <em>wraps</em> the control instead of pointing at it
           with <code>for</code> — there is no id to keep in sync, which is the one way this markup
           can break silently, and it breaks by labelling the wrong box.
+        </p>
+        <p class="sect__note">
+          The last one is a <strong>select</strong>, which Guess Who uses to name a person — it
+          carries a member id and shows a name, so nobody loses a point because their partner typed
+          their pet name at the door. It draws its own arrow: <code>.input</code> sets
+          <code>-webkit-appearance: none</code>, and a select without an arrow is a text box that
+          refuses to be typed in.
         </p>
       </section>
 
