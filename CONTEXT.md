@@ -528,6 +528,20 @@ so it can only mean "everything up to N has run"; that sentence is only true whi
 is dense and unique. If you are adding a migration and someone else took your number while you
 were working, renumber yours before you land it.
 
+**Run `node scripts/migrate-check.js` before you land a migration.** A fresh database is the one
+case that never breaks; the check builds a throwaway database at every earlier `user_version`,
+fills every table, rolls it forward through the real runner and checks the rows came out the other
+side. It never opens `$DATA_DIR`. When a migration adds a table, add a row for it to that script's
+`SEED` — it refuses to pass while a table has nothing in it, because a table with no rows is not
+being checked at all.
+
+The trap it exists to catch is the **table rebuild**, which SQLite needs whenever a `check`
+constraint changes (`004`). `alter table awards rename to awards_old` is safe only because
+nothing references `awards`. Rebuild a table something *does* reference — `teams` — the same
+way, and the rename silently repoints every child's foreign key at `teams_old`; dropping it
+then cascades, taking every member, answer, scan, unlock, submission, hint and award with it.
+On an empty database that migration looks flawless.
+
 Everything mutable lives under `$DATA_DIR` (default `./data`):
 
 ```
