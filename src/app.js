@@ -8,6 +8,7 @@ import rulesCopy from '../content/rules.js';
 import {
   ADMIN_COOKIE,
   ADMIN_SECRET,
+  BUILD_COMMIT,
   PENDING_COOKIE,
   PUBLIC_DIR,
   UPLOADS_DIR,
@@ -1789,6 +1790,16 @@ async function serveKit({ res }) {
  * nothing about teams or scores -- it is the one route reachable without a cookie and without the
  * admin secret, so it must stay boring. It touches the database on purpose: a process that is
  * listening but cannot read its own file is not healthy.
+ *
+ * It also answers *which build is this*, which is the only thing on the site that does. There is
+ * no registry and no version number: a deploy is `git pull && docker compose up -d --build`, so
+ * without `build` here a container six weeks behind `main` is indistinguishable from one built a
+ * minute ago. It rides on the liveness probe rather than taking a route of its own because the
+ * two questions are always asked together, and because this is already the route with no cookie.
+ * A commit sha is not a secret -- the repository is public.
+ *
+ * `build` is reported on the 503 path too: a container that cannot read its own database is
+ * exactly when someone needs to know which deploy did that.
  */
 function healthz({ res }) {
   let body;
@@ -1798,13 +1809,14 @@ function healthz({ res }) {
     get('select 1 as ok');
     body = {
       ok: true,
+      build: BUILD_COMMIT,
       games: listGames().length,
       uptime: Math.round(process.uptime()),
       node: process.version,
     };
   } catch (error) {
     status = 503;
-    body = { ok: false, error: error.message };
+    body = { ok: false, build: BUILD_COMMIT, error: error.message };
   }
 
   noCache(res);

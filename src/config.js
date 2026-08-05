@@ -27,6 +27,13 @@ export const ADMIN_SECRET_IS_DEFAULT = !process.env.ADMIN_SECRET;
 // Unset is valid and means "skip the call": every hunt still works, the lights just stay put.
 export const HA_WEBHOOK_URL = process.env.HA_WEBHOOK_URL ?? '';
 
+// The commit this build was made from, baked in as a Dockerfile ARG because `.dockerignore` drops
+// `.git/` and there is nothing to read at runtime. Reported by /healthz so that "is my fix live?"
+// is one curl and not a guess -- the deployed container has no other way to say how far behind
+// `main` it is. Outside Docker there is no build, so `dev` is the truthful answer rather than a
+// sha this process cannot verify it is actually running.
+export const BUILD_COMMIT = process.env.BUILD_COMMIT || 'dev';
+
 export const TEAM_COOKIE = 'team';
 export const ADMIN_COOKIE = 'admin';
 export const PENDING_COOKIE = 'pending'; // the slug someone arrived on, held across onboarding

@@ -613,3 +613,19 @@ of are on the kit, in §13.
 `GET /healthz` is the container health check and the pre-party liveness probe — JSON, no cookie
 required, `503` if the database is unreachable. It reports nothing about teams or scores, being
 the one route reachable by anyone ([#13](https://github.com/moeriki/tinker-lab/issues/13)).
+
+It also carries `build`, the commit the running container was built from, and it is the **only**
+thing on the site that says which build is live
+([#46](https://github.com/moeriki/tinker-lab/issues/46)).
+There is no registry and no version number, so a deploy is `git pull && docker compose up -d
+--build` and two containers weeks apart are otherwise indistinguishable. The sha is handed in as a
+Dockerfile `ARG` because `.dockerignore` drops `.git/` on purpose; `BUILD_COMMIT` unset reports
+`unknown` inside a container and `dev` outside one, and neither is ever a wrong sha. Check a
+deploy landed with `curl -s https://bday.moeriki.com/healthz`, and measure the lag with
+`git log --oneline <build>..origin/main`.
+
+**The live site is reachable from a session on the house WiFi.** `bday.moeriki.com` is LAN-only
+([ADR-the-house-network-is-the-boundary](docs/adr/the-house-network-is-the-boundary.md)), which
+means unreachable from *outside* the house — not unreachable from an agent. A session on the
+house network can `curl` the deployed site directly, so "does the live site do this?" is a
+question that can be answered rather than assumed.

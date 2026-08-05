@@ -1,9 +1,19 @@
 # The unit MM actually operates. Built from this checkout -- there is no registry and no
-# published image, so a fix is `git pull && docker compose up -d --build`.
+# published image, so a fix is:
+#
+#   git pull && BUILD_COMMIT=$(git rev-parse --short HEAD) docker compose up -d --build
+#
+# The label is what lets `curl -s https://bday.moeriki.com/healthz` answer *which build is this*
+# and not merely *is it alive*. Drop it and the build reports "unknown" -- no worse than before it
+# existed, and never a wrong answer. See MM-HANDOFF.md § 6.
 
 services:
   bday:
-    build: .
+    build:
+      context: .
+      args:
+        # Interpolated from the shell (or from `.env` beside this file). Unset -> "unknown".
+        BUILD_COMMIT: ${BUILD_COMMIT:-unknown}
     image: bday-games:local
     container_name: bday
     restart: unless-stopped

@@ -121,7 +121,16 @@ it breaks quietly, which is the expensive kind. The disk path is the same bytes 
 layer. Same family of trap as the bind-mount one above.
 
 There is no registry and no published image. `docker compose` builds from this checkout, so
-shipping a fix is `git pull && docker compose up -d --build`.
+shipping a fix is:
+
+```bash
+git pull && BUILD_COMMIT=$(git rev-parse --short HEAD) docker compose up -d --build
+```
+
+**`BUILD_COMMIT` is a label, not a setting.** It bakes the commit into the image so that
+`/healthz` can answer *which build is this* — step 6 uses it. Nothing depends on it being right:
+leave it off and the site reports `"build":"unknown"`, which is what it said before the label
+existed. It is one line here because the alternative is a container nobody can date.
 
 **The image has now been built and run** (4 August, under Podman) — it starts, migrates, serves
 every route below, persists across a restart, and `scripts/backup.js` works inside the container.
@@ -143,6 +152,7 @@ cp .env.example .env
 | `PORT` | no | Defaults to `3040`. |
 | `DATA_DIR` | no | Defaults to `/data`. Leave it. |
 | `TZ` | no | Defaults to `Europe/Brussels`. Game-end timestamps and log lines both use it. |
+| `BUILD_COMMIT` | **do not put it here** | It belongs on the `docker compose` command line, not in `.env`. `env_file` is applied at *run* time and overrides what the build baked in, so a value parked here would be reported by `/healthz` forever, no matter what you actually deployed — turning an honest `"unknown"` into a confident lie. |
 
 If `ADMIN_SECRET` is unset the container still starts, but prints a loud warning at boot and the
 admin URL becomes `/admin/key/change-me`. Check the logs after first start.
@@ -160,7 +170,7 @@ sudo chown -R 1000:1000 data
 ### 4. Start it
 
 ```bash
-docker compose up -d --build
+BUILD_COMMIT=$(git rev-parse --short HEAD) docker compose up -d --build
 docker compose logs -f bday
 ```
 
@@ -284,11 +294,36 @@ No WebSocket support is needed — the admin page polls over ordinary requests.
 
 ```bash
 curl -s https://bday.moeriki.com/healthz
-# {"ok":true,"games":0,"uptime":42,"node":"v26.5.1"}
+# {"ok":true,"build":"68c4a28","games":0,"uptime":42,"node":"v26.5.1"}
 ```
 
 **`"games":0` is expected right now** and is not a fault — the game roster is still being written,
 and the number climbs as games land. `"ok":true` is the part that matters.
+
+**`"build"` is the commit the running container was built from**, and it is the only thing on the
+site that says so. Check it against what you just deployed:
+
+```bash
+git rev-parse --short HEAD                                   # what your checkout is on
+curl -s https://bday.moeriki.com/healthz | grep -o '"build":"[^"]*"'
+```
+
+If they differ, the build did not take — the usual cause is `docker compose up -d` without
+`--build`, which restarts the old image quite happily. To see exactly how far behind the live site
+is, fetch first and count:
+
+```bash
+git fetch
+git log --oneline <build>..origin/main | wc -l
+```
+
+Two values are not shas and both are honest: `"unknown"` means the image was built without the
+`BUILD_COMMIT` label (see step 1 — harmless, just undatable), and `"dev"` means the process is not
+running from an image at all, which on Tower means something is very wrong.
+
+**This is why every check below is worth running after a deploy rather than trusted from memory.**
+The fixes described in this document landed on `main` at various times; a container built before
+one of them does not have it, and no amount of reading this file changes what is running.
 
 `/healthz` touches the database on purpose: a process that is listening but cannot read its own
 file is not healthy. It reports `503` if the database is unreachable. It deliberately exposes
@@ -595,11 +630,11 @@ docker compose start bday
 
 | Situation | Do this |
 | --- | --- |
-| Check it's alive | `curl -s https://bday.moeriki.com/healthz` — or `curl -I` on any path; `HEAD` is answered like `GET` |
+| Check it's alive | `curl -s https://bday.moeriki.com/healthz` — or `curl -I` on any path; `HEAD` is answered like `GET`. Its `"build"` field names the commit the container was built from |
 | Point an uptime monitor at it | `HEAD https://bday.moeriki.com/healthz`, expecting `200`. Never point one at `/q/<slug>` — that URL is a game move |
 | Watch what's happening | `docker compose logs -f bday` |
 | It's wedged | `docker compose restart bday` — data is on the bind mount and survives |
-| Ship a content fix | `git pull && docker compose up -d --build` — roughly 10 seconds of downtime |
+| Ship a content fix | `git pull && BUILD_COMMIT=$(git rev-parse --short HEAD) docker compose up -d --build` — roughly 10 seconds of downtime. Confirm with `curl -s .../healthz` that `"build"` moved |
 | Take a snapshot | `docker compose exec bday node scripts/backup.js` |
 | Lights aren't firing | Run the `GET` → 405 probe. If it returns 200, the automation isn't registered |
 | Host lost the admin page | They visit `/admin/key/<ADMIN_SECRET>` again on any phone |

@@ -34,6 +34,31 @@ COPY . .
 # already provides.
 USER node
 
+# Which commit is this? `.dockerignore` drops `.git/` on purpose -- the image stays small and the
+# source of truth stays GitHub -- so the sha cannot be read at runtime and has to be handed in at
+# build time. Deliberately last: `COPY . .` above already busts the cache on any source change, so
+# rebuilding the same source under a new label only redoes this trivial layer.
+#
+# Unset is honest rather than fatal. A build nobody labelled reports "unknown", which is exactly
+# what the site said before this existed -- it never claims to be a commit it is not.
+ARG BUILD_COMMIT=unknown
+
+# The RUN is load-bearing, not decoration. With `ARG` + `ENV` and nothing between them the layer
+# cache does not key on the arg's VALUE, so a rebuild keeps the first sha it was ever handed --
+# measured, not assumed: passing a fresh --build-arg still produced the old label, and so did
+# passing none. A RUN that consumes the arg keys the cache on the value and cascades to the ENV.
+#
+# That is not a theoretical case here. `.dockerignore` drops docs/, CONTEXT.md and MM-HANDOFF.md,
+# so a documentation-only commit leaves the build context byte-identical, `COPY . .` cache-hits,
+# and without this line the label would silently freeze on the previous commit -- a confident
+# wrong answer, which is worse than the "unknown" this whole thing replaced.
+#
+# It earns its place twice: the label also lands in the build log, which is where you look when
+# the deploy is the thing that went wrong.
+RUN echo "BUILD_COMMIT=$BUILD_COMMIT"
+
+ENV BUILD_COMMIT=$BUILD_COMMIT
+
 EXPOSE 3040
 
 # Same probe the host uses by hand before guests arrive.
