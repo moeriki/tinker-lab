@@ -48,9 +48,12 @@ so a drift check would be a file nobody ever runs — enforcement in appearance 
 - Where the app renders it, that place is a function in `src/render.js`, and `/kit` calls that
   function through a marker comment which `src/kit.js` swaps for the real output at request time:
   `@scorebar name="BADGER" score="47" open="2" total="10"`, written as an HTML comment.
-- Where the app does **not** render it yet — the window frame, the starburst, the speech bubble,
-  the stamp, the marquee, the status bar, the three `.standing--*` colours — that place is
-  `kit.html`, and the kit is its only home. This is not drift; it is design the site still owes.
+- Where the app does **not** render it yet, that place is `kit.html`, and the kit is its only
+  home. This is not drift; it is design the site still owes. Which sections those are is not
+  listed here on purpose: the list shrinks every time a page is built, so an inventory in a
+  decision record goes stale without anyone noticing — it already had, naming the window frame
+  (#37) and the speech bubble (#53) long after both were built. The live list is the kit's own
+  footer, which is by construction exactly the sections `kit.html` still writes by hand.
 - Building one of those into a page means **moving** its markup into `render.js` and leaving a
   marker behind **in the same change**, so a second copy is never created.
 

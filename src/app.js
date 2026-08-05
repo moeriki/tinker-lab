@@ -96,6 +96,7 @@ import {
 } from './scoring.js';
 import { fireWebhook } from './webhooks.js';
 import {
+  bubble,
   field,
   hero,
   hintModal,
@@ -837,7 +838,7 @@ function cardStage(game, team, mine) {
       (card) => `<li class="prompt prompt--done">
           <div class="prompt__said">
             <p class="prompt__label">${escape(card.prompt)}</p>
-            <p class="bubble">${escape(card.answer)}</p>
+            ${bubble(card.answer)}
             ${field({
               label: 'who wrote this?',
               name: `card-${card.unit}`,
@@ -1015,7 +1016,7 @@ function showGame({ req, res, params, url }) {
         ${submitted ? `<p class="banner${verdictAnimation(moment)}">${escape(submitted)}</p>` : ''}
         ${stage}
         <ul class="stack stack--tight">
-          ${hints.map((hint) => `<li class="bubble">${escape(hintsFor(game, step)[hint.hint_index])}</li>`).join('')}
+          ${hints.map((hint) => `<li>${bubble(hintsFor(game, step)[hint.hint_index])}</li>`).join('')}
         </ul>
         ${
           remaining > 0 && !gameIsOver()

@@ -612,7 +612,7 @@ Where the app renders a component, that place is a function in `src/render.js`, 
 through a marker comment — `@tile state="unlocked" title="Longest Yarn"` — which `src/kit.js` swaps
 for the real output. The kit holds no copy, so it cannot show something the site does not do.
 
-Where the app does **not** render it yet — the starburst, the speech bubble, the stamp, the
+Where the app does **not** render it yet — the starburst, the stamp, the
 marquee, the status bar, the three `.standing--*` colours — the markup is hand-written in
 `kit.html` and that page is its only home. Those sections are the design the site still owes.
 Building one into a page means **moving** its markup into `render.js` and leaving a marker behind in

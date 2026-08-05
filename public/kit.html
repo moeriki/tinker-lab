@@ -251,10 +251,11 @@
       <section class="sect" id="nonsense">
         <h2 class="sect__h">11. Structural nonsense</h2>
         <p class="sect__note">Load-bearing. Do not remove.</p>
+        <p class="sect__note">One of these is not nonsense: the speech bubble is built by <code>bubble()</code> in <code>src/render.js</code>, and has been on a page since hints landed. It is a <code>&lt;div&gt;</code> around a <code>&lt;p&gt;</code> because <code>.bubble p</code> carries the type rule, and because a list row wraps it in its own <code>&lt;li&gt;</code> — no single element is valid both inside a <code>&lt;ul&gt;</code> and outside one (#53). The rest of this section is still hand-written here.</p>
 
         <div class="nonsense">
           <div class="starburst"><span class="starburst__top">100% REAL</span><span class="starburst__big">POINTS</span><span class="starburst__fine">*points subject to availability</span></div>
-          <div class="bubble"><p>"i did not consent to this scoring system but i DID scan the code, so please give me my points."</p></div>
+          <!--@bubble text="“i did not consent to this scoring system but i DID scan the code, so please give me my points.”"-->
           <p class="stamp">R.S.V.P. OR ELSE</p>
           <p>Some words are <span class="mark">highlighted like this</span> because they matter more than the other words.</p>
           <p class="blink">NEW!!</p>
@@ -340,10 +341,10 @@
       <footer class="kit-foot">
         <p class="aside">That is the whole kit. If a page needs something that is not on this page, the page is wrong or the kit is incomplete — say which.</p>
         <p class="aside">
-          The scorebar, the tiles, the heroes, the fields, the modal, the window frame, the camera
-          and the shots above are rendered by
+          The scorebar, the tiles, the heroes, the fields, the modal, the window frame, the speech
+          bubble, the camera and the shots above are rendered by
           <code>src/render.js</code> — the same calls the site makes, so they cannot be out of date.
-          The starburst, the speech bubble, the stamp, the marquee, the status bar, the scavenger's
+          The starburst, the stamp, the marquee, the status bar, the scavenger's
           prompt list and the three standing colours are written by hand here or not shown at all,
           because no page builds them out of a component yet.
           <strong>That list is the design the site still owes.</strong> Building one means moving its

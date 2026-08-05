@@ -18,6 +18,7 @@
 // change, so a second copy is never created.
 
 import {
+  bubble,
   field,
   hero,
   hintModal,
@@ -98,6 +99,10 @@ const RENDERERS = {
 
   hintmodal: (a) =>
     hintModal({ notice: a.notice ?? 'paid', cost: num(a.cost, 3), backHref: a.href ?? '#modal' }),
+
+  // A marker attribute cannot contain a `"` -- ATTR reads up to the closing one -- so the kit's
+  // line wears curly quotes. That is the only thing about it this extraction changed.
+  bubble: (a) => bubble(a.text ?? ''),
 
   shoot: (a) => shoot({ face: a.face ?? 'take a photo' }),
 

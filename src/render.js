@@ -238,6 +238,27 @@ export function hero({
 }
 
 /**
+ * Someone said a thing: a box with a tail, for text that came out of a person's mouth. A hint is
+ * the house talking, and a Guess Who card is a stranger's answer read back.
+ *
+ * It is a `<div>` wrapping a `<p>`, which is the kit's shape and not either of the two the app had
+ * grown by hand. That is forced rather than chosen. The box has to work as a row of a `<ul>` and
+ * on its own, and **no single element does both**: `<li>` is invalid outside a list, and a `<div>`
+ * or `<p>` is invalid as a direct child of one. So the component is the shape that stands alone
+ * and a list caller wraps it in its own `<li>` -- the wrapping is the caller's business, the same
+ * way `.stack` spacing is.
+ *
+ * The inner `<p>` is load-bearing, not scaffolding: `.bubble p { margin: 0; font-size: 1.05rem }`
+ * is the type rule, so `<p class="bubble">` -- one of the two hand-written copies -- was wearing
+ * the box and missing the type. That is exactly the drift ADR-a-component-has-one-markup exists to
+ * catch, and it had been visible on the hint list since hints landed (#53).
+ *
+ * One paragraph, deliberately. `hero()` splits on blank lines because a hero is two beats; a
+ * speech bubble is one thing someone said, and nothing has wanted a second.
+ */
+export const bubble = (text = '') => `<div class="bubble"><p>${escape(text)}</p></div>`;
+
+/**
  * A labelled form control.
  *
  * The label WRAPS the control rather than pointing at it with `for`. Both are valid HTML and the
