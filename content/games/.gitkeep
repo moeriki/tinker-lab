@@ -18,11 +18,24 @@
 #
 # answer -- hero + form, ONE submission per team, editable until game end
 #   { id, title, kind: 'answer', hero, form: { placeholder, inputmode }, hints: [],
-#     check(value, ctx) {},           // judged on submit; return true/false/points
-#     resolve(submissions, ctx) {} }  // OR judged at game end across every team, returning
-#                                     // [{ teamId, submissionId, points, verdict, reason }]
-#   It spends its share of the tile budget inside check/resolve, where boot cannot check the
-#   arithmetic -- so the ticket that writes the game owns it. See yarn.js.
+#     check(value) {},         // judged on submit; TRUE/FALSE, and a correct answer pays the
+#                              // game's flat `points` -- returning a number does nothing
+#     resolve(submissions) {}} // OR judged at game end across every team, returning
+#                              // [{ teamId, submissionId, points, verdict, reason }]
+#   A resolve() game spends its share of the tile budget inside the function, where boot cannot
+#   check the arithmetic -- so the ticket that writes it owns that. See yarn.js. A check() game
+#   declares flat `points` and boot DOES check them against the tile budget.
+#
+#   form: { options } makes it a dropdown instead of a text box -- entries are bare strings or
+#   { value, label }, and `form.label` is the words above it. An empty choice bounces.
+#
+#   final: true    the first submission is the last one: the form closes and a second POST is
+#                  refused. Answer games only. A final game MUST declare verdicts.incorrect,
+#                  because the site-wide line promises the answer can still be changed.
+#                  See docs/adr/an-answer-may-be-final.md.
+#
+# verdicts -- a game's own words on submit, overriding src/moments.js:
+#   { correct: '...', incorrect: '...' }
 #
 # tally -- hero + form, MANY submissions (one point per photo)
 #   { id, title, kind: 'tally', points, hero, photo: true, judging: 'trust' | 'manual', hints: [] }

@@ -95,7 +95,7 @@ A unit of play, defined entirely in `content/games/<id>.js`. Four **kinds**:
 
 | kind | the game page shows | scored by |
 | --- | --- | --- |
-| `answer` | hero + form, **one** submission, editable until game end | `check()` on submit, or `resolve()` at game end |
+| `answer` | hero + form, **one** submission, editable until game end unless `final` | `check()` on submit, or `resolve()` at game end |
 | `tally` | hero + form, **many** submissions (one point per photo) | per **unit**, see below |
 | `hunt` | the current step's hero and hints, **no form** | auto-awarded **per step**, as each is reached |
 | `trophy` | the hero and nothing else — **no form** | the host awards it by hand at `/admin/game/:id` |
@@ -245,6 +245,36 @@ that needs *both* halves declares `requiresBody: true` — Portrait of a strange
 because a photograph with nothing said is not a portrait.
 
 A submission also carries the **unit** it claims (below), or `NULL` where its game has none.
+
+### Final answer
+
+A game may declare **`final: true`**, and then its first submission is its last: the form leaves
+the page the moment a row exists, and a POST that arrives anyway is bounced with `spent` rather
+than upserted. `answer` games only — a tally game's shape is many submissions and a formless kind
+has no form to close.
+
+It exists because **`check()` plus editable is a brute force**. The Triangle Test is the first
+game on this site judged on submit, and under the editable default a team taps 1, is told wrong,
+taps 2, is told wrong, taps 3, and holds the whole tile without tasting anything: the row upserts
+and the award upserts with it, so only the last verdict survives.
+
+A final game **must declare `verdicts.incorrect`**, and boot refuses one that does not. The
+site-wide line in `src/moments.js` promises *"you can change your answer right up to the end"* —
+true everywhere else, a lie here, and told at the moment it costs most. See
+[ADR-an-answer-may-be-final](docs/adr/an-answer-may-be-final.md).
+
+> Not "locked", not "one-shot" in code. A game is **final**; a spent second POST is `spent`.
+
+### Verdicts, and a form that offers a list
+
+`verdicts: { correct, incorrect }` in content overrides the site-wide submission lines for one
+game. Everything else falls back to `SUBMITTED` in `src/moments.js`.
+
+`form: { label, options }` renders a `<select>` instead of a text input, through the same
+`field()` every other control on the site goes through. Entries are bare strings or
+`{ value, label }`; `submissions.body` stores the **value**, so anything reading an answer back to
+a human wants the label. A form that offers a list refuses an empty choice — which is what stops a
+`final` game spending its one shot on a mis-tap.
 
 ### Photo
 

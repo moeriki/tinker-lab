@@ -54,8 +54,9 @@ export default {
   bbdcbz: {
     game: 'triangle',
     label: 'Triangle Test',
-    where: 'On the Triangle Test station, beside the three numbered jugs.',
-    pending: true,
+    where:
+      'On the Triangle Test station, beside the three numbered jugs. THE ODD COLA GOES IN JUG 3 ' +
+      '-- get that wrong and the site scores the whole night backwards.',
   },
   '6cd3rd': {
     game: 'teddy',

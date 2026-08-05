@@ -128,6 +128,12 @@ export const shotAnimation = (moment) =>
  * What the team is told after submitting. Deliberately honest for the three non-`check` modes:
  * on a full roster most submissions cannot be scored yet, and pretending otherwise would make
  * the Unknown tile a lie.
+ *
+ * These are the DEFAULTS. A game may bring its own words as `verdicts: { correct, incorrect }` in
+ * content, and one kind of game must: `incorrect` below promises the answer can still be changed,
+ * which is true of every editable answer game and a flat lie on a game whose answer is final --
+ * told at the one moment a team most needs to know it. Boot refuses a `final` game that does not
+ * replace it. See docs/adr/an-answer-may-be-final.md.
  */
 export const SUBMITTED = {
   correct: 'Correct. That is on the board.',

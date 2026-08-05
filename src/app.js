@@ -23,6 +23,7 @@ import {
   harvestQuestions,
   hasHand,
   hasHarvest,
+  isFinal,
   isPending,
   judgingMode,
   ladderRungs,
@@ -37,6 +38,7 @@ import {
   takesForm,
   takesPhoto,
   requiresBody,
+  verdictLine,
   unitCount,
   unitLabel,
   unitLabels,
@@ -669,6 +671,32 @@ function showDashboard({ req, res }) {
 const placeholderOf = (game) =>
   game.form?.placeholder ? `placeholder="${escape(game.form.placeholder)}"` : '';
 
+/**
+ * The words a stored body was picked from, where the form offered a list. `submissions.body` holds
+ * the option's VALUE -- "3" -- and reading "You answered 3" back to somebody is not a sentence.
+ *
+ * Normalising a bare string to `{ value, label }` mirrors `field()` in render.js, which is not
+ * drift: that one is deciding what to draw and this one is deciding what to say. Falls back to the
+ * raw body, so a value whose option has since been edited out of content still reads as something.
+ */
+const optionLabel = (game, body) =>
+  (game.form?.options ?? [])
+    .map((option) => (typeof option === 'string' ? { value: option, label: option } : option))
+    .find((option) => String(option.value) === String(body))?.label ?? body;
+
+/**
+ * What a game with a final answer shows where its form used to be: what this team said, and how it
+ * went. A `pending` verdict is possible in principle -- a final game judged at game end rather than
+ * on submit -- so it gets an honest line instead of being assumed away.
+ */
+function answeredStage(game, submission) {
+  const outcome =
+    { correct: 'That was right.', incorrect: 'That was wrong.' }[submission.verdict] ??
+    'Nobody has judged it yet.';
+
+  return `<p class="statusline">You answered ${escape(optionLabel(game, submission.body))}. ${escape(outcome)}</p>`;
+}
+
 const SUBMIT_PROBLEMS = {
   toobig: 'That photo was too big to send. Take a new one and try again.',
   notaphoto: "That file wasn't a photo — at least, not one we know how to read.",
@@ -678,6 +706,13 @@ const SUBMIT_PROBLEMS = {
   // A stale tab, or a prompt list that changed under someone mid-photo. Never a thing a guest
   // can do wrong by tapping, so it explains itself and points at the only fix.
   nounit: "That prompt isn't on the list any more. Reopen the tile and pick one from it.",
+  // A dropdown submitted while still on "— pick one —". On a game whose answer is final this is
+  // the difference between a bounce and losing the whole tile to a mis-tap, which is why an empty
+  // choice can never be allowed to reach check().
+  nochoice: 'Pick one from the list first.',
+  // A second answer to a game that only takes one. A stale tab or the back button -- the form is
+  // not on the page any more, so nobody can reach this by tapping what they were shown.
+  spent: 'You have already answered this one, and that answer was final.',
 };
 
 /**
@@ -932,7 +967,10 @@ function showGame({ req, res, params, url }) {
   // What just happened, delivered here rather than to the dashboard. See
   // ADR-the-page-you-are-on-is-the-stage.
   const moment = momentOf(url);
-  const submitted = SUBMITTED[moment];
+  // A game may bring its own words for what just happened. Forced by `final`, not a flourish: the
+  // site-wide `incorrect` line offers to let you change your answer, which a game that has just
+  // closed its form cannot honour. See src/moments.js.
+  const submitted = verdictLine(game, moment) ?? SUBMITTED[moment];
 
   // The one arrival that carries an instruction rather than a verdict: a hunt code scanned before
   // this team existed, whose webhook was deliberately not fired. ADR-the-first-scan-is-not-live.
@@ -982,6 +1020,13 @@ function showGame({ req, res, params, url }) {
                  ? promptChecklist(game, mine, shotAnimation(moment))
                  : portraitStage(game, mine, shotAnimation(moment))
              }`;
+  } else if (isFinal(game) && mine.length) {
+    // This game has taken the one answer it takes, so there is no form left to draw. What goes in
+    // its place is the answer itself: the arrival banner is spent on first paint, and a team
+    // reopening the tile an hour later would otherwise meet a hero, no form, and not a word about
+    // what they said or how it went.
+    stage = `${heroBlock}
+             ${answeredStage(game, mine[0])}`;
   } else {
     stage = `${heroBlock}
              ${wantsPhoto ? photoStrip(mine, shotAnimation(moment)) : ''}
@@ -994,10 +1039,19 @@ function showGame({ req, res, params, url }) {
                      })
                    : ''
                }
-               <input class="input" name="body"
+               ${
+                 game.form?.options
+                   ? field({
+                       label: game.form.label ?? '',
+                       name: 'body',
+                       value: mine.at(-1)?.body ?? '',
+                       options: game.form.options,
+                     })
+                   : `<input class="input" name="body"
                       ${wantsPhoto ? 'placeholder="say something about it (optional)"' : placeholderOf(game)}
                       ${game.form?.inputmode ? `inputmode="${escape(game.form.inputmode)}"` : ''}
-                      value="${escape(game.kind === 'tally' ? '' : mine.at(-1)?.body ?? '')}">
+                      value="${escape(game.kind === 'tally' ? '' : mine.at(-1)?.body ?? '')}">`
+               }
                <button class="btn btn--primary" ${gameIsOver() ? 'disabled' : ''}>Submit</button>
              </form>`;
   }
@@ -1154,6 +1208,14 @@ async function submitToGame({ req, res, params }) {
   // way to judge one.
   if (!takesForm(game)) return redirect(res, `/g/${game.id}`);
 
+  // One shot means one shot on the server too. The form is gone from the page the moment a row
+  // exists, so reaching here is a stale tab or the back button -- but without this the upsert
+  // below would happily re-judge and re-award, which is the entire brute force the flag exists to
+  // close. See docs/adr/an-answer-may-be-final.md.
+  if (isFinal(game) && submissionsFor(team.id, game.id).length) {
+    return backToGame(res, game, 'spent');
+  }
+
   // A dealt hand posts every card at once -- ten dropdowns under one save button -- so it takes its
   // own path rather than squeezing ten units through the one-unit-per-post shape the photo tiles
   // use. It never carries a photograph, so everything below this line is irrelevant to it.
@@ -1188,6 +1250,11 @@ async function submitToGame({ req, res, params }) {
 
   const body = (fields.get('body') ?? '').trim();
   if (takesPhoto(game) && !photo && !body) return backToGame(res, game, 'empty');
+
+  // A dropdown still sitting on its empty first option. Bouncing matters most where the answer is
+  // final: submitting "" would otherwise reach check(), come back wrong, and spend the whole tile
+  // on a mis-tap nobody meant to make.
+  if (game.form?.options && !body) return backToGame(res, game, 'nochoice');
 
   // Portrait of a stranger is the only game that wants both halves. A photograph with nothing
   // said is not a portrait, so it bounces with the form -- and the photo it already stored is

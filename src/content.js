@@ -51,6 +51,17 @@ export function judgingMode(game) {
 export const takesPhoto = (game) => Boolean(game.photo);
 
 /**
+ * Whether the first submission is the last one. An `answer` game is editable until game end
+ * everywhere else on this site, which for a `check()` game is a three-tap brute force: the row
+ * upserts, the award upserts with it, and the last verdict is the only one that survives. The
+ * Triangle Test is the first game to close its form. See docs/adr/an-answer-may-be-final.md.
+ */
+export const isFinal = (game) => Boolean(game.final);
+
+/** A game's own line for a submission moment, falling back to the site-wide one. */
+export const verdictLine = (game, moment) => game.verdicts?.[moment] ?? null;
+
+/**
  * Hero assets that content names but `public/` does not have, resolved once at boot rather than
  * stat-ing the disk on every page render. A game page asks this to decide between an `<img>` and
  * the style kit's placeholder frame.
@@ -578,6 +589,51 @@ function validate() {
     // A trust game pays on submit, so it needs to know what a submission is worth.
     if (judgingMode(game) === 'trust' && typeof game.points !== 'number') {
       problems.push(`game "${game.id}" is judged on trust but declares no points`);
+    }
+
+    // A check() game pays a flat game-level `points` on a correct answer and nothing on a wrong
+    // one, so its total is knowable at boot exactly the way a hunt's and a trophy's are -- the
+    // number is declared, not computed inside the function. This is the one arithmetic hole the
+    // "answer games spend their budget inside check/resolve" rule left open: a resolve() game
+    // really is unknowable, a check() game never was.
+    if (judgingMode(game) === 'check') {
+      if (typeof game.points !== 'number') {
+        problems.push(`game "${game.id}" is judged by check() but declares no points; a correct answer would pay 0`);
+      } else if (game.points > economy.tilePoints) {
+        problems.push(
+          `game "${game.id}" pays ${game.points} for a correct answer, over the ${economy.tilePoints}-point tile budget`,
+        );
+      }
+    }
+
+    // A final answer closes the form after one submission. Two things have to hold.
+    if (isFinal(game)) {
+      // Only an `answer` game holds one row per team. A tally game's whole shape is many
+      // submissions, and a formless kind has no form to close.
+      if (game.kind !== 'answer') {
+        problems.push(
+          `${game.kind} "${game.id}" declares \`final\`; only an answer game holds the one ` +
+            `submission there is to make final`,
+        );
+      }
+      // The site-wide "you can change your answer right up to the end" is true of every other
+      // answer game and a lie here, delivered at the moment it costs most. A final game must
+      // bring its own words. See src/moments.js.
+      if (!game.verdicts?.incorrect) {
+        problems.push(
+          `game "${game.id}" is final but declares no \`verdicts.incorrect\`; the site-wide line ` +
+            `promises the answer can still be changed`,
+        );
+      }
+    }
+
+    // A select with nothing to select is a form that cannot be filled in.
+    if (game.form?.options !== undefined) {
+      if (!Array.isArray(game.form.options) || !game.form.options.length) {
+        problems.push(`game "${game.id}" declares an empty \`form.options\`; there is nothing to pick`);
+      } else if (!takesForm(game)) {
+        problems.push(`${game.kind} "${game.id}" declares form options, but has no form to put them in`);
+      }
     }
     // A hunt is unlocked by scanning its step 1, and a team holding an unlocked hunt they have
     // not started has reached step 0 -- a step that does not exist. Nothing to render.
