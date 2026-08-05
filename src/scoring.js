@@ -3,8 +3,9 @@
 
 import economy from '../content/economy.js';
 import { all, get, run, transact, setting, setSetting } from './db.js';
-import { getGame, hasHand, listGames, hintsFor } from './content.js';
+import { getGame, hasHand, hasHarvest, listGames, hintsFor } from './content.js';
 import { dealsByUnit, ladderAnswers, memberNames } from './deals.js';
+import { herdByUnit } from './harvest.js';
 import { normalise } from './matching.js';
 import { reachedStep } from './progress.js';
 
@@ -259,6 +260,15 @@ export function rescore() {
  */
 function factsFor(game) {
   const facts = { getGame };
+
+  // A harvest game gets one: what the room said for each of its units, already clustered. The
+  // corpus is read and clustered ONCE here rather than inside the resolver's loop -- with ~12 teams
+  // predicting five questions apiece that is five clusterings instead of sixty.
+  if (hasHarvest(game)) {
+    const herd = herdByUnit(game);
+    facts.herdFor = (unit) => herd[unit] ?? null;
+  }
+
   if (!hasHand(game)) return facts;
 
   const answers = ladderAnswers(game.hand.fromLadder);

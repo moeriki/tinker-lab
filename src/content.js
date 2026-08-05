@@ -82,9 +82,32 @@ export function unitCount(game) {
   // A dealt hand IS the unit list, so its size is the count and declaring `units` as well would be
   // two numbers that can disagree. See `handSize` for what a hand is.
   if (game.hand) return handSize(game);
+  // A harvest is the same argument: the questions ARE the units, so their number is the count.
+  if (game.harvest) return harvestIds(game).length;
   if (typeof game.units === 'number') return game.units;
   return Array.isArray(game.units) ? game.units.length : 0;
 }
+
+/**
+ * A **harvest**: units that are questions already asked at the door.
+ *
+ * Herd Mentality's five units are the five one-word questions in `content/questions.js`, and it
+ * names them by id rather than restating their wording:
+ *
+ *   harvest: ['herd-pizza', 'herd-fridge', ...]
+ *
+ * so the question a guest is asked at 20:00 and the question they are asked to predict at 23:00
+ * are the same string, and cannot drift apart. The index into this list is the unit.
+ *
+ * The contrast with a `hand` is worth keeping straight: a hand is units that differ PER TEAM and so
+ * cannot live in content at all, while a harvest is identical for everybody and lives in content
+ * already -- just in the questionnaire rather than in the game.
+ */
+export const hasHarvest = (game) => Array.isArray(game.harvest);
+export const harvestIds = (game) => (Array.isArray(game.harvest) ? game.harvest : []);
+
+/** The questions behind a harvest, in unit order. A named question that does not exist is null. */
+export const harvestQuestions = (game) => harvestIds(game).map((id) => getQuestion(id));
 
 /**
  * A **hand**: units that are not the same for every team.
@@ -102,8 +125,18 @@ export function unitCount(game) {
 export const hasHand = (game) => Boolean(game.hand);
 export const handSize = (game) => Number(game.hand?.size ?? 0);
 
-/** The prompts, where the units are labelled. Anonymous units have none, and that is not a lack. */
-export const unitLabels = (game) => (Array.isArray(game.units) ? game.units : []);
+/**
+ * The prompts, where the units are labelled. Anonymous units have none, and that is not a lack.
+ *
+ * A harvest's labels are the questions themselves, read through `content/questions.js` rather than
+ * restated in the game -- so anything that prints a unit prints what the guest was actually asked.
+ */
+export const unitLabels = (game) =>
+  hasHarvest(game)
+    ? harvestQuestions(game).map((question, index) => question?.label ?? `question ${index + 1}`)
+    : Array.isArray(game.units)
+      ? game.units
+      : [];
 
 /** The label for one unit, or null where the units are anonymous or the index is out of range. */
 export const unitLabel = (game, unit) => unitLabels(game)[unit] ?? null;
@@ -461,6 +494,54 @@ function validate() {
       if (budget > economy.tilePoints) {
         problems.push(
           `game "${game.id}" pays ${budget} across its hand, over the ${economy.tilePoints}-point tile budget`,
+        );
+      }
+    }
+
+    // A harvest is units that are questions asked at the door. Everything here is knowable at boot,
+    // and every one of these failures would otherwise show up as a tile that renders perfectly and
+    // scores nobody -- the shape that looks like it works.
+    if (game.harvest !== undefined) {
+      if (!takesForm(game)) {
+        problems.push(`${game.kind} "${game.id}" harvests questions, but has no form to answer them with`);
+      }
+      if (game.units !== undefined || game.hand !== undefined) {
+        problems.push(
+          `game "${game.id}" declares \`harvest\` alongside \`units\` or \`hand\`; a harvest IS its ` +
+            `units, and two counts can disagree`,
+        );
+      }
+      if (!Array.isArray(game.harvest) || !game.harvest.length) {
+        problems.push(`game "${game.id}" declares an empty harvest; there is nothing to predict`);
+      } else {
+        const seen = new Set();
+        game.harvest.forEach((id, index) => {
+          const question = getQuestion(id);
+          if (!question) {
+            problems.push(
+              `game "${game.id}" harvests question "${id}" (unit ${index}), which no question declares`,
+            );
+            return;
+          }
+          // A prediction is a thing a TEAM makes once. A member-scoped question would be answered
+          // twice per team, so the corpus would count some teams double and the tile would quietly
+          // be scoring a different room than the one in the house.
+          if (question.scope !== 'team') {
+            problems.push(
+              `game "${game.id}" harvests question "${id}", which is ${question.scope}-scoped; a ` +
+                `harvest question has to be team-scoped`,
+            );
+          }
+          if (seen.has(id)) {
+            problems.push(`game "${game.id}" harvests question "${id}" twice`);
+          }
+          seen.add(id);
+        });
+      }
+      const budget = unitCount(game) * (game.points ?? 0);
+      if (budget > economy.tilePoints) {
+        problems.push(
+          `game "${game.id}" pays ${budget} across its harvest, over the ${economy.tilePoints}-point tile budget`,
         );
       }
     }

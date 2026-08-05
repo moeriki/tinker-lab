@@ -148,10 +148,15 @@ export default [
     placeholder: 'one word',
     feeds: 'herd',
   },
+  // This slot used to be "name a bad gift", and it was cut in #23 for failing the clustering test
+  // from the other direction: socks, soap, a candle, a mug, a voucher, a tie, fruitcake -- seven
+  // plausible answers and no shape, where ~12 teams would plausibly land on twelve different words.
+  // A question that scatters is a content bug and gets fixed HERE, which is the whole reason
+  // src/games/herd.js has no minimum-count rule in it.
   {
-    id: 'herd-gift',
+    id: 'herd-fire',
     scope: 'team',
-    label: 'Name a bad gift.',
+    label: "Name the one thing you'd grab from a burning house.",
     input: 'text',
     maxLength: 24,
     placeholder: 'one word',

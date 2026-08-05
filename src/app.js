@@ -19,7 +19,9 @@ import {
   getPage,
   getCode,
   getQuestion,
+  harvestQuestions,
   hasHand,
+  hasHarvest,
   isPending,
   judgingMode,
   ladderRungs,
@@ -853,6 +855,58 @@ function cardStage(game, team, mine) {
           </form>`;
 }
 
+/**
+ * Herd Mentality's page: the five questions asked at the door, with an empty box under each.
+ *
+ * THE PAGE IS BLIND, and every absence here is deliberate (#23). It shows no running tally, no
+ * sample of what anyone said, and NOT this team's own answers read back to them -- the questions
+ * arrive with exactly as much information as the guest is carrying in their head. Anything shown
+ * here would make the tile a lookup rather than a prediction, and would hand a team arriving at
+ * 23:00 a better board than one that arrived at 20:00.
+ *
+ * All five post together under one button, like a dealt hand and unlike the photo tiles, because
+ * five separate sends is four more taps than a party will tolerate. Predictions are editable until
+ * game end, so the boxes come back filled with whatever was last saved.
+ */
+function herdStage(game, mine) {
+  const questions = harvestQuestions(game);
+
+  // One row per unit, last save wins. `saveUnits` rewrites in place, so there is at most one.
+  const said = new Map();
+  for (const submission of mine) {
+    if (submission.unit !== null) said.set(submission.unit, submission.body ?? '');
+  }
+
+  const answered = questions.filter((_, unit) => said.get(unit)).length;
+
+  const rows = questions
+    .map((question, unit) => {
+      const label = question?.label ?? `question ${unit + 1}`;
+      return `<li class="prompt">
+          ${field({
+            label,
+            name: `unit-${unit}`,
+            value: said.get(unit) ?? '',
+            attrs: {
+              maxlength: question?.maxLength ?? 24,
+              placeholder: question?.placeholder ?? 'one word',
+              // A phone that helpfully completes the box with what this guest typed at the door
+              // would quietly undo the blindness the whole tile is built on.
+              autocomplete: 'off',
+              autocapitalize: 'none',
+            },
+          })}
+        </li>`;
+    })
+    .join('');
+
+  return `<p class="statusline">${answered} of ${questions.length} predicted</p>
+          <form class="stack" method="post" action="/g/${escape(game.id)}/submit">
+            <ul class="prompts">${rows}</ul>
+            <button class="btn btn--primary" ${gameIsOver() ? 'disabled' : ''}>Save my answers</button>
+          </form>`;
+}
+
 function showGame({ req, res, params, url }) {
   const team = requireOnboardedTeam(req, res);
   if (!team) return undefined;
@@ -911,6 +965,12 @@ function showGame({ req, res, params, url }) {
     // what this team is even holding before it can draw anything.
     stage = `${heroBlock}
              ${cardStage(game, team, mine)}`;
+  } else if (hasHarvest(game)) {
+    // Units that are questions asked at the door. It sits above the branch below because its units
+    // ARE labelled -- they are the questions -- and that branch reads a labelled unit as a photo
+    // prompt with a camera under it.
+    stage = `${heroBlock}
+             ${herdStage(game, mine)}`;
   } else if (unitCount(game)) {
     // A game that pays per unit composes its own stage: the units are the page, and the generic
     // one-form-and-a-strip below cannot say which of them are still open.
@@ -989,21 +1049,27 @@ const backToGame = (res, game, problem) =>
  * guess at all rather than bounced. Nine good guesses must not be lost to one bad option, and the
  * card is still sitting there to be answered again.
  */
-async function saveHand({ req, res, team, game }) {
-  const form = await readForm(req);
-  const hand = handFor(team.id, game);
-  const known = new Set(namesFor(team.id).map((person) => person.value));
-
+/**
+ * Write one submission row per (team, unit), rewritten in place.
+ *
+ * The shape both all-at-once tiles need: a guess and a prediction are things you CHANGE rather than
+ * things you add to, so there is no history worth keeping of who you briefly suspected or what you
+ * first thought the room would say. Nothing is judged and nothing is awarded here -- both games
+ * resolve across every team at the end of the night, which is what stops a team brute-forcing the
+ * answers from the sofa.
+ *
+ * `values` is a Map of unit to the already-cleaned body, because what counts as a usable answer is
+ * the game's business: Guess Who drops a name that is not somebody at this party, Herd Mentality
+ * takes any word at all.
+ */
+function saveUnits({ team, game, values }) {
   transact(() => {
-    for (const card of hand) {
-      const posted = String(form.get(`card-${card.unit}`) ?? '').trim();
-      const body = known.has(posted) ? posted : '';
-
+    for (const [unit, body] of values) {
       const existing = get(
         'select id from submissions where team_id = ? and game_id = ? and unit = ?',
         team.id,
         game.id,
-        card.unit,
+        unit,
       );
 
       if (existing) {
@@ -1013,18 +1079,63 @@ async function saveHand({ req, res, team, game }) {
           existing.id,
         );
       } else if (body) {
-        // A card nobody has guessed yet gets no row at all, so an untouched hand leaves the
+        // A unit nobody has answered yet gets no row at all, so an untouched form leaves the
         // database exactly as it found it.
         run(
           'insert into submissions (team_id, game_id, body, unit) values (?, ?, ?, ?)',
           team.id,
           game.id,
           body,
-          card.unit,
+          unit,
         );
       }
     }
   });
+}
+
+/**
+ * Every card of a dealt hand, saved in one press.
+ *
+ * A name that is not somebody at this party -- a stale tab, a hand-edited option -- is stored as no
+ * guess at all rather than bounced. Nine good guesses must not be lost to one bad option, and the
+ * card is still sitting there to be answered again.
+ */
+async function saveHand({ req, res, team, game }) {
+  const form = await readForm(req);
+  const hand = handFor(team.id, game);
+  const known = new Set(namesFor(team.id).map((person) => person.value));
+
+  const values = new Map(
+    hand.map((card) => {
+      const posted = String(form.get(`card-${card.unit}`) ?? '').trim();
+      return [card.unit, known.has(posted) ? posted : ''];
+    }),
+  );
+
+  saveUnits({ team, game, values });
+
+  return redirect(res, gamePath(game.id, { moment: 'pending' }));
+}
+
+/**
+ * Every prediction of a harvest, saved in one press.
+ *
+ * Anything typed is kept: there is no such thing as an invalid prediction, and a word nobody else
+ * said is a wrong answer rather than a broken one. It is only trimmed and cut to the same length
+ * the door imposed, so a paragraph pasted in cannot become an answer that no box could have typed.
+ */
+async function savePredictions({ req, res, team, game }) {
+  const form = await readForm(req);
+  const questions = harvestQuestions(game);
+
+  const values = new Map(
+    questions.map((question, unit) => {
+      const posted = String(form.get(`unit-${unit}`) ?? '').trim();
+      return [unit, posted.slice(0, question?.maxLength ?? 24)];
+    }),
+  );
+
+  saveUnits({ team, game, values });
 
   return redirect(res, gamePath(game.id, { moment: 'pending' }));
 }
@@ -1045,6 +1156,10 @@ async function submitToGame({ req, res, params }) {
   // own path rather than squeezing ten units through the one-unit-per-post shape the photo tiles
   // use. It never carries a photograph, so everything below this line is irrelevant to it.
   if (hasHand(game)) return saveHand({ req, res, team, game });
+
+  // A harvest posts all five predictions at once for the same reason, and likewise never carries a
+  // photograph.
+  if (hasHarvest(game)) return savePredictions({ req, res, team, game });
 
   let fields;
   let photo = null;

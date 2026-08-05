@@ -42,8 +42,8 @@ export default {
   // findability across rooms, not capacity.
   c4jm8x: { game: 'guess-who', label: 'Guess Who (a)', where: null },
   awyuv2: { game: 'guess-who', label: 'Guess Who (b)', where: null },
-  bgue88: { game: 'herd', label: 'Herd Mentality (a)', where: null, pending: true },
-  '46ezp7': { game: 'herd', label: 'Herd Mentality (b)', where: null, pending: true },
+  bgue88: { game: 'herd', label: 'Herd Mentality (a)', where: null },
+  '46ezp7': { game: 'herd', label: 'Herd Mentality (b)', where: null },
   '38bpnu': { game: 'scavenger', label: 'Photo scavenger (a)', where: null },
   pydzrd: { game: 'scavenger', label: 'Photo scavenger (b)', where: null },
   zfu45r: { game: 'portrait', label: 'Portrait of a stranger (a)', where: null },

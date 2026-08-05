@@ -309,6 +309,30 @@ re-dealt or displaced, so a guess made at 21:00 cannot be taken away by somebody
 > Not "deck" — the **pool** is what is available, a **hand** is what one team holds, and a
 > **card** is one unit of it. Declaring both `hand` and `units` is a boot error.
 
+### Harvest
+
+Units that are **questions already asked at the door**. A game declares one instead of `units`:
+
+```js
+harvest: ['herd-pizza', 'herd-fridge', 'herd-leave', 'herd-animal', 'herd-fire']
+```
+
+Unlike a **hand**, a harvest is the same for everybody and is still content — the questions live
+in `content/questions.js`. Naming them by id rather than restating their wording is the whole
+point: the question a guest is asked at 20:00 and the one they are asked to predict at 23:00 are
+the same string and cannot drift apart. The index into the list is the unit.
+
+`src/harvest.js` reads what teams answered and clusters it (`src/matching.js`), handing the game,
+per unit, a predicate and a sentence — so content never learns that `profile_answers` exists and
+never gets its own opinion on how loosely two words are the same word. Answers from teams that
+never passed the onboarding gate are dropped, the same way `deals.js` drops them from a pool.
+
+Boot refuses an id no question declares, a question that is not **team-scoped** (a prediction is
+made once per team), the same id twice, and `harvest` alongside `units` or `hand`.
+
+> A **harvest** is the honest answers collected at the door; a **prediction** is what a team
+> later guesses most teams said. Herd Mentality is the only game with one.
+
 ### Award
 
 One row per point movement: `(team_id, game_id, kind, points, reason, source_id)`. `kind` is one
