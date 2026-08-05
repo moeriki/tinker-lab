@@ -37,6 +37,7 @@ import {
   shot,
   shots,
   tile,
+  unitRow,
   win,
 } from './render.js';
 import { escape } from './http.js';
@@ -46,6 +47,33 @@ const MARKER = /<!--@([\w-]+)((?:\s+[\w-]+(?:="[^"]*")?)*)\s*-->/g;
 const ATTR = /([\w-]+)(?:="([^"]*)")?/g;
 
 const num = (value, fallback = 0) => (value === undefined ? fallback : Number(value));
+
+/**
+ * A marker's flat bag of strings onto `field()`. Its own function rather than an inline adapter
+ * because §14 needs to put a field *inside* a unit row, and a second copy of this mapping is the
+ * kind of duplication this whole file exists to stop.
+ */
+function fieldFrom({ label, name, type, value, rows, options, ...attrs }) {
+  return field({
+    label: label ?? '',
+    name: name ?? '',
+    type,
+    value,
+    rows: num(rows),
+    options: options
+      ? options
+          .split('|')
+          .filter(Boolean)
+          .map((cell) => {
+            const split = cell.indexOf('=');
+            return split === -1
+              ? cell
+              : { value: cell.slice(0, split), label: cell.slice(split + 1) };
+          })
+      : null,
+    attrs,
+  });
+}
 
 /**
  * The one committed image on this page. A real photo strip points at `/uploads/`, which is player
@@ -86,26 +114,7 @@ const RENDERERS = {
   // `options` makes it a select, pipe separated the way `shots` and `win` flatten their lists.
   // A cell may be `value=label` where the two differ, which is Guess Who's shape: a card names a
   // member by id and shows a person's name.
-  field: ({ label, name, type, value, rows, options, ...attrs }) =>
-    field({
-      label: label ?? '',
-      name: name ?? '',
-      type,
-      value,
-      rows: num(rows),
-      options: options
-        ? options
-            .split('|')
-            .filter(Boolean)
-            .map((cell) => {
-              const split = cell.indexOf('=');
-              return split === -1
-                ? cell
-                : { value: cell.slice(0, split), label: cell.slice(split + 1) };
-            })
-        : null,
-      attrs,
-    }),
+  field: (a) => fieldFrom(a),
 
   hintmodal: (a) =>
     hintModal({ notice: a.notice ?? 'paid', cost: num(a.cost, 3), backHref: a.href ?? '#modal' }),
@@ -137,6 +146,28 @@ const RENDERERS = {
         ),
       a.anim ? ` ${a.anim}` : '',
     ),
+
+  // The row every unit game puts on its tile. Its `body` is markup the page renders, and a marker
+  // attribute is one flat string, so the kit cannot pass one -- it NAMES the primitives to compose
+  // instead, and this adapter builds the body out of the same functions a game page calls. Which
+  // is the point: §14 demos the row holding real parts, not a drawing of one.
+  //
+  // The one thing it cannot show is the `<form>` around it, because render.js renders no form
+  // action anywhere and this file is not allowed to invent one. So the scavenger's send button is
+  // absent here and present on the tile, and that gap is the seam #51 settled rather than a
+  // section that is missing something.
+  unitrow: ({ shot: src, label, bubble: quote, field: fieldLabel, options, shoot: face }) =>
+    unitRow({
+      shot: src ? shot({ href: SAMPLE_SHOT, src }) : '',
+      label: label ?? '',
+      body: [
+        quote ? bubble(quote) : '',
+        fieldLabel ? fieldFrom({ label: fieldLabel, name: 'demo', options }) : '',
+        face ? shoot({ face }) : '',
+      ]
+        .filter(Boolean)
+        .join('\n        '),
+    }),
 
   // `/rules` was the first page to render the window frame, so it moved out of kit.html and into
   // render.js in the same change -- the rule this file's header states. The body is a rules list
@@ -177,6 +208,7 @@ const BUILT_NAMES = {
   hintmodal: 'the modal',
   bubble: 'the speech bubble',
   shoot: 'the camera',
+  unitrow: 'the unit rows',
   shot: 'the shots',
   shots: 'the shots',
   win: 'the window frame',

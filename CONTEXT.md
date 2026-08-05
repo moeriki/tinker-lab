@@ -712,11 +712,18 @@ badges ([#55](https://github.com/moeriki/tinker-lab/issues/55)), so there is not
 > **New design is drawn on the kit first, then built into a page.** A component that appears
 > directly on a page, having never been on `/kit`, is the drift this rule exists to stop.
 
-The `.prompt` / `.prompts` checklist is the one thing the app renders that `/kit` still does not
-show. It is a page **composition** rather than a primitive — every row is a form posting to
-`/g/:id/submit`, and `render.js` renders no form action anywhere — so demoing it would mean the
-kit inventing a route. The camera (`shoot`) and the photo cells (`shot`, `shots`) it is built out
-of are on the kit, in §13.
+No **component** the app renders is missing from `/kit` any more. The last one was the `.unit` /
+`.units` row — the list every game that pays **per unit** puts on its tile — which looked like a
+page composition because the scavenger wraps each row in a form. It is not: Guess Who and Herd wrap
+the whole list in one form and the portrait gallery has none, so the row never needed a route.
+`unitRow()` takes the caller's rendered markup as its `body`, `render.js` still renders no form
+action anywhere, and §14 demos the row holding real parts
+([#51](https://github.com/moeriki/tinker-lab/issues/51)).
+
+What is still missing is the **spacing utilities**: `.stack--tight` and `.stack--loose` ship, are
+used, and have no home on the kit ([#59](https://github.com/moeriki/tinker-lab/issues/59)). The
+`@owed` badges cannot catch that class of gap — they count hand-written demos, and a utility with
+no section has no demo to badge.
 
 `GET /healthz` is the container health check and the pre-party liveness probe — JSON, no cookie
 required, `503` if the database is unreachable. It reports nothing about teams or scores, being

@@ -341,11 +341,40 @@
           thumbnail — and it is a drawing, because <strong>this repository is public</strong> and
           nothing in the house belongs in it.
         </p>
+        <p class="sect__note">Both photo tiles arrange these into a list rather than a strip — see §14.</p>
+      </section>
+
+      <!-- ============================= UNIT ROWS =========================== -->
+      <section class="sect" id="units">
+        <h2 class="sect__h">14. Unit rows — the list a tile pays by</h2>
+        <p class="sect__note">Four of the ten tiles pay <strong>per unit</strong> rather than per answer, and all four put the same list on the page: the photo scavenger's ten prompts, Portrait of a stranger's gallery, Guess Who's dealt cards and Herd Mentality's five predictions. One <code>unitRow()</code> renders every one of them.</p>
+        <p class="sect__note">These classes said <code>.prompt</code> until #51. They are <code>.unit</code> now, because a prompt is one <em>label</em> of one unit — and three of those four pages have no prompt on them at all, just a card, a question, or a photograph with something somebody said.</p>
+
+        <h3 class="sect__sub">Plain — one control that brought its own frame</h3>
+        <p class="sect__note">The camera's dashed target and a <code>field()</code> are already boxes, so a row around them would be a box around a box. <code>.unit</code> carries no rules of its own: it is a hook, not a look.</p>
+        <ul class="units">
+          <!--@unitrow shoot="Both hosts in one shot"-->
+          <!--@unitrow field="a pizza topping"-->
+        </ul>
+
+        <h3 class="sect__sub">Boxed — several things held together</h3>
+        <p class="sect__note">A row takes the border, the shadow and the paper exactly when it has a label or a thumbnail to hold something against. That is derived rather than declared, so there is no flag to get wrong.</p>
+        <ul class="units">
+          <!--@unitrow shot="/img/kit-shot.jpg" label="✓ Both hosts in one shot" shoot="retake"-->
+          <!--@unitrow shot="/img/kit-shot.jpg" label="“I have not liked a photograph of myself since 2009.”"-->
+          <!--@unitrow label="what did you want to be when you were eight?" bubble="An astronaut. Obviously." field="who wrote this?" options="=— no idea yet —|1=Sofie|2=Jan|3=Wout"-->
+        </ul>
         <p class="sect__note">
-          Still hand-written and still owed: <code>.prompts</code> / <code>.prompt</code>, the
-          scavenger's checklist, which is a page composition rather than a primitive — every row
-          of it is a form posting to <code>/g/:id/submit</code>, and render.js renders no form
-          action anywhere.
+          The retake is deliberately quiet — allowed and free, but never the thing being asked for,
+          so it must not compete with the rows still open.
+        </p>
+        <p class="sect__note">
+          What is <strong>not</strong> here is the <code>&lt;form&gt;</code>. Every one of these
+          rows sits inside one on a real tile — one per row on the scavenger, one around the whole
+          list on Guess Who and Herd — and <code>render.js</code> renders no form action anywhere,
+          because which route a control posts to is the page's business and not the design
+          system's. That is the seam #51 settled, and the scavenger's missing <em>send</em> button
+          is where you can see it.
         </p>
       </section>
 
@@ -364,11 +393,6 @@
           Neither sentence above is typed by hand: the first is every primitive
           <code>src/kit.js</code> can inject, the second is every <code>STILL OWED</code> badge on
           this page. A hand-typed version of them was wrong for months, in four files at once (#55).
-        </p>
-        <p class="aside">
-          The one thing that runs the other way is the scavenger's
-          <code>.prompts</code> / <code>.prompt</code> checklist, which the app renders and this
-          page does not show — a page composition rather than a primitive. See §13.
         </p>
       </footer>
     </div>

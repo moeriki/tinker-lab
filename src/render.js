@@ -359,9 +359,9 @@ export function shot({ href = '', src = '', label = 'file', anim = '' }) {
  * The strip of them, with a count above it. What a plain `photo: true` game renders under its
  * hero -- every photo this team has sent to it, newest last.
  *
- * A game that pays per unit does NOT use this: the scavenger's prompt list and the portrait
- * gallery each compose their own stage out of `shot()` directly, because a flat strip cannot say
- * which prompts are still open. So today's roster reaches this through neither photo tile; it is
+ * A game that pays per unit does NOT use this: the scavenger's checklist and the portrait gallery
+ * each compose their own stage out of `unitRow()` and `shot()`, because a flat strip cannot say
+ * which units are still open. So today's roster reaches this through neither photo tile; it is
  * what a photo game that declares no `units` gets for free.
  *
  * Each entry is `{ href, src, label }` -- already resolved by the caller, because deciding which
@@ -377,6 +377,48 @@ export function shots(photos = [], newestAnim = '') {
 
   return `<p class="statusline">you've sent ${photos.length}</p>
           <div class="shots">${cells}</div>`;
+}
+
+/**
+ * One row of the list a unit game puts on its tile.
+ *
+ * **"Unit" and not "prompt"**, which is what these classes said until now. A prompt is one *label*
+ * of one unit (CONTEXT.md, Unit), and the glossary says so in the same change that shipped the
+ * classes -- so the two came out of #25 disagreeing with each other and the classes won by
+ * default. The word was already wrong for three of the four pages using this row: Guess Who's is a
+ * card and a stranger's answer, Herd's is a question with an empty box under it, and the portrait
+ * gallery's is a photograph with something somebody actually said. None of them has a prompt on it.
+ *
+ * **Two flavours, and the difference is not cosmetic.** A boxed row holds SEVERAL things that need
+ * holding together -- a thumbnail beside its text, or a question above its dropdown -- so it gets
+ * the border, the shadow and the paper. A plain row holds ONE control that already carries its own
+ * frame: the camera's dashed target, or a `field()`. Boxing those draws a box around a box.
+ *
+ * Which one you get is **derived rather than declared**: a row is boxed exactly when it has a
+ * `label` or a `shot`, because that is what there is to hold something against. That is true of
+ * all three boxed callers and neither plain one, so a flag would only add a way to call this
+ * wrong.
+ *
+ * `body` is markup the caller has already rendered, and that is what keeps the route out of here.
+ * Every one of these rows lives inside a `<form>` -- one per row on the scavenger, one around the
+ * whole list on Guess Who and Herd, none at all in the portrait gallery -- and which route it
+ * posts to is the page's business, exactly as it is for `shoot()`. render.js renders no form
+ * action anywhere, and this row was the reason #51 thought it might have to.
+ *
+ * The `<li>` belongs to the component, unlike `bubble()`, which stops one element short so it can
+ * also stand outside a list (#53). This row never does: all four callers put it in a `.units`
+ * list, and a `<div>` is not valid anywhere else in one.
+ */
+export function unitRow({ shot: cell = '', label = '', body = '' }) {
+  if (!cell && !label) return `<li class="unit">${body}</li>`;
+
+  return `<li class="unit unit--box">
+      ${cell}
+      <div class="unit__said">
+        ${label ? `<p class="unit__label">${escape(label)}</p>` : ''}
+        ${body}
+      </div>
+    </li>`;
 }
 
 /**

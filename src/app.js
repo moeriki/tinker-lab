@@ -122,6 +122,7 @@ import {
   shots,
   stub,
   tile,
+  unitRow,
   win,
 } from './render.js';
 import { inject } from './kit.js';
@@ -838,26 +839,21 @@ function promptChecklist(game, mine, newestAnim) {
   const rows = labels
     .map((label, unit) => {
       const done = shots.get(unit);
-      if (!done) {
-        return `<li class="prompt">
-                  ${shootForm(game, { unit, face: label })}
-                </li>`;
-      }
+      if (!done) return unitRow({ body: shootForm(game, { unit, face: label }) });
+
       const moving = done.id === newest?.id ? newestAnim : '';
-      return `<li class="prompt prompt--done">
-                ${shotCell(done, moving)}
-                <div class="prompt__said">
-                  <p class="prompt__label">✓ ${escape(label)}</p>
-                  ${shootForm(game, { unit, face: 'retake', primary: false })}
-                </div>
-              </li>`;
+      return unitRow({
+        shot: shotCell(done, moving),
+        label: `✓ ${label}`,
+        body: shootForm(game, { unit, face: 'retake', primary: false }),
+      });
     })
     .join('');
 
   return `<p class="statusline">${shots.size} of ${labels.length} — ${shots.size} point${
     shots.size === 1 ? '' : 's'
   }</p>
-          <ul class="prompts">${rows}</ul>`;
+          <ul class="units">${rows}</ul>`;
 }
 
 /**
@@ -880,14 +876,12 @@ function portraitStage(game, mine, newestAnim, draft = '') {
   const newest = sent.at(-1);
 
   const gallery = sent.length
-    ? `<ul class="prompts">${sent
-        .map(
-          (submission) => `<li class="prompt prompt--done">
-             ${shotCell(submission, submission.id === newest?.id ? newestAnim : '')}
-             <div class="prompt__said">
-               <p class="prompt__label">“${escape(submission.body ?? '')}”</p>
-             </div>
-           </li>`,
+    ? `<ul class="units">${sent
+        .map((submission) =>
+          unitRow({
+            shot: shotCell(submission, submission.id === newest?.id ? newestAnim : ''),
+            label: `“${submission.body ?? ''}”`,
+          }),
         )
         .join('')}</ul>`
     : '';
@@ -939,24 +933,23 @@ function cardStage(game, team, mine) {
 
   const rows = hand
     .map(
-      (card) => `<li class="prompt prompt--done">
-          <div class="prompt__said">
-            <p class="prompt__label">${escape(card.prompt)}</p>
-            ${bubble(card.answer)}
+      (card) =>
+        unitRow({
+          label: card.prompt,
+          body: `${bubble(card.answer)}
             ${field({
               label: 'who wrote this?',
               name: `card-${card.unit}`,
               value: guesses.get(card.unit) ?? '',
               options: [{ value: '', label: '— no idea yet —' }, ...people],
-            })}
-          </div>
-        </li>`,
+            })}`,
+        }),
     )
     .join('');
 
   return `<p class="statusline">${named} of ${hand.length} named</p>
           <form class="stack" method="post" action="/g/${escape(game.id)}/submit">
-            <ul class="prompts">${rows}</ul>
+            <ul class="units">${rows}</ul>
             <button class="btn btn--primary" ${gameIsOver() ? 'disabled' : ''}>Save my guesses</button>
           </form>`;
 }
@@ -988,27 +981,27 @@ function herdStage(game, mine) {
   const rows = questions
     .map((question, unit) => {
       const label = question?.label ?? `question ${unit + 1}`;
-      return `<li class="prompt">
-          ${field({
-            label,
-            name: `unit-${unit}`,
-            value: said.get(unit) ?? '',
-            attrs: {
-              maxlength: question?.maxLength ?? 24,
-              placeholder: question?.placeholder ?? 'one word',
-              // A phone that helpfully completes the box with what this guest typed at the door
-              // would quietly undo the blindness the whole tile is built on.
-              autocomplete: 'off',
-              autocapitalize: 'none',
-            },
-          })}
-        </li>`;
+      return unitRow({
+        body: field({
+          label,
+          name: `unit-${unit}`,
+          value: said.get(unit) ?? '',
+          attrs: {
+            maxlength: question?.maxLength ?? 24,
+            placeholder: question?.placeholder ?? 'one word',
+            // A phone that helpfully completes the box with what this guest typed at the door
+            // would quietly undo the blindness the whole tile is built on.
+            autocomplete: 'off',
+            autocapitalize: 'none',
+          },
+        }),
+      });
     })
     .join('');
 
   return `<p class="statusline">${answered} of ${questions.length} predicted</p>
           <form class="stack" method="post" action="/g/${escape(game.id)}/submit">
-            <ul class="prompts">${rows}</ul>
+            <ul class="units">${rows}</ul>
             <button class="btn btn--primary" ${gameIsOver() ? 'disabled' : ''}>Save my answers</button>
           </form>`;
 }
