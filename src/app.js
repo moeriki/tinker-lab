@@ -697,6 +697,13 @@ function answeredStage(game, submission) {
   return `<p class="statusline">You answered ${escape(optionLabel(game, submission.body))}. ${escape(outcome)}</p>`;
 }
 
+/**
+ * How long a quote may be. One constant rather than two, because the box that accepts it and the
+ * redirect that carries it back after a bounce have to agree or a sentence gets silently truncated
+ * on the way home.
+ */
+const QUOTE_MAX = 140;
+
 const SUBMIT_PROBLEMS = {
   toobig: 'That photo was too big to send. Take a new one and try again.',
   notaphoto: "That file wasn't a photo — at least, not one we know how to read.",
@@ -804,8 +811,13 @@ function promptChecklist(game, mine, newestAnim) {
  * The quote is required here and nowhere else on the site, which is why it sits inside the form
  * rather than beside it: a photograph with nothing said is not a portrait, and bouncing it is
  * the tile working rather than the tile failing.
+ *
+ * `draft` is that sentence coming back after a bounce. The box cannot fall back to the last
+ * submission the way an `answer` game's does -- on a tally, the previous row is a DIFFERENT
+ * portrait rather than an earlier take of this one -- so a bounced sentence has nowhere to come
+ * from except the redirect that bounced it.
  */
-function portraitStage(game, mine, newestAnim) {
+function portraitStage(game, mine, newestAnim, draft = '') {
   const cap = unitCount(game);
   const sent = mine.filter((submission) => submission.photo_path);
   const paid = Math.min(sent.length, cap);
@@ -824,7 +836,8 @@ function portraitStage(game, mine, newestAnim) {
         .join('')}</ul>`
     : '';
 
-  const quote = `<input class="input" name="body" maxlength="140" ${placeholderOf(game)}>`;
+  const quote = `<input class="input" name="body" maxlength="${QUOTE_MAX}" ${placeholderOf(game)}
+                        value="${escape(draft)}">`;
 
   return `<p class="statusline">${paid} of ${cap} — ${paid} point${paid === 1 ? '' : 's'}</p>
           ${gallery}
@@ -962,6 +975,10 @@ function showGame({ req, res, params, url }) {
 
   const mine = submissionsFor(team.id, game.id);
   const problem = SUBMIT_PROBLEMS[url.searchParams.get('problem')];
+  // The sentence a bounced submission was carrying, back in the box it was typed into. Free text
+  // rather than a closed vocabulary, and capped on arrival as well as on departure -- see
+  // `backToGame`, which is the only thing that ever writes it.
+  const draft = (url.searchParams.get('draft') ?? '').slice(0, QUOTE_MAX);
   const wantsPhoto = takesPhoto(game);
 
   // What just happened, delivered here rather than to the dashboard. See
@@ -1018,7 +1035,7 @@ function showGame({ req, res, params, url }) {
              ${
                unitLabels(game).length
                  ? promptChecklist(game, mine, shotAnimation(moment))
-                 : portraitStage(game, mine, shotAnimation(moment))
+                 : portraitStage(game, mine, shotAnimation(moment), draft)
              }`;
   } else if (isFinal(game) && mine.length) {
     // This game has taken the one answer it takes, so there is no form left to draw. What goes in
@@ -1050,7 +1067,7 @@ function showGame({ req, res, params, url }) {
                    : `<input class="input" name="body"
                       ${wantsPhoto ? 'placeholder="say something about it (optional)"' : placeholderOf(game)}
                       ${game.form?.inputmode ? `inputmode="${escape(game.form.inputmode)}"` : ''}
-                      value="${escape(game.kind === 'tally' ? '' : mine.at(-1)?.body ?? '')}">`
+                      value="${escape(draft || (game.kind === 'tally' ? '' : mine.at(-1)?.body ?? ''))}">`
                }
                <button class="btn btn--primary" ${gameIsOver() ? 'disabled' : ''}>Submit</button>
              </form>`;
@@ -1089,9 +1106,26 @@ function showGame({ req, res, params, url }) {
 /**
  * A failed submission must never cost a team their place: every problem lands back on the game
  * page with the form still there, never on an error page and never on a 500.
+ *
+ * `draft` carries the typed body home so the box comes back filled. Portrait of a stranger is the
+ * first game where a bounce and a typed sentence can coexist, and the halves are not equal: the
+ * expensive half is the sentence, the cheap half is the tap. Bouncing the tap must never charge
+ * the sentence.
+ *
+ * It is the only FREE-TEXT query parameter on this site -- `problem`, `just`, `hint` and `step`
+ * are closed vocabularies -- and the exception is deliberate. A bounce is a PRG redirect, so there
+ * is nowhere else the text survives; it is the guest's own sentence on its way into the database
+ * regardless; and the alternative of holding a half-written submission in a row would invent a
+ * draft state for every game to carry. Capped at the length the box accepts, so a hand-edited URL
+ * cannot arrive longer than something a phone could have typed.
  */
-const backToGame = (res, game, problem) =>
-  redirect(res, `/g/${game.id}${problem ? `?problem=${problem}` : ''}`);
+const backToGame = (res, game, problem, draft = '') => {
+  const query = new URLSearchParams();
+  if (problem) query.set('problem', problem);
+  if (draft) query.set('draft', draft.slice(0, QUOTE_MAX));
+  const suffix = query.toString();
+  return redirect(res, `/g/${game.id}${suffix ? `?${suffix}` : ''}`);
+};
 
 /**
  * Every card of a dealt hand, saved in one press.
@@ -1238,7 +1272,10 @@ async function submitToGame({ req, res, params }) {
       const upload = parsed.files.find((file) => file.name === 'photo');
       if (upload) {
         photo = storePhoto({ teamId: team.id, gameId: game.id, buf: upload.buf });
-        if (!photo) return backToGame(res, game, 'notaphoto');
+        // Reads the body straight off `fields` rather than waiting for it to be trimmed below,
+        // because this bounce happens before that line and loses the sentence exactly as
+        // `nophoto` does.
+        if (!photo) return backToGame(res, game, 'notaphoto', (fields.get('body') ?? '').trim());
       }
     } else {
       fields = await readForm(req);
@@ -1260,8 +1297,17 @@ async function submitToGame({ req, res, params }) {
   // said is not a portrait, so it bounces with the form -- and the photo it already stored is
   // left on disk rather than deleted: the party wanted the picture either way, and a half-filled
   // form is not a reason to throw one away.
+  //
+  // That the orphan is invisible in the admin gallery costs nothing, and #48 confirmed it rather
+  // than fixed it. The gallery is a JUDGING surface, and this tile is `trust` -- it has no buttons
+  // (#10, #25) -- so an orphan there would be a portrait with no quote under it and nothing to do
+  // about it. Where the photograph actually has to arrive is `data/uploads`, whose self-describing
+  // filenames are the night's archive, and it does.
   if (requiresBody(game) && !body) return backToGame(res, game, 'noquote');
-  if (requiresBody(game) && !photo) return backToGame(res, game, 'nophoto');
+  // The sentence rides home. Photo selections cannot be restored into a file input by anyone, so
+  // the tap has to be redone either way -- which is the whole asymmetry: retyping is the cost
+  // worth removing.
+  if (requiresBody(game) && !photo) return backToGame(res, game, 'nophoto', body);
 
   const mode = judgingMode(game);
 
