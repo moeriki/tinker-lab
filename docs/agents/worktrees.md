@@ -15,11 +15,62 @@ photo subsystem. `git status` in the shared checkout is not a statement about yo
 `/Users/moeriki/Projects/moeriki/bday-games` is **always on `main` and always clean**. Agents read
 there. Agents do not commit, do not `git checkout`, and do not leave files dirty there.
 
-The one write an agent may make is a fast-forward of `main` after landing work — see
-[Landing on main](#landing-on-main). It is safe because git refuses it when it isn't.
+The one write an agent may make is a fast-forward of its `main` — before reading, and again after
+landing work. It is safe because git refuses it when it isn't.
 
 A session that only reads code, or only touches the issue tracker, stays in the shared checkout and
-needs none of this.
+needs none of the rest of this document. It still needs the next section.
+
+## Clean is not current
+
+Being on `main` is not the same as being on the latest `main`. The shared checkout's `main` only
+moves when somebody moves it, and [Landing on main](#landing-on-main) is
+`git push origin HEAD:main` from inside a worktree — that advances the **remote** ref and never
+touches the shared checkout's own branch. So it falls behind the moment anyone lands anything, and
+drifts further with every ticket after that.
+
+Nothing announces it. `git status` says `nothing to commit, working tree clean`, which is true and
+is not the question.
+
+This has already cost a wrong answer. Resolving
+[#46](https://github.com/moeriki/tinker-lab/issues/46), `ls content/games/*.js` in the shared
+checkout returned 5 while the live site correctly reported 6 — Herd Mentality had landed in
+`17286f1` and the checkout had never caught up. That is the worst shape this bug takes: it made a
+*correct* deployment look broken, which is precisely the confusion #46 existed to remove.
+
+**So make it current before you read.** First thing in the session, before any `Read`, `Grep` or
+`ls`:
+
+```sh
+git -C /Users/moeriki/Projects/moeriki/bday-games fetch -q origin
+git -C /Users/moeriki/Projects/moeriki/bday-games merge --ff-only origin/main
+```
+
+`merge --ff-only` and not `git update-ref refs/heads/main <sha>`, for the reason recorded under
+[Landing on main](#landing-on-main): the ref moves, the files don't, and the tree reports every
+landed file as deleted.
+
+### If the fast-forward refuses
+
+Another session has left the shared tree dirty or on a branch. It is not yours to reset — read
+through the ref instead, which needs no clean tree and no fetch:
+
+```sh
+git -C /Users/moeriki/Projects/moeriki/bday-games show origin/main:src/app.js
+git -C /Users/moeriki/Projects/moeriki/bday-games ls-tree origin/main content/games/
+```
+
+That is the cheaper habit of the two and it is always correct, because **worktrees share one ref
+store**: the `git push` that lands work from a worktree updates this repo's
+`refs/remotes/origin/main` as a side effect of the push itself, with nobody fetching anything. Of
+the 35 recorded updates to that ref as of 2026-08-05, 34 say `update by push`.
+
+It is the fallback rather than the rule for one reason: agents read with file tools, and `Read`,
+`Grep` and `Glob` want a path on disk, not a blob. A habit that fights every tool you have is a
+habit that lapses. One command that makes the tree honest beats a rule about how to read it.
+
+The fetch above costs about a second and covers the one case the push side effect cannot — a commit
+that landed from somewhere other than a worktree of this repo.
 
 ## Taking a worktree
 
@@ -130,6 +181,12 @@ tree and every landed file reports as deleted — the mess this whole document e
 If `merge --ff-only` fails, another session has left the shared tree dirty or on a branch. Your push
 already succeeded, so the work is safe. Say so in your report and leave the tree alone; it is not
 yours to reset.
+
+This step is a courtesy and **nobody may rely on it.** Its whole benefit lands on the next session
+rather than on yours, which is why it lapses: measured on 2026-08-05, the shared checkout was four
+commits behind, and one of those four was landed by a session running *while this very ticket was
+being resolved*. That is why [Clean is not current](#clean-is-not-current) puts the same
+fast-forward on the reader, who is the one who pays for it being skipped.
 
 ## Teardown
 

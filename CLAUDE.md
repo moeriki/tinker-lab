@@ -20,6 +20,18 @@ rebasing onto `origin/main` and pushing — **no pull requests** — then remove
 the branch. A branch may only outlive your session if an open ticket names it, and filing that
 ticket is your job, not the human's.
 
+**Clean is not current.** Landing pushes a ref and never touches the shared checkout's own `main`,
+so it falls behind the moment anyone lands anything and says nothing about it. Before you read
+there — every session, first thing:
+
+```sh
+git -C /Users/moeriki/Projects/moeriki/bday-games fetch -q origin
+git -C /Users/moeriki/Projects/moeriki/bday-games merge --ff-only origin/main
+```
+
+That fast-forward is the one write a reader may make. If it refuses, the tree is dirty or on a
+branch — don't reset it, read through the ref instead (`git show origin/main:<path>`).
+
 See `docs/agents/worktrees.md`.
 
 ## Agent skills
