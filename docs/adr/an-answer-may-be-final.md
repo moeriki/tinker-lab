@@ -11,7 +11,7 @@ exactly that when it refused a premium for committing early.
 
 The Triangle Test is the first game on this site judged by `check()` — the first to know a verdict
 at submit time at all. Under the editable rule that is not a taste test, it is a **three-tap brute
-force**: pick jug 1, told wrong; pick jug 2, told wrong; pick jug 3, ten points. The row upserts,
+force**: pick jug 1, told wrong; pick jug 3, told wrong; pick jug 2, ten points. The row upserts,
 `award()` upserts against the same `source_id`, and the last verdict is the only one that survives.
 A team can hold the full tile without leaving the sofa, having tasted nothing.
 
@@ -47,8 +47,12 @@ bounces rather than reaching `check()`. That bounce is load-bearing, not politen
 one shot is spent on an answer nobody meant to give.
 
 `/admin/rescore` re-runs resolvers, not `check()`, so a final game's verdict is written once and
-never revisited. Fixing a mis-poured station after the fact means editing content and awarding by
-hand.
+never revisited. **That is a decision, not an omission** (#57). The remedy for a mis-poured station
+is physical: two of the three jugs hold the same cola, so moving the number tags makes the content
+true again in ten seconds, and nothing is ever edited on the night. With content frozen, re-running
+`check()` would evaluate a pure function over an unchanged submission body and write back the
+verdict already sitting there — a no-op in every case that can actually occur. Teams scored before
+the swap are put right one at a time with `/admin/award`.
 
 Boot now also checks a `check()` game's `points` against the tile budget. The rule was that answer
 and tally games spend their budget inside `check()`/`resolve()` where nothing can check the

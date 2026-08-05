@@ -55,8 +55,9 @@ export default {
     game: 'triangle',
     label: 'Triangle Test',
     where:
-      'On the Triangle Test station, beside the three numbered jugs. THE ODD COLA GOES IN JUG 3 ' +
-      '-- get that wrong and the site scores the whole night backwards.',
+      'On the Triangle Test station, beside the three numbered jugs. THE ODD COLA GOES IN JUG 2 ' +
+      '-- get that wrong and the site scores the whole night backwards. If it is already wrong, ' +
+      'leave the code alone and swap the number tags until the odd jug wears the 2.',
   },
   '6cd3rd': {
     game: 'teddy',

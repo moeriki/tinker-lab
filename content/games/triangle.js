@@ -16,16 +16,26 @@
 /**
  * The jug holding the odd cola. Two jugs hold one brand; this one holds the other.
  *
- * Three rather than two, deliberately: 2 is the reflex answer when a person picks a number
- * between one and three, and this tile's punchline is that being correct means nothing. Handing
- * accidental correct answers to the modal guess weakens it and buys nothing back.
+ * Two, which reverses #26. That ticket picked 3 because 2 is the reflex answer when somebody
+ * names a number between one and three, and it wanted accidental winners to be rare. Rare is not
+ * what this tile is for: the punchline is that being correct proves nothing, and "one in three
+ * people who taste nothing at all get there too" is a claim about chance that holds whichever jug
+ * is odd. Putting the odd cola under the modal guess means more of the room scores without
+ * tasting, and every one of them reads a line saying we cannot tell them apart from someone who
+ * did. That is the joke landing harder rather than leaking. Decided in #57.
  *
- * WHOEVER FILLS THE JUGS ON THE DAY MUST PUT THE ODD COLA IN JUG 3. Nothing in this file can
+ * WHOEVER FILLS THE JUGS ON THE DAY MUST PUT THE ODD COLA IN JUG 2. Nothing in this file can
  * check that, and a mis-poured station means the site spends five hours confidently scoring the
  * exact inverse of the truth. It is the only game on the roster a physical setup error can turn
  * upside down in silence -- which is why the code's `where` in content/codes.js says so too.
+ *
+ * If it happens anyway the fix is physical and takes ten seconds: two of the three jugs hold the
+ * SAME cola, so nobody has to pour anything -- move the number tags until the odd jug wears the
+ * 2. Do NOT edit this constant on the night. `/admin/rescore` re-runs resolvers and never
+ * `check()`, so a verdict already written stays written; teams scored before the swap are put
+ * right one at a time with /admin/award, and everybody after it is simply correct. See #57.
  */
-const ODD_JUG = '3';
+const ODD_JUG = '2';
 
 export default {
   id: 'triangle',
