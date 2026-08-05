@@ -4,9 +4,9 @@
 // strings on disk. Guess Who's ten cards come out of what other guests answered at the door, so
 // which ten a team holds is player data and lives in `deals`.
 //
-// ADR-0001 is intact. Content declares `hand: { size, fromLadder }` and receives its own cards back
-// as plain facts; it never learns that a `deals` table exists, and the table never learns what a
-// `ref` means.
+// ADR-game-content-lives-on-disk is intact. Content declares `hand: { size, fromLadder }` and
+// receives its own cards back as plain facts; it never learns that a `deals` table exists, and the
+// table never learns what a `ref` means.
 
 import { ladderRungs } from './content.js';
 import { all, run, transact } from './db.js';

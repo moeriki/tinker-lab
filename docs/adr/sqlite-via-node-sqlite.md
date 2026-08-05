@@ -1,4 +1,4 @@
-# ADR-0004: SQLite via `node:sqlite`, with a hand-rolled migration runner
+# SQLite via `node:sqlite`, with a hand-rolled migration runner
 
 **Status:** accepted · **Date:** 2026-08-04 · **Ticket:** [Domain model and route inventory](https://github.com/moeriki/tinker-lab/issues/6)
 

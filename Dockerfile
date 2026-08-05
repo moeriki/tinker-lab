@@ -1,4 +1,4 @@
-# Node 26 to match development exactly -- see docs/adr/0004-sqlite-via-node-sqlite.md. Alpine is
+# Node 26 to match development exactly -- see docs/adr/sqlite-via-node-sqlite.md. Alpine is
 # safe here precisely because node:sqlite is built into Node: nothing is compiled at build time,
 # so musl never enters the picture.
 FROM node:26-alpine

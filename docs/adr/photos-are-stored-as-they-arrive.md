@@ -1,4 +1,4 @@
-# ADR-0008: Photos are stored exactly as they arrive, and thumbnails come from EXIF
+# Photos are stored exactly as they arrive, and thumbnails come from EXIF
 
 **Status:** accepted · **Date:** 2026-08-04 · **Ticket:** [Photo submission subsystem](https://github.com/moeriki/tinker-lab/issues/10)
 
@@ -12,7 +12,7 @@ Three facts shape this:
 1. **Multipart parsing needs no dependency.** Node can bridge an `IncomingMessage` into a web
    `Request` and let the platform's own parser handle it. Verified on Node 26, which is what the
    container pins. The zero-runtime-dependency build guard from
-   [ADR-0007](0007-one-home-assistant-webhook.md)'s ticket survives untouched.
+   [ADR-one-home-assistant-webhook](one-home-assistant-webhook.md)'s ticket survives untouched.
 2. **iPhones may send HEIC, and Chrome will not display it.** We judge on "modern iOS and
    Android", so we cannot assume Safari.
 3. **Node cannot decode an image without a dependency.** There is no built-in resize, and no
@@ -70,9 +70,9 @@ move, and the phone that took the photo can always decode its own format. Reject
 spends the "client JS is animation only" constraint, and needs a no-JS fallback path anyway.
 
 **A server-side image library** (`sharp`). Real thumbnails and real HEIC conversion. Rejected:
-it is a native dependency, which is precisely what [ADR-0004](0004-sqlite-via-node-sqlite.md)
-avoided for the database, and a build that compiles native code the week of the party is a risk
-with no upside on the night.
+it is a native dependency, which is precisely what
+[ADR-sqlite-via-node-sqlite](sqlite-via-node-sqlite.md) avoided for the database, and a build
+that compiles native code the week of the party is a risk with no upside on the night.
 
 **Rely on the browser and hope.** Cheapest, and the failure mode is a gallery of broken images
 discovered at 23:00 with no way to recover the photo.

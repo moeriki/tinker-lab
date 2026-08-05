@@ -1,4 +1,4 @@
-# ADR-0003: The QR entry point mutates on GET
+# The QR entry point mutates on GET
 
 **Status:** accepted · **Date:** 2026-08-04 · **Ticket:** [Domain model and route inventory](https://github.com/moeriki/tinker-lab/issues/6)
 

@@ -9,7 +9,7 @@
 // --- spend the one-shot signals --------------------------------------------
 //
 // A POST-and-redirect can only tell the next page what happened through a query
-// param (see docs/adr/0009-the-page-you-are-on-is-the-stage.md). That param then
+// param (see docs/adr/the-page-you-are-on-is-the-stage.md). That param then
 // lingers: pull-to-refresh would replay the animation, and a team showing a mate
 // their screen would be sharing a URL ending `?just=correct`.
 //
@@ -37,12 +37,13 @@ requestAnimationFrame(() => {
 // smoothly than following the button's own href would.
 //
 // There is deliberately NO focus management here -- no move-in, no trap, no
-// restore -- and that is settled, not forgotten (#31, ADR-0015). The box arrives
-// on a full page load, so nothing was focused to take focus from and nothing
-// exists to hand it back to; and a trap written here would be the one thing
-// about this modal that a phone with JavaScript blocked does not get. What the
-// trap was for is done in HTML instead: `layout()` renders the modal first in
-// the document, so it reads and tabs first. Do not add it back.
+// restore -- and that is settled, not forgotten (#31,
+// ADR-document-order-instead-of-focus-management). The box arrives on a full
+// page load, so nothing was focused to take focus from and nothing exists to
+// hand it back to; and a trap written here would be the one thing about this
+// modal that a phone with JavaScript blocked does not get. What the trap was for
+// is done in HTML instead: `layout()` renders the modal first in the document,
+// so it reads and tabs first. Do not add it back.
 
 const modal = document.getElementById('hint-modal');
 

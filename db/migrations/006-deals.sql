@@ -6,10 +6,10 @@
 -- onboarding answers, and which ten is different for each team and cannot be known until they
 -- open the tile.
 --
--- ADR-0001 still holds, and this table is careful about it. `game_id` is a bare string with no
--- foreign key; the database does not learn what games exist. `ref` is an OPAQUE integer whose
--- meaning belongs entirely to the game that dealt it -- Guess Who reads it as a member id, and
--- nothing in the schema says so or joins on it.
+-- ADR-game-content-lives-on-disk still holds, and this table is careful about it. `game_id` is
+-- a bare string with no foreign key; the database does not learn what games exist. `ref` is an
+-- OPAQUE integer whose meaning belongs entirely to the game that dealt it -- Guess Who reads
+-- it as a member id, and nothing in the schema says so or joins on it.
 --
 -- `unit` is the same unit the ledger keys on. `awards` is unique on (team, game, kind, source_id),
 -- so a card pays at most once however many times its guess is edited between now and game end.

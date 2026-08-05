@@ -202,7 +202,7 @@ const noSuchCode = (res) => {
  * that flash IS the clue pointing at the next code; firing it a minute late, while the team is
  * still head-down in a questionnaire, spends the clue on an empty room. So a deferred scan keeps
  * the scan row and the unlock and drops the webhook, and the game page asks them to go and scan
- * it again for real. See ADR-0014.
+ * it again for real. See ADR-the-first-scan-is-not-live.
  *
  * Returns the path to send them to, or null when the code points at a game content does not
  * define -- which the caller turns into a 404.
@@ -225,7 +225,8 @@ function applyCode({ team, slug, target, deferred = false }) {
     recordScan(team.id, slug, true);
     unlock(team.id, game.id);
     // Straight into the game, never via the dashboard: the team scanned a code because they want
-    // to play, and the unlock plays on the hero they are already looking at. ADR-0009.
+    // to play, and the unlock plays on the hero they are already looking at.
+    // ADR-the-page-you-are-on-is-the-stage.
     return gamePath(game.id, { moment: 'unlock' });
   }
 
@@ -240,7 +241,7 @@ function applyCode({ team, slug, target, deferred = false }) {
   if (step === 1) unlock(team.id, game.id);
 
   // The step's `webhook` is a logical node name, never a Home Assistant id -- see
-  // docs/adr/0007-one-home-assistant-webhook.md.
+  // docs/adr/one-home-assistant-webhook.md.
   const webhook = getStep(game, step)?.webhook;
   if (webhook && !deferred) fireWebhook(webhook, { team: team.name, game: game.id, step });
 
@@ -257,12 +258,12 @@ function applyCode({ team, slug, target, deferred = false }) {
  * A `HEAD` on the front door, which is deliberately NOT a dry run of the scan behind it.
  *
  * Every other route answers a HEAD by running its GET and letting Node drop the body, which is
- * free because those routes only read. This one is the exception named in ADR-0003: a scan writes
- * a scan row, unlocks a tile, banks hunt progress and fires the Home Assistant webhook, so the
- * lights in a room are part of the response. A link-preview crawler unfurling a code in a chat
- * app, or an uptime monitor pointed at a printed URL, would otherwise play the game for whoever
- * owns the cookie it happens to be carrying -- and flash a lamp at an empty room, spending the
- * clue. Silence is a far better failure than that.
+ * free because those routes only read. This one is the exception named in
+ * ADR-qr-entry-mutates-on-get: a scan writes a scan row, unlocks a tile, banks hunt progress and
+ * fires the Home Assistant webhook, so the lights in a room are part of the response. A
+ * link-preview crawler unfurling a code in a chat app, or an uptime monitor pointed at a printed
+ * URL, would otherwise play the game for whoever owns the cookie it happens to be carrying -- and
+ * flash a lamp at an empty room, spending the clue. Silence is a far better failure than that.
  *
  * So this answers the only question a HEAD can honestly ask about a code -- does it exist -- and
  * touches nothing. 200 for a real slug, 404 for one the inventory does not know, matching the
@@ -282,7 +283,8 @@ async function handleScan({ req, res, params }) {
 
   // A real code whose content is not written yet. Impossible on the night -- the sheet generator
   // refuses to print while any code is pending -- but entirely normal during the week before,
-  // when a test print exists and the game behind it does not. ADR-0010.
+  // when a test print exists and the game behind it does not.
+  // ADR-codes-are-printed-from-the-inventory.
   if (isPending(params.slug)) {
     return html(
       res,
@@ -570,8 +572,8 @@ async function saveQuestions({ req, res }) {
  *
  * It is applied HERE rather than by redirecting back through `/q/:slug`, because this scan is a
  * minute stale and a hunt step's webhook must not fire into an empty room -- see `applyCode` and
- * ADR-0014. A team who arrived by typing the address instead of scanning anything has no pending
- * slug and simply lands on their board.
+ * ADR-the-first-scan-is-not-live. A team who arrived by typing the address instead of scanning
+ * anything has no pending slug and simply lands on their board.
  */
 function afterOnboarding(req, res, team) {
   const pending = parseCookies(req)[PENDING_COOKIE];
@@ -871,12 +873,13 @@ function showGame({ req, res, params, url }) {
   const problem = SUBMIT_PROBLEMS[url.searchParams.get('problem')];
   const wantsPhoto = takesPhoto(game);
 
-  // What just happened, delivered here rather than to the dashboard. See ADR-0009.
+  // What just happened, delivered here rather than to the dashboard. See
+  // ADR-the-page-you-are-on-is-the-stage.
   const moment = momentOf(url);
   const submitted = SUBMITTED[moment];
 
   // The one arrival that carries an instruction rather than a verdict: a hunt code scanned before
-  // this team existed, whose webhook was deliberately not fired. ADR-0014.
+  // this team existed, whose webhook was deliberately not fired. ADR-the-first-scan-is-not-live.
   const arrival = ARRIVED[moment];
 
   // A reveal that has already happened, announcing what it cost. Rendered only when there is a
@@ -1185,7 +1188,7 @@ async function submitToGame({ req, res, params }) {
   // Every submission lands back on the game page -- the one the team is already looking at --
   // and is answered there. Nobody gets thrown to the dashboard to be told what happened, and
   // closing the game is the team's call. Photo games needed this anyway: sending another is one
-  // tap. See ADR-0009.
+  // tap. See ADR-the-page-you-are-on-is-the-stage.
   // `photo` here is the one that actually arrived, not merely a game that accepts them: a
   // photo game also takes a text-only submission, and that must not animate a photo.
   return redirect(
@@ -1262,8 +1265,8 @@ function showRules({ req, res }) {
  * teams that found it -- so a page may instead export a FUNCTION, and this is where it is called.
  *
  * The numbers are computed here rather than in `content/`, which keeps the seam intact: content
- * describes the game and never opens the database (ADR-0001). The page is handed facts, not a
- * connection.
+ * describes the game and never opens the database (ADR-game-content-lives-on-disk). The page is
+ * handed facts, not a connection.
  *
  * A page with no code bound to it, or a visitor with no team, gets zeroes -- `/p/motivation` is a
  * real URL and someone will eventually reach it without scanning anything.

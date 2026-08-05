@@ -1,6 +1,7 @@
 # One file per game, default-exporting the game object. The database never learns what games
-# exist -- it refers to them by bare `game_id` with no foreign key (ADR-0001), so RENAMING A
-# GAME'S `id` ORPHANS EVERY ROW ALREADY WRITTEN AGAINST IT.
+# exist -- it refers to them by bare `game_id` with no foreign key
+# (ADR-game-content-lives-on-disk), so RENAMING A GAME'S `id` ORPHANS EVERY ROW ALREADY
+# WRITTEN AGAINST IT.
 #
 # Shared by every kind:
 #

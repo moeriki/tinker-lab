@@ -19,7 +19,7 @@ or shows a gag **page**. Games are content on disk; the database holds only what
 `content/` holds every game, code mapping, onboarding question and gag page, in version control.
 The database holds teams, scans, unlocks, submissions, deals, hint reveals and awards — and refers to
 content by bare string id (`game_id TEXT`), with **no foreign key**. The database does not know
-what games exist. See [ADR-0001](docs/adr/0001-game-content-lives-on-disk.md).
+what games exist. See [ADR-game-content-lives-on-disk](docs/adr/game-content-lives-on-disk.md).
 
 ## Glossary
 
@@ -64,7 +64,8 @@ b4xk7m: { page: 'rickroll' },
 
 Slugs are opaque but **not secret** — teams shouting hiding places at each other is the goal.
 Nothing here distrusts a scan, and the other half of that is that the site is only reachable from
-inside the house: see [ADR-0012](docs/adr/0012-the-house-network-is-the-boundary.md).
+inside the house: see
+[ADR-the-house-network-is-the-boundary](docs/adr/the-house-network-is-the-boundary.md).
 
 The roster fixes **19 codes**. Each entry also carries three fields for humans: a `label` (host
 key only — never printed on the card, or a gag announces itself), a `where` (its hiding place, or
@@ -75,7 +76,7 @@ been authored. A pending code **warns at boot** and shows a placeholder when sca
 `node scripts/qr-sheet.js` reads this file and emits one self-contained A4 sheet — six cards per
 page at error-correction level H, plus a host key sheet that is not for cutting. Slugs are minted
 once and frozen, so `--only=<slug>` reprints a single lost card. See
-[ADR-0010](docs/adr/0010-codes-are-printed-from-the-inventory.md).
+[ADR-codes-are-printed-from-the-inventory](docs/adr/codes-are-printed-from-the-inventory.md).
 
 A slug the inventory does not contain is a dead end: `/q/<unknown>` renders the `no-such-code`
 page with a 404 and offers no near-miss guess.
@@ -164,7 +165,7 @@ param on the destination: `?just=<moment>`, with a closed vocabulary in `src/mom
 A moment is always delivered to **the page that caused it**. Scanning opens the game and the hero
 plays the unlock; submitting keeps the team on the game page and answers them there. Nobody is
 routed to the dashboard to be told something. See
-[ADR-0009](docs/adr/0009-the-page-you-are-on-is-the-stage.md).
+[ADR-the-page-you-are-on-is-the-stage](docs/adr/the-page-you-are-on-is-the-stage.md).
 
 The param is **spent on arrival** — `public/js/app.js` strips it after first paint, so refreshing
 does not replay the animation. The animation is never load-bearing: `prefers-reduced-motion`
@@ -191,7 +192,7 @@ which is the retry loop the hunt was already built on.
 
 Derived, never declared: the discriminator is whether the step has a `webhook` at all, so the
 riddle hunt needs no prompt and gets none. See
-[ADR-0014](docs/adr/0014-the-first-scan-is-not-live.md).
+[ADR-the-first-scan-is-not-live](docs/adr/the-first-scan-is-not-live.md).
 
 ### Unlock
 
@@ -220,7 +221,8 @@ gamble: these are the two tiles where a team can pay and still fail.
 A team's position is **derived**: the longest *contiguous* run of steps whose slugs they have an
 accepted scan for. There is no progress column. Progression is strictly sequential — stumbling on
 step 4's code while at step 1 does nothing but record a flagged scan and show the "you're not
-supposed to be here" page. See [ADR-0006](docs/adr/0006-hunt-progress-is-derived-from-scans.md).
+supposed to be here" page. See
+[ADR-hunt-progress-is-derived-from-scans](docs/adr/hunt-progress-is-derived-from-scans.md).
 
 `/g/:id` always means *the current step*. `?step=n` browses steps already reached, clamped.
 
@@ -252,7 +254,7 @@ EXIF, and is **null** whenever there wasn't one. A format the browser may refuse
 anything but Safari) gets a download tile — `.shot--dl` — rather than a broken `<img>`, and gets
 it **everywhere a photo is shown**: one `shot()` in `render.js` renders every photo cell on the
 site, so there is one answer to what an unrenderable photo looks like. See
-[ADR-0008](docs/adr/0008-photos-are-stored-as-they-arrive.md).
+[ADR-photos-are-stored-as-they-arrive](docs/adr/photos-are-stored-as-they-arrive.md).
 
 Filenames are self-describing — `0007-yarn-20260814T2134-a3f9.jpg` is team, game, when, random —
 so `data/uploads` is already a labelled archive and needs no export feature. The random tail is
@@ -299,10 +301,10 @@ door — so which ten a team holds is a fact about that team, and lives in `deal
 
 `src/deals.js` owns dealing and hands the game back plain facts; content never learns the table
 exists, and the table never learns what a `ref` means — it is an opaque integer belonging to the
-game that dealt it ([ADR-0001](docs/adr/0001-game-content-lives-on-disk.md) intact). A hand
-**tops up** on every open until it holds `size`, and a dealt card is never re-dealt or displaced,
-so a guess made at 21:00 cannot be taken away by somebody arriving at 23:00. See
-[ADR-0016](docs/adr/0016-units-may-be-dealt-per-team.md).
+game that dealt it ([ADR-game-content-lives-on-disk](docs/adr/game-content-lives-on-disk.md)
+intact). A hand **tops up** on every open until it holds `size`, and a dealt card is never
+re-dealt or displaced, so a guess made at 21:00 cannot be taken away by somebody arriving at
+23:00. See [ADR-units-may-be-dealt-per-team](docs/adr/units-may-be-dealt-per-team.md).
 
 > Not "deck" — the **pool** is what is available, a **hand** is what one team holds, and a
 > **card** is one unit of it. Declaring both `hand` and `units` is a boot error.
@@ -321,7 +323,7 @@ into `source_id` so two consolation points are two rows.
 
 Unique on `(team, game, kind, source_id)`, so re-running scoring **upserts** rather than
 duplicates — which is what makes `/admin/rescore` safe. See
-[ADR-0002](docs/adr/0002-points-are-a-ledger.md).
+[ADR-points-are-a-ledger](docs/adr/points-are-a-ledger.md).
 
 > Not "score" — a **score** is the sum of awards, not a stored thing.
 
@@ -343,7 +345,7 @@ because there the walking **is** the mechanic.
 
 **Scores may go negative.** Hints are the only debit, and nothing clamps: `score = SUM(awards)`
 stays literally true, with no special case in the tile, the header or the showdown.
-See [ADR-0011](docs/adr/0011-the-tile-is-the-unit-of-value.md).
+See [ADR-the-tile-is-the-unit-of-value](docs/adr/the-tile-is-the-unit-of-value.md).
 
 ### Standing
 
@@ -393,7 +395,7 @@ still dismisses it, because both its buttons are ordinary links.
 ### Focus
 
 **This site does no focus management** — no trap, no move-in, no restore, nowhere, and that is
-settled rather than outstanding ([ADR-0015](docs/adr/0015-document-order-instead-of-focus-management.md), #31).
+settled rather than outstanding ([ADR-document-order-instead-of-focus-management](docs/adr/document-order-instead-of-focus-management.md), #31).
 
 The hint modal is the only modal there is, and it is not a conventional dialog: it arrives on a
 **full page load**, so nothing was focused to take focus from and the button that triggered it is
@@ -480,7 +482,7 @@ have skipped past, so a member holds exactly one and no abandoned answer is ever
 
 Skipping re-submits the form as a **GET**, so nothing typed is lost and no client JS comes near
 onboarding — the same trick the team name's reroll uses on screen one. See
-[ADR-0017](docs/adr/0017-a-question-may-be-a-ladder.md).
+[ADR-a-question-may-be-a-ladder](docs/adr/a-question-may-be-a-ladder.md).
 
 > A **rung** is one question of a ladder. A **slot** is one answer owed. Not "optional question" —
 > nothing here is optional; the ladder always ends in one that is answered.
@@ -494,7 +496,7 @@ disagreeing rather than one typing badly.
 
 `node:sqlite` — zero dependencies, no native compilation. WAL, foreign keys on. Schema changes
 go through numbered files in `db/migrations/` tracked by `PRAGMA user_version`. See
-[ADR-0004](docs/adr/0004-sqlite-via-node-sqlite.md).
+[ADR-sqlite-via-node-sqlite](docs/adr/sqlite-via-node-sqlite.md).
 
 **A migration's version is the number written on its filename**, and the numbers must run `001`,
 `002`, `003` with no gaps and no repeats — boot refuses otherwise. `user_version` is one integer,
@@ -518,7 +520,7 @@ Team-facing:
 
 | method | route | what | idempotent |
 | --- | --- | --- | --- |
-| GET | `/q/:slug` | **the front door** — resolve a code, apply its effect, redirect | mutating, see [ADR-0003](docs/adr/0003-qr-entry-mutates-on-get.md) |
+| GET | `/q/:slug` | **the front door** — resolve a code, apply its effect, redirect | mutating, see [ADR-qr-entry-mutates-on-get](docs/adr/qr-entry-mutates-on-get.md) |
 | GET | `/` | dashboard: header, score, tile grid | ✓ |
 | GET | `/welcome` | onboarding, screen 1: a dealt team name + member names. Reroll re-submits this form as a GET | ✓ |
 | POST | `/welcome` | create team + members, set cookie → `/questions` | PRG |
@@ -531,7 +533,8 @@ Team-facing:
 | GET | `/p/:pageId` | gag and hidden pages | ✓ |
 | GET | `/showdown` | final standings, after game end | ✓ |
 
-Admin, all behind one cookie gate ([ADR-0005](docs/adr/0005-admin-is-a-one-time-secret-url.md)):
+Admin, all behind one cookie gate
+([ADR-admin-is-a-one-time-secret-url](docs/adr/admin-is-a-one-time-secret-url.md)):
 
 | method | route | what |
 | --- | --- | --- |
@@ -550,9 +553,10 @@ drops the body — so `curl -I` and the uptime monitors that default to HEAD rea
 healthy ([#40](https://github.com/moeriki/tinker-lab/issues/40)). Every route above is safe to
 answer that way except one: `HEAD /q/:slug` has a route of its own that reports whether the code
 exists (`200` / `404`) and touches nothing, because computing the `303` a GET returns IS the scan
-([ADR-0003](docs/adr/0003-qr-entry-mutates-on-get.md)) — a link-preview crawler must not spend a
-code or flash a lamp. The only other GET that can mutate is `/questions`, which replays a held
-code once onboarding completes; that replay is skipped on a HEAD and the slug stays pending.
+([ADR-qr-entry-mutates-on-get](docs/adr/qr-entry-mutates-on-get.md)) — a link-preview crawler
+must not spend a code or flash a lamp. The only other GET that can mutate is `/questions`, which
+replays a held code once onboarding completes; that replay is skipped on a HEAD and the slug
+stays pending.
 
 Static: `/css/*`, `/js/*`, `/fonts/*`, `/img/*` from `public/`; `/uploads/*` from `$DATA_DIR`;
 `/kit` is the style kit — served from `public/kit.html`, with the real components injected into it
@@ -564,7 +568,7 @@ A piece of markup the design system ships: a tile, a hero, a form field, the sco
 modal. The styles are shared by construction — `public/css/app.css` is linked by every page and by
 `/kit`, so appearance cannot drift. The markup is what had to be settled.
 
-> **A component's markup exists in exactly one place** ([ADR-0013](docs/adr/0013-a-component-has-one-markup.md)).
+> **A component's markup exists in exactly one place** ([ADR-a-component-has-one-markup](docs/adr/a-component-has-one-markup.md)).
 
 Where the app renders a component, that place is a function in `src/render.js`, and `/kit` calls it
 through a marker comment — `@tile state="unlocked" title="Longest Yarn"` — which `src/kit.js` swaps

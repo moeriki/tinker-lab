@@ -3,11 +3,11 @@
 //
 // One URL, one automation, many effects: the hunt step's logical name travels in the payload as
 // `node`, and MM branches on it. The webhook id never enters this repository, which is public.
-// See docs/adr/0007-one-home-assistant-webhook.md.
+// See docs/adr/one-home-assistant-webhook.md.
 //
 // Webhooks re-fire on every scan of /q/:slug, deliberately: a treasure hunt step is supposed to
 // take several tries to interpret, and re-triggering means walking back to the code.
-// See docs/adr/0003-qr-entry-mutates-on-get.md.
+// See docs/adr/qr-entry-mutates-on-get.md.
 
 import { HA_WEBHOOK_URL } from './config.js';
 

@@ -15,7 +15,8 @@
 // the only colour is an inline SVG stripe, which is content and always prints.
 //
 // Reruns are free and produce byte-identical output for the same inventory: nothing is random,
-// nothing is timestamped, and slugs are literals in content/codes.js. See ADR-0010.
+// nothing is timestamped, and slugs are literals in content/codes.js. See
+// ADR-codes-are-printed-from-the-inventory.
 
 import { readFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { randomInt } from 'node:crypto';

@@ -1,6 +1,6 @@
 // The content half of the seam: everything authored lives in content/ and is loaded once at
 // boot. The database never learns what games exist -- see
-// docs/adr/0001-game-content-lives-on-disk.md.
+// docs/adr/game-content-lives-on-disk.md.
 
 import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
@@ -96,8 +96,8 @@ export function unitCount(game) {
  *   hand: { size: 10, fromLadder: 'guess-who' }
  *
  * and the engine deals it (src/deals.js), tops it up, and hands the game its own cards back as
- * facts. Content never opens the database -- ADR-0001 -- so a game with a hand still knows nothing
- * about how one is stored.
+ * facts. Content never opens the database -- ADR-game-content-lives-on-disk -- so a game with a
+ * hand still knows nothing about how one is stored.
  */
 export const hasHand = (game) => Boolean(game.hand);
 export const handSize = (game) => Number(game.hand?.size ?? 0);
@@ -149,7 +149,8 @@ export const listCodes = () => Object.entries(codes);
  * A slug whose target content is not authored yet. The inventory of nineteen codes is settled and
  * printed from `content/codes.js`, but the games behind six of them are still being written -- so
  * a code is allowed to point at nothing, PROVIDED it says `pending: true` out loud. An unflagged
- * dangling target is still a boot error, because that one is a typo. See ADR-0010.
+ * dangling target is still a boot error, because that one is a typo. See
+ * ADR-codes-are-printed-from-the-inventory.
  */
 export const isPending = (slug) => {
   const target = codes[slug];
@@ -243,8 +244,9 @@ export function slugsForGame(gameId) {
  * `no-such-code` are rendered directly by the app and have none, which is why this may be null.
  *
  * It exists so a page can be told *about* its own scans without ever reaching for the database
- * itself -- `showPage` resolves the slug here and does the counting. See ADR-0001: content
- * describes the game, the database holds player data, and the two never mix.
+ * itself -- `showPage` resolves the slug here and does the counting. See
+ * ADR-game-content-lives-on-disk: content describes the game, the database holds player data,
+ * and the two never mix.
  */
 export function slugForPage(pageId) {
   return listCodes().find(([, target]) => target.page === pageId)?.[0] ?? null;
@@ -254,9 +256,10 @@ const QUESTION_SCOPES = ['team', 'member'];
 const QUESTION_INPUTS = ['text', 'number', 'select'];
 
 /**
- * A question id is a bare string in `profile_answers` with no foreign key (ADR-0001), so a
- * duplicate id silently makes two questions share one row and the second overwrite the first.
- * Cheap to check at boot, invisible at 21:00 with fourteen teams' answers already in the file.
+ * A question id is a bare string in `profile_answers` with no foreign key
+ * (ADR-game-content-lives-on-disk), so a duplicate id silently makes two questions share one
+ * row and the second overwrite the first. Cheap to check at boot, invisible at 21:00 with
+ * fourteen teams' answers already in the file.
  */
 function questionProblems() {
   const problems = [];
@@ -507,7 +510,7 @@ function validate() {
   // A code may point at content that does not exist YET, but only where the inventory admits it
   // with `pending: true`. Without the flag the same situation is a typo in a game id, and stays
   // fatal. `scripts/qr-sheet.js` refuses to print while any flag survives, so the tolerance can
-  // never reach paper. See docs/adr/0010-codes-are-printed-from-the-inventory.md.
+  // never reach paper. See docs/adr/codes-are-printed-from-the-inventory.md.
   const stale = [];
 
   for (const [slug, target] of Object.entries(codes)) {

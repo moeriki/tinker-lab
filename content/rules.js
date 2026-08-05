@@ -49,8 +49,8 @@ export default {
   //
   // - the ceiling, because the dashboard already shows ten tiles from minute one, so the number
   //   is one multiplication away and stating it confirms an inference rather than leaking a
-  //   secret -- and because ADR-0011 priced the whole scale on the argument that a joke about a
-  //   price only works if the audience knows what things cost;
+  //   secret -- and because ADR-the-tile-is-the-unit-of-value priced the whole scale on the
+  //   argument that a joke about a price only works if the audience knows what things cost;
   // - that finding a code pays nothing, which is the one genuinely wasted night this page can
   //   prevent: a team can collect all nineteen codes and finish on zero;
   // - that nothing comparative is ever shown, which is what stops the vague standing message

@@ -11,7 +11,8 @@
 //
 // The counter-argument -- that a hand-rolled encoder might emit a symbol no phone can read -- is
 // answered by `--selftest`: it decodes every symbol back through the spec (format bits, mask,
-// zigzag, de-interleave, Reed-Solomon syndromes, payload) and compares. See ADR-0010.
+// zigzag, de-interleave, Reed-Solomon syndromes, payload) and compares. See
+// ADR-codes-are-printed-from-the-inventory.
 //
 // Structure follows the reference decomposition in ISO/IEC 18004: encode -> codewords -> error
 // correction -> interleave -> place -> mask -> format bits.

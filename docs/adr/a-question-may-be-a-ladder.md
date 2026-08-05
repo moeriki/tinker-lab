@@ -1,4 +1,4 @@
-# ADR-0017: A question may be a ladder
+# A question may be a ladder
 
 **Status:** accepted · **Ticket:** [#22](https://github.com/moeriki/tinker-lab/issues/22) ·
 **Amends:** the flat gate from [#9](https://github.com/moeriki/tinker-lab/issues/9)
@@ -68,8 +68,8 @@ card.
   and a one-rung ladder is a boot error.
 - **A question id could be renamed for free here, and cannot be again.** `age-eight` became
   `wanted-to-be` because the label stopped naming an age. Renaming orphans every answer already
-  given ([ADR-0001](0001-game-content-lives-on-disk.md)); it was free only because no party had
-  happened yet.
+  given ([ADR-game-content-lives-on-disk](game-content-lives-on-disk.md)); it was free only
+  because no party had happened yet.
 - The door is now five questions deep in one place, and nothing polices the *total* size of
   onboarding — every question is justified on its own and the sum is nobody's job.
   [#52](https://github.com/moeriki/tinker-lab/issues/52) exists to count it once every game has

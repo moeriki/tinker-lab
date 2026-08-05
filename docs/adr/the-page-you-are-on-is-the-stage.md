@@ -1,4 +1,4 @@
-# ADR-0009: The page you are on is the stage
+# The page you are on is the stage
 
 **Status:** accepted · **Date:** 2026-08-04 · **Ticket:** [Animation choreography](https://github.com/moeriki/tinker-lab/issues/14)
 

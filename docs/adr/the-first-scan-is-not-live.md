@@ -1,4 +1,4 @@
-# ADR-0014: The first scan is not live
+# The first scan is not live
 
 **Status:** accepted · **Date:** 2026-08-05 · **Ticket:** [Onboarding flow and questionnaire](https://github.com/moeriki/tinker-lab/issues/9)
 
@@ -18,8 +18,8 @@ what tells the team which room to walk to next; the step's own hero text is deli
 ("Nothing happens?"). Firing it on the deferred replay means it goes off at the exact moment the
 team is head-down in a questionnaire in the hallway, aimed at a room nobody is standing in. The
 clue is spent, and the site cannot tell — Home Assistant returns `200 OK` for everything by
-design ([ADR-0007](0007-one-home-assistant-webhook.md)), so there is nothing to detect and
-nothing to retry against.
+design ([ADR-one-home-assistant-webhook](one-home-assistant-webhook.md)), so there is nothing to
+detect and nothing to retry against.
 
 Nine of ten teams would have hit this in the first five minutes of the party.
 
@@ -41,7 +41,7 @@ thing that puts it right:
 Their rescan is an ordinary live scan. The webhook fires with them standing in front of it, which
 is the retry loop the hunt was already built around: **webhooks re-fire on every scan**, and
 making the lights blink again has always meant physically walking back to the code
-([ADR-0006](0006-hunt-progress-is-derived-from-scans.md)).
+([ADR-hunt-progress-is-derived-from-scans](hunt-progress-is-derived-from-scans.md)).
 
 The prompt is **derived, not declared**. The discriminator is whether the step declares a
 `webhook` at all, so nothing in `content/` needs a new field and the rule cannot drift out of sync

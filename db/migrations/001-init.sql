@@ -1,5 +1,5 @@
 -- Player data only. Games, codes, questions and pages live in content/ and are referred to by
--- bare string id with no foreign key -- see docs/adr/0001-game-content-lives-on-disk.md.
+-- bare string id with no foreign key -- see docs/adr/game-content-lives-on-disk.md.
 
 create table teams (
   id           integer primary key,
@@ -84,7 +84,7 @@ create table hint_reveals (
   unique (team_id, game_id, step, hint_index)
 );
 
--- One row per point movement; hint rows are negative. See docs/adr/0002-points-are-a-ledger.md.
+-- One row per point movement; hint rows are negative. See docs/adr/points-are-a-ledger.md.
 -- The unique index is what makes /admin/rescore an upsert rather than a duplication.
 create table awards (
   id         integer primary key,

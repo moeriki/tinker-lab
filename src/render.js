@@ -21,13 +21,14 @@ import { escape } from './http.js';
  * the arrival animation.
  *
  * It sits **first**, ahead of `.app`, and that is this site's entire answer to focus management
- * (#31, ADR-0015). The box arrives on a full page load rather than being opened by script, so
- * there is no focus to move in and none to give back -- but document order still decided that the
- * first six tab stops were the scorebar, the answer box and the close link, all of them behind a
- * dim backdrop, before you reached the box you were looking at. Putting the markup first makes the
- * thing you see first the thing you read first and tab to first, in HTML, with no script involved.
- * `.modal` is `position: fixed; z-index: 500`, so it paints above `.app` whatever the tree order
- * says. Slot is empty on every page but a hint reveal, so this costs the rest of the site nothing.
+ * (#31, ADR-document-order-instead-of-focus-management). The box arrives on a full page load
+ * rather than being opened by script, so there is no focus to move in and none to give back -- but
+ * document order still decided that the first six tab stops were the scorebar, the answer box and
+ * the close link, all of them behind a dim backdrop, before you reached the box you were looking
+ * at. Putting the markup first makes the thing you see first the thing you read first and tab to
+ * first, in HTML, with no script involved. `.modal` is `position: fixed; z-index: 500`, so it
+ * paints above `.app` whatever the tree order says. Slot is empty on every page but a hint reveal,
+ * so this costs the rest of the site nothing.
  */
 export function layout({ title, body, bar = '', showClose = false, still = false, modal = '' }) {
   return `<!doctype html>
@@ -97,13 +98,14 @@ export function scorebar({ name, score, open = 0, total = 0 }) {
  * Nothing here is load-bearing on animation either. `modal-pop` flattens under
  * `prefers-reduced-motion` and the box still says its piece, in words, standing still.
  *
- * It carries **no ARIA role**, which is a correction rather than an omission (#31, ADR-0015).
- * It used to claim `role="alertdialog"`, and every part of that was untrue here: `alertdialog`
- * says focus is placed inside on display, that the rest of the page is unavailable behind it, and
- * that the message is urgent enough to interrupt. Nothing focuses this box, nothing is trapped,
- * nothing waits for it, and a role present in the initial HTML never fires as an alert anyway --
- * live regions only announce what changes after the page settles. A titled box of text with two
- * links is what this is; being first in the document is what makes it heard.
+ * It carries **no ARIA role**, which is a correction rather than an omission (#31,
+ * ADR-document-order-instead-of-focus-management). It used to claim `role="alertdialog"`, and
+ * every part of that was untrue here: `alertdialog` says focus is placed inside on display, that
+ * the rest of the page is unavailable behind it, and that the message is urgent enough to
+ * interrupt. Nothing focuses this box, nothing is trapped, nothing waits for it, and a role
+ * present in the initial HTML never fires as an alert anyway -- live regions only announce what
+ * changes after the page settles. A titled box of text with two links is what this is; being
+ * first in the document is what makes it heard.
  */
 export function hintModal({ notice, cost, backHref }) {
   const free = notice === 'free';

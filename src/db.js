@@ -1,5 +1,5 @@
 // SQLite via node:sqlite -- zero dependencies and, decisively, no native compilation.
-// See docs/adr/0004-sqlite-via-node-sqlite.md.
+// See docs/adr/sqlite-via-node-sqlite.md.
 
 import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync, readdirSync, readFileSync } from 'node:fs';

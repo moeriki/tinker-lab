@@ -1,6 +1,6 @@
 // Shown when a team scans a hunt step they have not earned. It deliberately does not name the
 // game -- knowing something is there is the whole tension.
-// See docs/adr/0006-hunt-progress-is-derived-from-scans.md.
+// See docs/adr/hunt-progress-is-derived-from-scans.md.
 
 export default {
   id: 'too-soon',

@@ -1,5 +1,5 @@
 -- Photos are stored exactly as the camera produced them, so the gallery has to be told what it
--- is about to render before it renders it -- see docs/adr/0008-photos-are-stored-as-they-arrive.md.
+-- is about to render before it renders it -- see docs/adr/photos-are-stored-as-they-arrive.md.
 --
 -- photo_mime  the sniffed type, from magic bytes and never the filename. HEIC arrives from
 --             iPhones and Chrome will not display it, so the gallery needs to know in advance

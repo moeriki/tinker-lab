@@ -1,4 +1,4 @@
-# ADR-0002: Points are a ledger, not derived at render time
+# Points are a ledger, not derived at render time
 
 **Status:** accepted · **Date:** 2026-08-04 · **Ticket:** [Domain model and route inventory](https://github.com/moeriki/tinker-lab/issues/6)
 

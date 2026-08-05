@@ -1,4 +1,4 @@
-# ADR-0016: Units may be dealt per team
+# Units may be dealt per team
 
 **Status:** accepted · **Ticket:** [#22](https://github.com/moeriki/tinker-lab/issues/22)
 
@@ -11,9 +11,9 @@ is ~23 attributions once your own two are out.
 Two things break at 23.
 
 **The arithmetic.** A tile is worth exactly 10 points and the atom is 1
-([ADR-0011](0011-the-tile-is-the-unit-of-value.md)). Ten does not divide 23 without fractions or
-bands, and the rule that ADR set is that the board has to be arithmetic a guest can do in their
-head.
+([ADR-the-tile-is-the-unit-of-value](the-tile-is-the-unit-of-value.md)). Ten does not divide 23
+without fractions or bands, and the rule that ADR set is that the board has to be arithmetic a
+guest can do in their head.
 
 **The form.** Twenty-three dropdowns on a phone, growing all night as teams keep arriving (#7),
 under a team that knows six of them.
@@ -40,8 +40,9 @@ Three properties, each load-bearing:
 **The seam holds.** `game_id` is a bare string with no foreign key, and `ref` is an **opaque
 integer** whose meaning belongs entirely to the game that dealt it — Guess Who reads it as a member
 id, and nothing in the schema says so or joins on it. Content still never opens the database
-([ADR-0001](0001-game-content-lives-on-disk.md)); a resolver that needs to judge a guess is handed
-`cardOwner`, `answerOf`, `nameOf` and `sameAnswer` as functions over facts already read.
+([ADR-game-content-lives-on-disk](game-content-lives-on-disk.md)); a resolver that needs to judge a
+guess is handed `cardOwner`, `answerOf`, `nameOf` and `sameAnswer` as functions over facts already
+read.
 
 **The hand tops up, and never displaces.** It fills to `size` on every open, so the first team
 through the door is not capped for the night at however few guests had onboarded when they opened

@@ -1,6 +1,6 @@
 // Photos: sniff what actually arrived, pull out a cheap thumbnail, write it to disk under a
 // self-describing name. No image library, no resizing, no conversion -- see
-// docs/adr/0008-photos-are-stored-as-they-arrive.md.
+// docs/adr/photos-are-stored-as-they-arrive.md.
 
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';

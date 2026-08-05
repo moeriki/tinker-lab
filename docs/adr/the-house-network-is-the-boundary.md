@@ -1,4 +1,4 @@
-# ADR-0012: The house network is the boundary
+# The house network is the boundary
 
 **Status:** accepted · **Date:** 2026-08-05 · **Ticket:** [Decide how guests get onto the network](https://github.com/moeriki/tinker-lab/issues/20)
 

@@ -317,7 +317,7 @@ Then, in a browser:
 | `https://bday.moeriki.com/` | Redirects to `/welcome` |
 | `https://bday.moeriki.com/welcome` | The onboarding page, in full MS-Paint glory |
 | `https://bday.moeriki.com/kit` | The style kit — proves CSS and fonts are being served |
-| `https://bday.moeriki.com/admin` | **A plain 404.** Not a login page. This is correct — see ADR-0005 |
+| `https://bday.moeriki.com/admin` | **A plain 404.** Not a login page. This is correct — see ADR-admin-is-a-one-time-secret-url |
 
 **Check `/welcome` and not just `/kit`.** Under `NODE_ENV=production` the team cookie is `Secure`,
 so if TLS is not genuinely terminating, `/kit` still renders perfectly — it needs no cookie —
@@ -333,7 +333,7 @@ If it does not work, the failure mode names itself:
 | --- | --- |
 | Cannot resolve, or times out | DNS record missing — or the phone is not on the house WiFi |
 | **404 whose body is nginx's own page** — `<h1>404 Not Found</h1>` and `openresty` in the footer | DNS is fine; the NPM Proxy Host is missing or the domain is misspelled |
-| **404 whose body says `there is no rule 4 either`** | **The proxy is fine — this is the app answering.** The path genuinely does not exist. `/admin` 404s on purpose (ADR-0005), as does any typo |
+| **404 whose body says `there is no rule 4 either`** | **The proxy is fine — this is the app answering.** The path genuinely does not exist. `/admin` 404s on purpose (ADR-admin-is-a-one-time-secret-url), as does any typo |
 | **502** | Proxy Host exists but cannot reach the container — `BIND_ADDR` unset, or the container is down |
 | Container exits on boot | `data/` owned by root instead of uid 1000 |
 | `/kit` fine but `/welcome` loops | TLS is not really terminating — the `Secure` cookie is being dropped |

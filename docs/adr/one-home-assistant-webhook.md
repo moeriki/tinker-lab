@@ -1,4 +1,4 @@
-# ADR-0007: One Home Assistant webhook URL, with the effect chosen by payload
+# One Home Assistant webhook URL, with the effect chosen by payload
 
 **Status:** accepted · **Date:** 2026-08-04 · **Ticket:** [Deployment and MM-HANDOFF](https://github.com/moeriki/tinker-lab/issues/13)
 

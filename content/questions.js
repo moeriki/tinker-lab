@@ -10,7 +10,8 @@
 // -- which is why #52 exists to count it once every game has declared what it needs.
 //
 //   id           stable. profile_answers.question_id refers to it by bare string with no foreign
-//                key (ADR-0001), so RENAMING ONE ORPHANS EVERY ANSWER ALREADY GIVEN.
+//                key (ADR-game-content-lives-on-disk), so RENAMING ONE ORPHANS EVERY ANSWER
+//                ALREADY GIVEN.
 //   ladder       questions sharing one of these are RUNGS, and a member answers exactly one
 //   scope        'member' asks once per member; 'team' asks once
 //   label        the question, as asked

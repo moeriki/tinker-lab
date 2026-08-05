@@ -1,6 +1,7 @@
 // The QR inventory: slug -> target. This file is the ONLY source of truth for which codes exist.
-// It is content-as-code (ADR-0001): version-controlled, never in the database, and the printer
-// reads exactly this file (`node scripts/qr-sheet.js`). See ADR-0010.
+// It is content-as-code (ADR-game-content-lives-on-disk): version-controlled, never in the
+// database, and the printer reads exactly this file (`node scripts/qr-sheet.js`). See
+// ADR-codes-are-printed-from-the-inventory.
 //
 // Slugs are opaque random strings, but NOT secret: teams shouting hiding places at each other is
 // the goal. They are minted once and then frozen -- a slug that has been printed never changes,

@@ -1,4 +1,4 @@
-# ADR-0005: Admin access is a one-time secret URL
+# Admin access is a one-time secret URL
 
 **Status:** accepted · **Date:** 2026-08-04 · **Ticket:** [Domain model and route inventory](https://github.com/moeriki/tinker-lab/issues/6)
 

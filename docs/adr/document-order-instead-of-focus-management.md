@@ -1,4 +1,4 @@
-# ADR-0015: Document order instead of focus management
+# Document order instead of focus management
 
 **Status:** accepted · **Date:** 2026-08-05 · **Ticket:** [Does this site do focus management at all?](https://github.com/moeriki/tinker-lab/issues/31)
 

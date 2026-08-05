@@ -1,4 +1,4 @@
-# ADR-0006: Hunt progress is derived from scans, and is strictly sequential
+# Hunt progress is derived from scans, and is strictly sequential
 
 **Status:** accepted · **Date:** 2026-08-04 · **Ticket:** [Domain model and route inventory](https://github.com/moeriki/tinker-lab/issues/6)
 

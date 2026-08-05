@@ -1,4 +1,4 @@
-# ADR-0001: Game content lives on disk; the database holds only player data
+# Game content lives on disk; the database holds only player data
 
 **Status:** accepted · **Date:** 2026-08-04 · **Ticket:** [Domain model and route inventory](https://github.com/moeriki/tinker-lab/issues/6)
 

@@ -1,4 +1,4 @@
-# ADR-0013: A component's markup exists in exactly one place
+# A component's markup exists in exactly one place
 
 **Status:** accepted · **Date:** 2026-08-05 · **Ticket:** [Is /kit a static document allowed to drift, or does it render from the app?](https://github.com/moeriki/tinker-lab/issues/32)
 

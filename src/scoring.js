@@ -1,5 +1,5 @@
 // Points are a ledger. Every movement is an awards row; a score is a SUM.
-// See docs/adr/0002-points-are-a-ledger.md.
+// See docs/adr/points-are-a-ledger.md.
 
 import economy from '../content/economy.js';
 import { all, get, run, transact, setting, setSetting } from './db.js';
@@ -78,13 +78,14 @@ function podiumLine(board) {
  * Band 3 is proximity, not a slice of the field, because rank alone lies about a near-tie: if
  * third has 60, a team on 59 is close whether they are fourth or eleventh.
  *
- * `fresh` is tested first, and it is the amendment ADR-0011 did not make. That ADR reasoned only
- * about 20:05, where the `score > 0` guard put the whole party in "chasing" -- exactly true, and
- * fine. The case it missed is 22:30: teams join all night by design (#7), so a team that has just
- * walked in sits on zero while third place is on forty-something. The gap exceeds `podiumGap`,
- * they fall into `rest`, and the harshest line on the site becomes the first sentence they ever
- * read. Zero is a distinct fact the board knows for free, so it gets its own line -- which also
- * frees `rest` to be genuinely rude, since everyone left in it has played and is behind.
+ * `fresh` is tested first, and it is the amendment ADR-the-tile-is-the-unit-of-value did not
+ * make. That ADR reasoned only about 20:05, where the `score > 0` guard put the whole party in
+ * "chasing" -- exactly true, and fine. The case it missed is 22:30: teams join all night by
+ * design (#7), so a team that has just walked in sits on zero while third place is on
+ * forty-something. The gap exceeds `podiumGap`, they fall into `rest`, and the harshest line on
+ * the site becomes the first sentence they ever read. Zero is a distinct fact the board knows for
+ * free, so it gets its own line -- which also frees `rest` to be genuinely rude, since everyone
+ * left in it has played and is behind.
  *
  * A negative score is deliberately NOT `fresh`. Hints are the only debit, so a team below zero
  * has spent something, and they fall through to `rest` where they belong.
@@ -242,9 +243,9 @@ export function rescore() {
 }
 
 /**
- * What a resolver is handed besides its submissions. Content never opens the database (ADR-0001),
- * so anything a game needs to know about players arrives here as a plain function over facts
- * already read.
+ * What a resolver is handed besides its submissions. Content never opens the database
+ * (ADR-game-content-lives-on-disk), so anything a game needs to know about players arrives here
+ * as a plain function over facts already read.
  *
  * A game with a dealt hand gets three, because a guess it has to judge is three lookups away from
  * the submission row: which member the card belonged to, what any member wrote, and whether two

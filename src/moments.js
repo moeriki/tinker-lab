@@ -1,5 +1,5 @@
 // A **moment** is the one thing that just happened, carried across a redirect so the arriving
-// page can react to it. See docs/adr/0009-the-page-you-are-on-is-the-stage.md.
+// page can react to it. See docs/adr/the-page-you-are-on-is-the-stage.md.
 //
 // Every state change on this site is a POST-and-redirect or a scan redirect, so the server has
 // exactly one channel to say what it just did: a query param on the destination. `?just=` is
@@ -32,7 +32,7 @@ export const MOMENTS = new Set([
  * on the replay would flash a lamp in an empty room while the team is still head-down in a form,
  * spending the clue that lamp was supposed to be. So the replay keeps the unlock and drops the
  * webhook, and this line asks for the one thing that puts it right: scan it again, on purpose,
- * standing in front of it. See ADR-0014.
+ * standing in front of it. See ADR-the-first-scan-is-not-live.
  */
 export const ARRIVED = {
   rescan: "You're in — and this one is yours now. Go back and scan that code again: this time, something happens.",
@@ -60,7 +60,8 @@ export function momentForSubmission({ photo, mode, verdict, paid = true }) {
 //
 // Revealing a hint is a one-shot signal like a moment, but it is not one: nothing animates, and
 // what it has to say is a price rather than a verdict. So it rides its own param and `?just=`
-// keeps the closed vocabulary ADR-0009 gave it. Both are spent on arrival the same way.
+// keeps the closed vocabulary ADR-the-page-you-are-on-is-the-stage gave it. Both are spent on
+// arrival the same way.
 //
 // It is a **notification, never a confirmation**. By the time this param exists the reveal is
 // written, the negative award is in the ledger and the hint is on the page underneath the modal.

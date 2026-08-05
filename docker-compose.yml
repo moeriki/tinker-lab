@@ -32,7 +32,7 @@ services:
 
     volumes:
       # THE DIRECTORY, never the .sqlite file. Bind-mounting the file alone breaks WAL, and it
-      # breaks silently. See docs/adr/0004-sqlite-via-node-sqlite.md.
+      # breaks silently. See docs/adr/sqlite-via-node-sqlite.md.
       - ./data:/data
 
     # Home Assistant is NOT a Docker container here -- it is HAOS in a QEMU VM at

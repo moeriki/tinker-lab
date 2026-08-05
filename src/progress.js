@@ -1,5 +1,5 @@
 // Hunt position is derived, never stored: the longest contiguous run of steps a team has an
-// accepted scan for. See docs/adr/0006-hunt-progress-is-derived-from-scans.md.
+// accepted scan for. See docs/adr/hunt-progress-is-derived-from-scans.md.
 
 import { all, get, run } from './db.js';
 import { slugsForGame } from './content.js';

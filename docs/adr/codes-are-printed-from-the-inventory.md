@@ -1,4 +1,4 @@
-# ADR-0010: Codes are printed from the inventory, by a script with no dependencies
+# Codes are printed from the inventory, by a script with no dependencies
 
 **Status:** accepted · **Date:** 2026-08-04 · **Ticket:** [QR inventory and generator script](https://github.com/moeriki/tinker-lab/issues/12)
 

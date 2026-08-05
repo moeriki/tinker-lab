@@ -1,4 +1,4 @@
-# ADR-0011: The tile is the unit of value, and the hint is priced against it
+# The tile is the unit of value, and the hint is priced against it
 
 **Status:** accepted · **Date:** 2026-08-05 · **Ticket:** [Points economy and hint cost](https://github.com/moeriki/tinker-lab/issues/8)
 
@@ -47,7 +47,8 @@ there the walking **is** the mechanic, and the scan is the play.
 **Scores may go negative, and nothing clamps them.** Hints are the only debit. Getting under zero
 takes real bad luck — buy hints, score nothing — so it is rare and shallow, worst realistic case
 about −5. `score = SUM(awards)` stays literally true, with no special case in the tile, the
-header or the showdown, which is the whole point of [ADR-0002](0002-points-are-a-ledger.md).
+header or the showdown, which is the whole point of
+[ADR-points-are-a-ledger](points-are-a-ledger.md).
 
 **Three standing bands, and only the first is a rank.** *Podium* is a score at or above third
 place. *Chasing* is within 30 of it — three tiles, catchable. *Rest* is everything further back.
