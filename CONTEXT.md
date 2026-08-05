@@ -153,6 +153,19 @@ game end" — when it holds the only points on the board that are already certai
 it means on a hunt: **finished**, every unit paid. A half-filled tile stays *unlocked* and lets
 its points do the talking.
 
+A **grid** tile reads the ledger for a third reason: its rows carry real verdicts, so the generic
+rule would paint it *correct* on the very first signature — when green everywhere else means
+finished — and *wrong* for a team whose only row so far is a refused one, marking a tile as failed
+on a mishearing at 20:40. There is no wrong answer on a card: there is a line, or there is not yet.
+So green means a completed line and `wrong` is unreachable by construction.
+
+**Every ledger-reads-it branch is guarded on `unlocked`**, and that is not decoration. Without it
+the branch overwrites `locked`, which is exactly what had happened to the two `trust` tiles: both
+photo tiles rendered as open links from the first minute of the night, for every team, before
+either code had been scanned — and tapping one hit the 404 page, because `showGame` checks the
+unlock properly. A tile that looks open, is not, and only says so after a tap. Found and fixed in
+#21 while giving the signature card the same treatment.
+
 > A tile is a *view* of a game, never a separate entity.
 
 ### Moment
@@ -160,7 +173,8 @@ its points do the talking.
 The one thing that **just happened**, carried across a redirect so the arriving page can react.
 Every state change here is a POST-and-redirect or a scan redirect, so the only channel is a query
 param on the destination: `?just=<moment>`, with a closed vocabulary in `src/moments.js` —
-`unlock`, `step`, `correct`, `incorrect`, `banked`, `pending`, `shot`, `spare`, `rescan`.
+`unlock`, `step`, `correct`, `incorrect`, `banked`, `pending`, `shot`, `spare`, `rescan`, `signed`,
+`bingo`.
 
 A moment is always delivered to **the page that caused it**. Scanning opens the game and the hero
 plays the unlock; submitting keeps the team on the game page and answers them there. Nobody is
@@ -362,6 +376,45 @@ made once per team), the same id twice, and `harvest` alongside `units` or `hand
 
 > A **harvest** is the honest answers collected at the door; a **prediction** is what a team
 > later guesses most teams said. Herd Mentality is the only game with one.
+
+### Grid, and signature
+
+Units whose **layout is a scoring rule**. Everywhere else the units are an unordered bag — the
+scavenger's ten prompts pay a point each and nothing about prompt 3 sitting beside prompt 4 means
+anything. Sign Here's nine are a card, and three in a row pays the whole tile:
+
+```js
+grid: 3,      // the units are a 3x3 card, read left to right, top to bottom
+bingo: 10,    // what a completed line pays, INSTEAD of the squares (never on top of them)
+lockMinutes: 30,
+```
+
+`src/bingo.js` builds the lines from `grid` rather than listing them, so a 4×4 card gets its ten
+without anyone remembering to write them down. Boot refuses a grid whose units do not make a
+square, one that can pay over the tile budget, one whose line is worth less than its squares, and
+one that also declares a judging mode — a card is scored by its own geometry and a second scorer
+would write a second award row against the same tile.
+
+A **signature** is the unit's content: another team's handle, written into a square by a team that
+matched its trait. **Nothing verifies the trait** — the handle is the signature and no signature
+has ever been audited, which is the no-anti-cheat constraint rather than a gap in it. What *is*
+checked is that the handle is real, is not your own, and is not already on your card.
+
+A refused signature is scored differently depending on which of those three it broke, and only one
+of them costs anything. A word nobody holds is a **forged signature**: the row is written with an
+`incorrect` verdict, and the card is shut for `lockMinutes` afterwards. The other two bounce free.
+The lock is **derived** from that row's timestamp the way hunt position is derived from scans —
+nothing stores it, so nothing has to clear it, and it expires by arithmetic.
+
+The whole card is rescored on every signature and written as a **single award row** on
+`sourceId: 0`, which is the one place the ledger's award-per-unit habit does not apply: a line pays
+instead of the squares, so the tile's worth is a function of the grid rather than a sum over its
+units, and nine rows plus a bonus could not express "the 3 you had stops counting" without deleting
+from a ledger.
+
+> Worth knowing before anyone retunes it: on a 3×3 there are **8 lines**, and two empty squares can
+> never break all of them — so any card with 7 or more signatures already contains one. Scores of
+> 7, 8 and 9 are impossible; the curve runs 1, 2, 3, 4, 5, 6, then 10.
 
 ### Award
 

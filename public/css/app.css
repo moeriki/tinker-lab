@@ -1107,6 +1107,58 @@ code {
 
 .board tbody tr:nth-child(even) { background: #f2f2f2; }
 
+/* ------------------------------- the signature card ------------------------------- */
+
+/* Sign Here's units, laid out as the square their scoring rule assumes (#21). The column count
+   comes from content as `--card-cols`, because `grid` is a declared number and a card that drew
+   three columns for a 4x4 would put its lines somewhere the scorer cannot see them. */
+.card {
+  display: grid;
+  grid-template-columns: repeat(var(--card-cols, 3), 1fr);
+  gap: 0.35rem;
+  list-style: none;
+  padding: 0;
+}
+
+.cell {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 0.3rem;
+  min-height: 5.4rem;
+  padding: 0.35rem;
+  border: var(--edge-1) solid var(--c-ink);
+  box-shadow: var(--shadow-1);
+  background: var(--c-paper);
+}
+
+.cell__trait {
+  font-family: var(--font-aside);
+  font-size: 0.68rem;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+
+/* The signature. It keeps its line even when empty -- `&nbsp;` in the markup -- so a card does not
+   jolt upward as squares fill, which on a tile reopened twenty times a night is the difference
+   between a card and a flicker. */
+.cell__sig {
+  font-family: var(--font-shout);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  overflow-wrap: anywhere;
+}
+
+.cell--signed { background: var(--c-lime); }
+
+/* A completed line, and the only comparative-feeling colour on a team-facing page -- which it is
+   not: it compares this card against itself. Every cell of every completed line wears it, so a
+   card with two lines shows both rather than picking one. */
+.cell--line {
+  background: var(--c-yellow);
+  box-shadow: var(--shadow-2);
+}
+
 /* ------------------------------- motion guard ------------------------------- */
 
 @media (prefers-reduced-motion: reduce) {

@@ -137,6 +137,33 @@ export const hasHand = (game) => Boolean(game.hand);
 export const handSize = (game) => Number(game.hand?.size ?? 0);
 
 /**
+ * A **grid**: units laid out as a square, where the LAYOUT is a scoring rule.
+ *
+ * Every other tally game's units are an unordered bag -- the scavenger's ten prompts pay a point
+ * each and nothing about prompt 3 sitting beside prompt 4 means anything. Sign Here's nine squares
+ * are a 3x3 card, and three in a row pays the whole tile instead of the three squares that made
+ * it, so their arrangement is load-bearing and has to be declared:
+ *
+ *   grid: 3      the units are a 3x3 card, read left to right, top to bottom
+ *   bingo: 10    what a completed line pays, INSTEAD of the squares (never on top of them)
+ *
+ * `src/bingo.js` builds the lines from `grid` rather than listing them, so a 4x4 card would get
+ * its ten lines without anybody remembering to write them down. Boot refuses a grid whose units
+ * do not make a square, because a card with a hole in it has lines that can never complete and
+ * would look exactly like a card that works.
+ */
+export const hasGrid = (game) => Number.isInteger(game.grid) && game.grid > 1;
+export const gridSize = (game) => (hasGrid(game) ? game.grid : 0);
+
+/**
+ * How long a refused signature shuts a card for. Zero means it never does.
+ *
+ * This is a price on forging a signature, not a check on anybody's honesty -- see the header of
+ * content/games/bingo.js, which is the only game that sets it.
+ */
+export const lockMinutes = (game) => Math.max(0, Number(game.lockMinutes ?? 0));
+
+/**
  * The prompts, where the units are labelled. Anonymous units have none, and that is not a lack.
  *
  * A harvest's labels are the questions themselves, read through `content/questions.js` rather than
@@ -586,6 +613,62 @@ function validate() {
         );
       }
     }
+    // A grid is units whose LAYOUT is a scoring rule. Every failure here is one that would render
+    // a perfectly convincing card and then score it wrongly all night, which is the shape this
+    // file exists to refuse.
+    if (game.grid !== undefined) {
+      if (!hasGrid(game)) {
+        problems.push(
+          `game "${game.id}" declares grid ${game.grid}; expected a whole number of 2 or more`,
+        );
+      } else if (game.hand !== undefined || game.harvest !== undefined) {
+        // A dealt hand is a different set of units per team, so a line would mean something
+        // different on every card. Not forbidden in principle -- forbidden until something wants it.
+        problems.push(
+          `game "${game.id}" lays out a grid over a \`hand\` or \`harvest\`; a grid needs units ` +
+            `that are the same for every team`,
+        );
+      } else if (unitCount(game) !== game.grid * game.grid) {
+        problems.push(
+          `game "${game.id}" is a ${game.grid}x${game.grid} grid but declares ${unitCount(game)} ` +
+            `units; a card with a hole in it has lines that can never complete`,
+        );
+      }
+
+      // The tenth point. A line pays this INSTEAD of the squares, so the tile's ceiling is the
+      // larger of the two payouts and not their sum -- which is the one number boot can check.
+      if (typeof game.bingo !== 'number') {
+        problems.push(`game "${game.id}" lays out a grid but declares no \`bingo\`; a line pays nothing`);
+      } else {
+        const ceiling = Math.max(game.bingo, unitCount(game) * (game.points ?? 0));
+        if (ceiling > economy.tilePoints) {
+          problems.push(
+            `game "${game.id}" can pay ${ceiling}, over the ${economy.tilePoints}-point tile budget`,
+          );
+        }
+        if (game.bingo < (game.points ?? 0)) {
+          problems.push(
+            `game "${game.id}" pays ${game.bingo} for a line and ${game.points} for a square; a ` +
+              `line would be worth less than the squares that made it`,
+          );
+        }
+      }
+
+      // A card scores itself, across the whole grid, on every submission. A second scorer would
+      // write a second award row against the same tile and both would believe they were right.
+      if (game.judging || typeof game.check === 'function' || typeof game.resolve === 'function') {
+        problems.push(
+          `game "${game.id}" lays out a grid AND declares a judging mode or check/resolve; a card ` +
+            `is scored by its own geometry`,
+        );
+      }
+    }
+
+    // A lock is only meaningful where a submission can be refused, which today is a grid card.
+    if (game.lockMinutes !== undefined && !hasGrid(game)) {
+      problems.push(`game "${game.id}" declares \`lockMinutes\` but has no card to lock`);
+    }
+
     // A trust game pays on submit, so it needs to know what a submission is worth.
     if (judgingMode(game) === 'trust' && typeof game.points !== 'number') {
       problems.push(`game "${game.id}" is judged on trust but declares no points`);

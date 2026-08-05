@@ -20,6 +20,8 @@ export const MOMENTS = new Set([
   'shot', // a photo just landed, and it paid
   'spare', // a photo just landed and paid nothing: a retake, or past the last unit
   'rescan', // unlocked by a scan whose physical effect was deferred; go and scan it again
+  'signed', // a signature landed on a card square
+  'bingo', // that signature completed a line, and the line pays the tile
 ]);
 
 /**
@@ -113,8 +115,16 @@ export function heroAnimation(moment) {
   return '';
 }
 
-/** Only a genuinely correct answer is celebrated. Everything else gets an honest line instead. */
-export const verdictAnimation = (moment) => (moment === 'correct' ? ' anim-correct' : '');
+/**
+ * Only a genuinely correct answer is celebrated. Everything else gets an honest line instead.
+ *
+ * `bingo` qualifies and `signed` deliberately does not: a completed line is a verdict on the whole
+ * tile, decided and paid on the spot, which is exactly what `anim-correct` was reserved for. A
+ * signature is a step towards one, and animating all eight of them would spend the celebration on
+ * the thing that happens most.
+ */
+export const verdictAnimation = (moment) =>
+  moment === 'correct' || moment === 'bingo' ? ' anim-correct' : '';
 
 /**
  * The photo that just landed, and only that one. A `spare` animates too: it is every bit as much
@@ -145,4 +155,10 @@ export const SUBMITTED = {
   // one has news, and it must never read as "stop" -- the photographs are what the pair is for.
   spare:
     "Kept. It doesn't add a point — you've had that one already. Take more anyway: we want the photographs more than the arithmetic.",
+  // A signature that landed and did not finish a line. Deliberately flat: this happens up to eight
+  // times a night on the same tile, and a celebration on each one is noise by the third.
+  signed: 'Signed. That name is spent now — you cannot use it again on this card.',
+  // The one shout the tile has. It replaces the squares rather than adding to them, and says so,
+  // because a team watching the number go 3 -> 10 will otherwise assume it kept the 3 as well.
+  bingo: 'Three in a row. That is the whole tile — ten points, and the squares stop mattering.',
 };

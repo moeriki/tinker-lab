@@ -20,7 +20,9 @@ import {
   getPage,
   getCode,
   getQuestion,
+  gridSize,
   harvestQuestions,
+  hasGrid,
   hasHand,
   hasHarvest,
   isFinal,
@@ -43,6 +45,15 @@ import {
   unitLabel,
   unitLabels,
 } from './content.js';
+import {
+  cardScore,
+  lineUnits,
+  lockedUntil,
+  minutesLeft,
+  refusalFor,
+  signaturesFor,
+  teamByHandle,
+} from './bingo.js';
 import { handFor, namesFor } from './deals.js';
 import {
   escape,
@@ -628,7 +639,15 @@ function showDashboard({ req, res }) {
     // So the LEDGER decides, the way it does for a trophy, and green means the same thing here
     // as it does on a hunt: finished. A half-filled tile stays `unlocked` and lets its points
     // speak, rather than going green for one photograph out of ten.
-    if (judgingMode(game) === 'trust') {
+    //
+    // `unlocked &&` is load-bearing and was missing: this branch used to overwrite `locked`
+    // unconditionally, so both photo tiles rendered as open links from the first minute of the
+    // night for every team, before anyone had scanned either code. Tapping one hit `showGame`,
+    // which checks the unlock properly, and returned the 404 page -- a tile that looks open, is
+    // not, and says so only after a tap. It also quietly spent the thing #7 designed the locked
+    // wall to do, which is send people prowling. Found while giving the signature card the same
+    // ledger-decides treatment (#21).
+    if (unlocked && judgingMode(game) === 'trust') {
       const budget = unitCount(game) * (game.points ?? 0);
       state = budget && points >= budget ? 'correct' : 'unlocked';
     }
@@ -636,6 +655,24 @@ function showDashboard({ req, res }) {
     // was not handed it sits at unlocked and zero -- never `wrong`, since they were never asked a
     // question they could get wrong.
     if (game.kind === 'trophy' && points > 0) state = 'correct';
+
+    // A signature card, where the generic block above is wrong in BOTH directions -- the same
+    // shape #25 found on the trust tiles, and worse here because one of the two is a slander.
+    //
+    // It would paint `correct` on the first signature, when green everywhere else on this board
+    // means finished; a card with one square filled has eight hours of work left in it. And it
+    // would paint `wrong` for a team whose only row so far is a refused signature -- a mishearing
+    // at 20:40 marking the tile as failed for the rest of the night, on a tile that cannot be
+    // failed. There is no wrong answer on a card: there is a line, or there is not yet.
+    //
+    // So the ledger decides, exactly as it does for a trust tile and a trophy, and `wrong` is
+    // unreachable here by construction.
+    // `unlocked &&` for the reason the branch above now carries it: this tile is a starter today,
+    // so a locked card cannot happen -- but the guard is what stops that being an assumption the
+    // next grid game inherits without knowing.
+    if (unlocked && hasGrid(game)) {
+      state = game.bingo && points >= game.bingo ? 'correct' : 'unlocked';
+    }
 
     return { game, unlocked, state, points };
   });
@@ -720,7 +757,26 @@ const SUBMIT_PROBLEMS = {
   // A second answer to a game that only takes one. A stale tab or the back button -- the form is
   // not on the page any more, so nobody can reach this by tapping what they were shown.
   spent: 'You have already answered this one, and that answer was final.',
+
+  // --- the signature card's three refusals (#21) -------------------------------------------------
+  //
+  // Only the first of these costs anything. The other two are things a guest can do by misreading
+  // the rules rather than by forging a signature, and a forger already knows both -- so a penalty
+  // on them would buy no protection and only punish the honest. See `refusalFor` in src/bingo.js.
+  //
+  // The locked line is built at render time rather than sitting here, because it has to say how
+  // many minutes are left.
+  unknown: 'Nobody here is called that. Check the spelling with them — and the card is shut for a while now.',
+  yourself: 'You cannot sign your own card. Go and find somebody else.',
+  nosquare: "That square isn't open. Reopen the tile and pick one that still is.",
+  noname: 'Type the name of the team that matched, exactly as they said it.',
+  usedname: 'That name is already on your card, and each one only counts once. Look at the grid — it is up there somewhere.',
 };
+
+/** The one refusal whose sentence needs a number in it. */
+const lockedLine = (minutes) =>
+  `The card is shut for another ${minutes} minute${minutes === 1 ? '' : 's'}. ` +
+  `Keep collecting names while you wait — you can still write them in afterwards.`;
 
 /**
  * What `shot()` needs to draw one submission: which of the three photo columns to point at, and
@@ -957,6 +1013,93 @@ function herdStage(game, mine) {
           </form>`;
 }
 
+/**
+ * The signature card: nine traits laid out as a square, and one form under it.
+ *
+ * THE CARD IS ALWAYS DRAWN, in every state. A locked card, a finished card and a fresh one all
+ * show the same nine squares -- what changes is what sits underneath. This is the tile a team
+ * opens most often and usually to read rather than to write ("which one did I still need?"), so
+ * the grid can never be the thing that disappears.
+ *
+ * ONE FORM, TWO FIELDS, rather than nine boxes in nine cells. The physical moment this has to
+ * match is standing in front of a pair who have just said "I've broken a bone": what you need to
+ * record is which square and whose name, and a 3x3 of tiny inputs on a phone is a worse way to say
+ * that than a dropdown of the squares still open. It also makes an attempt a single submission,
+ * which is what lets a refusal be priced (#21) instead of being one bad box among nine.
+ *
+ * THE FORM CLOSES ON A LINE, and that is deliberate against the precedent of the photo tiles,
+ * which never close. A tenth photograph is still a photograph the party wanted; a seventh
+ * signature after a line is worth exactly nothing, since `bingo` pays INSTEAD of the squares. A
+ * form that accepts input and pays nothing is the failure shape this codebase keeps finding, so
+ * the card says it is finished and stops taking names.
+ */
+function bingoStage(game, team) {
+  const signed = signaturesFor(team.id, game.id);
+  const winning = lineUnits(game, signed);
+  const labels = unitLabels(game);
+  const until = winning.size ? null : lockedUntil(team.id, game);
+
+  const cells = labels
+    .map((label, unit) => {
+      const signature = signed.get(unit);
+      const state = winning.has(unit) ? ' cell--line' : signature ? ' cell--signed' : '';
+      return `<li class="cell${state}">
+          <p class="cell__trait">${escape(label)}</p>
+          <p class="cell__sig">${signature ? escape(signature) : '&nbsp;'}</p>
+        </li>`;
+    })
+    .join('');
+
+  const card = `<ul class="card" style="--card-cols: ${gridSize(game)}">${cells}</ul>`;
+
+  // Only the squares still open, so the dropdown shrinks as the card fills and a signed square
+  // can never be overwritten by a mis-tap.
+  const open = labels
+    .map((label, unit) => ({ value: String(unit), label }))
+    .filter((option) => !signed.has(Number(option.value)));
+
+  if (winning.size) {
+    return `<p class="statusline">${signed.size} of ${labels.length} signed — line complete</p>
+            ${card}
+            <p>That is the tile. Nothing more to collect here, and no more names to spend.</p>`;
+  }
+
+  if (until) {
+    return `<p class="statusline">${signed.size} of ${labels.length} signed</p>
+            ${card}
+            <p class="banner banner--bad">${escape(lockedLine(minutesLeft(until)))}</p>`;
+  }
+
+  if (!open.length) {
+    // Unreachable by arithmetic -- a full card on a square grid always contains a line -- but a
+    // grid of 2 would make it reachable, and an empty dropdown is worse than a sentence.
+    return `<p class="statusline">${signed.size} of ${labels.length} signed</p>${card}`;
+  }
+
+  return `<p class="statusline">${signed.size} of ${labels.length} signed</p>
+          ${card}
+          <form class="stack" method="post" action="/g/${escape(game.id)}/submit">
+            ${field({
+              label: 'which square?',
+              name: 'unit',
+              options: [{ value: '', label: '— pick one —' }, ...open],
+            })}
+            ${field({
+              label: 'their team name',
+              name: 'body',
+              attrs: {
+                maxlength: 24,
+                placeholder: 'BADGER',
+                // Their handle, not a word this phone has seen before. A keyboard offering to
+                // finish it from the team's own history would offer their OWN name first.
+                autocomplete: 'off',
+                autocapitalize: 'characters',
+              },
+            })}
+            <button class="btn btn--primary" ${gameIsOver() ? 'disabled' : ''}>Sign it</button>
+          </form>`;
+}
+
 function showGame({ req, res, params, url }) {
   const team = requireOnboardedTeam(req, res);
   if (!team) return undefined;
@@ -1017,6 +1160,12 @@ function showGame({ req, res, params, url }) {
              ${heroBlock}`;
   } else if (!takesForm(game)) {
     stage = heroBlock;
+  } else if (hasGrid(game)) {
+    // Units whose layout is a scoring rule, so the stage draws them as a card rather than as a
+    // list. It sits above the branches below because its units are labelled, and both of them
+    // read a labelled unit as something else -- a photo prompt, or a question asked at the door.
+    stage = `${heroBlock}
+             ${bingoStage(game, team)}`;
   } else if (hasHand(game)) {
     // Units dealt per team rather than declared in content, so the stage has to ask the database
     // what this team is even holding before it can draw anything.
@@ -1184,6 +1333,93 @@ function saveUnits({ team, game, values }) {
 }
 
 /**
+ * One signature, onto one square of a card.
+ *
+ * THE WHOLE CARD IS RESCORED ON EVERY SIGNATURE and written as a SINGLE award row, which is the
+ * one place this tile departs from the ledger's award-per-unit habit (#25). It has to: a line pays
+ * `bingo` INSTEAD of the squares that made it, so the tile's worth is a function of the grid and
+ * not a sum over its units. Nine per-unit rows plus a bonus row could not express "the 3 you had
+ * stops counting" without deleting rows, and deleting from a ledger is the one thing it does not
+ * do. One row keyed on `sourceId: 0` upserts on every submission and is always the current truth.
+ *
+ * The stored body is the OWNER'S OWN SPELLING rather than what was typed. The match is fuzzy, so
+ * `WALRUSS` and `walrus` both land on WALRUS -- and storing the canonical word is what lets the
+ * once-per-card rule be an exact comparison later, rather than a second fuzzy pass that could
+ * disagree with the first.
+ */
+async function saveSignature({ req, res, team, game }) {
+  const form = await readForm(req);
+  const signed = signaturesFor(team.id, game.id);
+
+  // Finished. The form is gone from the page the moment a line lands, so this is a stale tab or
+  // the back button -- and without it a team could keep signing a card that pays 10 either way.
+  if (lineUnits(game, signed).size) return redirect(res, `/g/${game.id}`);
+
+  // Shut. The stage draws the lock and the minutes left, so this needs no problem of its own; the
+  // page it lands on already says what happened and for how long.
+  if (lockedUntil(team.id, game)) return redirect(res, `/g/${game.id}`);
+
+  const unit = Number(form.get('unit'));
+  const units = unitCount(game);
+  if (!Number.isInteger(unit) || unit < 0 || unit >= units || signed.has(unit)) {
+    return backToGame(res, game, 'nosquare');
+  }
+
+  const handle = String(form.get('body') ?? '').trim();
+  if (!handle) return backToGame(res, game, 'noname');
+
+  const refusal = refusalFor({ handle, team, signed });
+
+  // A word nobody holds. This is the forgery, and the only refusal that costs anything: the row
+  // is written with an `incorrect` verdict, and `lockedUntil` reads its timestamp as the lock. It
+  // is stored rather than merely counted so the host can see, at /admin/game/bingo, that a team
+  // spent the evening guessing.
+  if (refusal?.kind === 'unknown') {
+    run(
+      "insert into submissions (team_id, game_id, body, unit, verdict) values (?, ?, ?, ?, 'incorrect')",
+      team.id,
+      game.id,
+      handle,
+      unit,
+    );
+    return backToGame(res, game, 'unknown');
+  }
+
+  if (refusal?.kind === 'yourself') return backToGame(res, game, 'yourself');
+  if (refusal?.kind === 'spent') return backToGame(res, game, 'usedname');
+
+  // Refused nothing, so the handle resolves. The canonical spelling is what gets stored.
+  const name = teamByHandle(handle).name;
+
+  const scored = transact(() => {
+    run(
+      "insert into submissions (team_id, game_id, body, unit, verdict) values (?, ?, ?, ?, 'correct')",
+      team.id,
+      game.id,
+      name,
+      unit,
+    );
+
+    const now = signaturesFor(team.id, game.id);
+    const line = lineUnits(game, now).size > 0;
+    const points = cardScore(game, now);
+
+    award({
+      teamId: team.id,
+      gameId: game.id,
+      kind: 'tally',
+      points,
+      reason: line ? 'line complete' : `${now.size} signed`,
+      sourceId: 0,
+    });
+
+    return line;
+  });
+
+  return redirect(res, gamePath(game.id, { moment: scored ? 'bingo' : 'signed' }));
+}
+
+/**
  * Every card of a dealt hand, saved in one press.
  *
  * A name that is not somebody at this party -- a stale tab, a hand-edited option -- is stored as no
@@ -1249,6 +1485,10 @@ async function submitToGame({ req, res, params }) {
   if (isFinal(game) && submissionsFor(team.id, game.id).length) {
     return backToGame(res, game, 'spent');
   }
+
+  // A signature card scores its whole grid at once and can refuse a submission outright, neither
+  // of which the generic path below can express. It never carries a photograph either.
+  if (hasGrid(game)) return saveSignature({ req, res, team, game });
 
   // A dealt hand posts every card at once -- ten dropdowns under one save button -- so it takes its
   // own path rather than squeezing ten units through the one-unit-per-post shape the photo tiles
