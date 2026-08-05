@@ -26,11 +26,16 @@
       So a marker is not a picture of the component -- it IS the component, and
       this page cannot show you something the site does not do.
 
-      Where the app does NOT render it yet -- the starburst, the standing
-      colours, the marquee -- the markup is written by hand below
-      and this page is its only home. Those sections are the design the site
-      still owes. Building one into a page means moving it into render.js and
-      leaving a marker here IN THE SAME CHANGE, so a second copy is never made.
+      Where the app does NOT render it yet, the markup is written by hand
+      below and this page is its only home. Those sections are the design the
+      site still owes, they wear a red STILL OWED badge, and the footer counts
+      them for you -- this comment does not list them, because the version of
+      this comment that did was wrong for months (#55). Building one into a
+      page means moving it into render.js and leaving a marker here IN THE
+      SAME CHANGE, so a second copy is never made.
+
+      New design starts here too: a component is drawn on this page first,
+      then built into a page.
     -->
 
     <div class="marquee">
@@ -39,6 +44,8 @@
         <span class="marquee__item" aria-hidden="true">★ ★ ★ THIS IS NOT THE PARTY SITE ★ THIS IS THE STYLE KIT ★ EVERY BOX HERE GETS REUSED ★ NOTHING HERE IS A GAME ★ BEST VIEWED ON A PHONE, IN A KITCHEN, SLIGHTLY DRUNK ★</span>
       </div>
     </div>
+
+    <div class="owed-slot"><!--@owed name="the marquee"--></div>
 
     <div class="app">
       <header class="kit-head">
@@ -135,6 +142,8 @@
           the real one, not a drawing of it. The whole thing is a link back to the board, and the
           open-count is what tells a team the starter tiles exist at all.
         </p>
+        <h3 class="sect__sub">The standing colours</h3>
+        <!--@owed name="the three standing colours"-->
         <p class="sect__note">
           The four lines are the real band copy from <code>content/economy.js</code>, kept in step
           by hand — the app emits a bare <code>.standing</code> with no modifier, so
@@ -254,8 +263,10 @@
         <p class="sect__note">One of these is not nonsense: the speech bubble is built by <code>bubble()</code> in <code>src/render.js</code>, and has been on a page since hints landed. It is a <code>&lt;div&gt;</code> around a <code>&lt;p&gt;</code> because <code>.bubble p</code> carries the type rule, and because a list row wraps it in its own <code>&lt;li&gt;</code> — no single element is valid both inside a <code>&lt;ul&gt;</code> and outside one (#53). The rest of this section is still hand-written here.</p>
 
         <div class="nonsense">
+          <!--@owed name="the starburst"-->
           <div class="starburst"><span class="starburst__top">100% REAL</span><span class="starburst__big">POINTS</span><span class="starburst__fine">*points subject to availability</span></div>
           <!--@bubble text="“i did not consent to this scoring system but i DID scan the code, so please give me my points.”"-->
+          <!--@owed name="the stamp"-->
           <p class="stamp">R.S.V.P. OR ELSE</p>
           <p>Some words are <span class="mark">highlighted like this</span> because they matter more than the other words.</p>
           <p class="blink">NEW!!</p>
@@ -341,17 +352,28 @@
       <footer class="kit-foot">
         <p class="aside">That is the whole kit. If a page needs something that is not on this page, the page is wrong or the kit is incomplete — say which.</p>
         <p class="aside">
-          The scorebar, the tiles, the heroes, the fields, the modal, the window frame, the speech
-          bubble, the camera and the shots above are rendered by
-          <code>src/render.js</code> — the same calls the site makes, so they cannot be out of date.
-          The starburst, the stamp, the marquee, the status bar, the scavenger's
-          prompt list and the three standing colours are written by hand here or not shown at all,
-          because no page builds them out of a component yet.
-          <strong>That list is the design the site still owes.</strong> Building one means moving its
+          <!--@built--> above are rendered by <code>src/render.js</code> — the same calls the site
+          makes, so they cannot be out of date.
+        </p>
+        <p class="aside">
+          <!--@owed-list--> are written by hand here, and this page is their only home.
+          <strong>That is the design the site still owes.</strong> Building one means moving its
           markup into <code>render.js</code> and leaving a marker here in the same change.
+        </p>
+        <p class="aside">
+          Neither sentence above is typed by hand: the first is every primitive
+          <code>src/kit.js</code> can inject, the second is every <code>STILL OWED</code> badge on
+          this page. A hand-typed version of them was wrong for months, in four files at once (#55).
+        </p>
+        <p class="aside">
+          The one thing that runs the other way is the scavenger's
+          <code>.prompts</code> / <code>.prompt</code> checklist, which the app renders and this
+          page does not show — a page composition rather than a primitive. See §13.
         </p>
       </footer>
     </div>
+
+    <div class="owed-slot"><!--@owed name="the status bar"--></div>
 
     <div class="statusbar">
       <span class="mono">Made in MS Paint™ (spiritually)</span>

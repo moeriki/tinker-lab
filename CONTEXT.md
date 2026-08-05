@@ -642,11 +642,22 @@ Where the app renders a component, that place is a function in `src/render.js`, 
 through a marker comment — `@tile state="unlocked" title="Longest Yarn"` — which `src/kit.js` swaps
 for the real output. The kit holds no copy, so it cannot show something the site does not do.
 
-Where the app does **not** render it yet — the starburst, the stamp, the
-marquee, the status bar, the three `.standing--*` colours — the markup is hand-written in
-`kit.html` and that page is its only home. Those sections are the design the site still owes.
-Building one into a page means **moving** its markup into `render.js` and leaving a marker behind in
-the same change, so a second copy is never created.
+Where the app does **not** render it yet, the markup is hand-written in `kit.html` and that page is
+its only home. Those demos wear a red **STILL OWED** badge, and the kit's footer generates the list
+of them from those badges. Building one into a page means **moving** its markup into `render.js` and
+leaving a marker behind in the same change, so a second copy is never created.
+
+> **The kit is the source of truth, and this file does not keep a copy of what it owes.** Read the
+> footer of `/kit`.
+
+That is deliberate and it was learned the hard way: the list used to be typed by hand here, in the
+kit's footer, in the kit page's header comment, and in `src/kit.js` — four copies, three of them
+stale, naming the window frame long after [#37](https://github.com/moeriki/tinker-lab/issues/37)
+built it and the speech bubble long after hints started rendering one. Now the page counts its own
+badges ([#55](https://github.com/moeriki/tinker-lab/issues/55)), so there is nothing to keep in step.
+
+> **New design is drawn on the kit first, then built into a page.** A component that appears
+> directly on a page, having never been on `/kit`, is the drift this rule exists to stop.
 
 The `.prompt` / `.prompts` checklist is the one thing the app renders that `/kit` still does not
 show. It is a page **composition** rather than a primitive — every row is a form posting to

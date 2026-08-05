@@ -54,6 +54,14 @@ so a drift check would be a file nobody ever runs — enforcement in appearance 
   decision record goes stale without anyone noticing — it already had, naming the window frame
   (#37) and the speech bubble (#53) long after both were built. The live list is the kit's own
   footer, which is by construction exactly the sections `kit.html` still writes by hand.
+- **That "by construction" was aspirational until [#55](https://github.com/moeriki/tinker-lab/issues/55).**
+  The footer was itself typed by hand, so it could be — and was — wrong about the page it sits on.
+  Each hand-written demo now carries an `@owed` marker rendering a **STILL OWED** badge, `src/kit.js`
+  counts them, and both halves of the footer sentence are generated: what the app builds from
+  `injectable`, what it still owes from the badges. Deleting a copy of a list is not the same as
+  removing the reason a copy exists.
+- **New design is drawn on the kit first, then built into a page** — the direction this rule
+  assumes but never stated.
 - Building one of those into a page means **moving** its markup into `render.js` and leaving a
   marker behind **in the same change**, so a second copy is never created.
 
@@ -79,4 +87,6 @@ and it breaks by labelling the wrong box.
 - A component gaining a parameter now changes the kit too, which is the point. The cost is that a
   demo is no longer editable purely in HTML — a new variant may need the function to accept it.
 - **Not enforced by a test**, because there is nowhere for one to run. It is enforced by there
-  being nothing to keep in sync.
+  being nothing to keep in sync — which, after #55, is true of the inventory as well as the markup.
+- An `@owed` marker without a `name` renders the same loud banner as an unknown primitive. A badge
+  the footer could not count would let the page claim a debt its own summary denies.

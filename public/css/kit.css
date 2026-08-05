@@ -147,6 +147,38 @@
 .edgebox--2 { border: var(--edge-2) solid var(--c-ink); box-shadow: var(--shadow-2); }
 .edgebox--3 { border: var(--edge-3) solid var(--c-ink); box-shadow: var(--shadow-3); }
 
+/* ------------------------------- owed badges ------------------------------- */
+
+/* A demo the site does not render yet. Red because it is a debt, not a feature.
+
+   The badge is the ONLY place "still owed" is written down: src/kit.js counts these markers and
+   generates the footer from them, so the badge and the summary cannot disagree. They did, for
+   months, across four hand-typed copies (#55). */
+.owed {
+  display: inline-block;
+  margin: 0 0 0.4rem;
+  background: var(--c-red);
+  color: var(--c-paper);
+  border: var(--edge-1) solid var(--c-ink);
+  box-shadow: var(--shadow-1);
+  padding: 0.15rem 0.4rem;
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+/* Two of the owed things -- the marquee and the status bar -- are the kit page's own furniture
+   rather than a demo inside a section, so their badge has no .sect to sit in. This lines it up
+   with .app's column instead of letting it go full-bleed against the gradient. */
+.owed-slot {
+  max-width: 42rem;
+  margin: 0 auto;
+  padding: 0.5rem 0.85rem 0;
+  text-align: center;
+}
+
 /* --------------------------- decoration specimens -------------------------- */
 
 .nonsense {
@@ -158,6 +190,9 @@
 
 .nonsense .starburst,
 .nonsense .stamp { align-self: center; }
+
+/* the badge is a flex row of its own here, so centre it too or it floats away from what it marks */
+.nonsense .owed { align-self: center; }
 
 /* --------------------------- animation specimens --------------------------- */
 

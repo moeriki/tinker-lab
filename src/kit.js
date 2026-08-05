@@ -13,9 +13,18 @@
 //
 // The rule that follows, and the reason this file is small: a component's markup exists in
 // exactly one place. If the app renders it, that place is `render.js` and the kit calls it. If
-// the app does not render it yet -- the window frame, the starburst, the standing colours -- that
-// place is `kit.html`, and the ticket that first builds it into a page moves it here in the same
-// change, so a second copy is never created.
+// the app does not render it yet, that place is `kit.html`, and the ticket that first builds it
+// into a page moves it here in the same change, so a second copy is never created.
+//
+// Which sections those are is not written down anywhere as a list, and this comment deliberately
+// does not name them. It used to, and it was wrong: it still named the window frame after #37
+// built it. So did the page's own header comment, the page's footer and `CONTEXT.md` -- four
+// hand-typed copies, three of them stale, and #53 corrected two of the four without ever seeing
+// the other two. A list maintained by remembering to maintain it is a list that is wrong.
+//
+// So the kit counts instead of remembering. A hand-written demo carries `@owed`, the footer's two
+// halves are generated from those markers and from `injectable`, and the page reports its own
+// debt rather than being told what it is (#55).
 
 import {
   bubble,
@@ -30,6 +39,7 @@ import {
   tile,
   win,
 } from './render.js';
+import { escape } from './http.js';
 
 /** `<!--@name key="value" bare-key-->` */
 const MARKER = /<!--@([\w-]+)((?:\s+[\w-]+(?:="[^"]*")?)*)\s*-->/g;
@@ -147,21 +157,86 @@ function parseAttrs(source) {
   return attrs;
 }
 
+/** The primitives a marker can name -- exactly what `render.js` builds, in declaration order. */
+export const injectable = Object.keys(RENDERERS);
+
+/**
+ * What each primitive is called in a sentence a person reads. Only the names that differ from the
+ * key need an entry; anything missing falls back to the key itself, so a new primitive shows up in
+ * the footer looking slightly wrong rather than not showing up at all. That is the trade this
+ * whole ticket is about: the old footer was hand-typed and could be silently, permanently wrong.
+ *
+ * `shot` and `shots` deliberately share a name -- two functions, one thing a reader recognises --
+ * which is why the list is deduplicated on the way out.
+ */
+const BUILT_NAMES = {
+  scorebar: 'the scorebar',
+  tile: 'the tiles',
+  hero: 'the heroes',
+  field: 'the fields',
+  hintmodal: 'the modal',
+  bubble: 'the speech bubble',
+  shoot: 'the camera',
+  shot: 'the shots',
+  shots: 'the shots',
+  win: 'the window frame',
+};
+
+/** `a, b and c` -- the footer is prose, not a bullet list. */
+const sentence = (items) =>
+  items.length < 2 ? (items[0] ?? '') : `${items.slice(0, -1).join(', ')} and ${items.at(-1)}`;
+
+const upperFirst = (text) => text.charAt(0).toUpperCase() + text.slice(1);
+
+/**
+ * The three markers that report on the PAGE rather than render a component, so unlike `RENDERERS`
+ * they need to know what else is on it. `@owed` badges a hand-written demo; `@built` and
+ * `@owed-list` are the two halves of the footer sentence, and neither is typed by hand.
+ *
+ * `@owed` without a name is an error rather than a bare badge: a badge that contributed nothing to
+ * the footer would leave the page claiming a debt its own summary does not count.
+ */
+const pageChrome = (owed) => ({
+  owed: (a) =>
+    typeof a.name === 'string'
+      ? `<p class="owed">still owed</p>`
+      : `<p class="banner banner--bad">style kit: <code>@owed</code> needs a
+        <code>name</code>, which is how the footer counts it.</p>`,
+
+  built: () => upperFirst(sentence([...new Set(injectable.map((key) => BUILT_NAMES[key] ?? key))])),
+
+  'owed-list': () =>
+    owed.length
+      ? upperFirst(sentence(owed))
+      : 'Nothing — every section on this page is rendered by the app',
+});
+
 /**
  * Swap every marker for the real component. An unknown name renders a loud banner rather than
  * nothing: a marker that silently disappears would look exactly like a section somebody deleted,
  * which is the failure this whole mechanism exists to prevent.
+ *
+ * Two passes. The first collects the `@owed` names so the footer can report them; the second
+ * injects. One pass would work only while the footer stays last in the file, and a rule that holds
+ * because of line ordering is the kind that breaks the day someone moves a section.
  */
 export function inject(source) {
+  const owed = [];
+  for (const [, name, rawAttrs] of source.matchAll(MARKER)) {
+    if (name.toLowerCase() !== 'owed') continue;
+    const label = parseAttrs(rawAttrs).name;
+    if (typeof label === 'string') owed.push(escape(label));
+  }
+
+  const chrome = pageChrome(owed);
+
   return source.replace(MARKER, (whole, name, rawAttrs) => {
-    const render = RENDERERS[name.toLowerCase()];
+    const key = name.toLowerCase();
+    const render = chrome[key] ?? RENDERERS[key];
     if (!render) {
       return `<p class="banner banner--bad">style kit: no primitive named <code>${name}</code>.
-        Known: ${Object.keys(RENDERERS).join(', ')}.</p>`;
+        Known: ${[...injectable, ...Object.keys(chrome)].join(', ')}.</p>`;
     }
     return render(parseAttrs(rawAttrs));
   });
 }
-
-/** The primitives a marker can name, for the kit's own footer. */
-export const injectable = Object.keys(RENDERERS);
