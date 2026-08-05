@@ -21,16 +21,21 @@ the branch. A branch may only outlive your session if an open ticket names it, a
 ticket is your job, not the human's.
 
 **Clean is not current.** Landing pushes a ref and never touches the shared checkout's own `main`,
-so it falls behind the moment anyone lands anything and says nothing about it. Before you read
-there — every session, first thing:
+so it falls behind the moment anyone lands anything and says nothing about it. A `SessionStart` hook
+now fast-forwards it for you and prints one line saying what it did — `Shared checkout: already
+current` or `fast-forwarded N commit(s)`.
+
+**That line is the receipt: if you don't see it, the hook didn't run**, the tree may be stale, and
+you should run it yourself before reading:
 
 ```sh
 git -C /Users/moeriki/Projects/moeriki/bday-games fetch -q origin
 git -C /Users/moeriki/Projects/moeriki/bday-games merge --ff-only origin/main
 ```
 
-That fast-forward is the one write a reader may make. If it refuses, the tree is dirty or on a
-branch — don't reset it, read through the ref instead (`git show origin/main:<path>`).
+That fast-forward is the one write a reader may make. If it refuses — the hook will say so — the
+tree is dirty or on a branch; don't reset it, read through the ref instead
+(`git show origin/main:<path>`).
 
 See `docs/agents/worktrees.md`.
 

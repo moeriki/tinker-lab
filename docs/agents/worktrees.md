@@ -38,22 +38,53 @@ checkout returned 5 while the live site correctly reported 6 — Herd Mentality 
 `17286f1` and the checkout had never caught up. That is the worst shape this bug takes: it made a
 *correct* deployment look broken, which is precisely the confusion #46 existed to remove.
 
-**So make it current before you read.** First thing in the session, before any `Read`, `Grep` or
-`ls`:
+**So the checkout is made current before you read it, and not by you remembering to.** A
+`SessionStart` hook in [`.claude/settings.json`](../../.claude/settings.json) runs
+[`scripts/sync-shared-checkout.sh`](../../scripts/sync-shared-checkout.sh) on `startup`, `resume`
+and `clear`, which does:
 
 ```sh
-git -C /Users/moeriki/Projects/moeriki/bday-games fetch -q origin
-git -C /Users/moeriki/Projects/moeriki/bday-games merge --ff-only origin/main
+git -C <shared checkout> fetch -q origin
+git -C <shared checkout> merge --ff-only origin/main
 ```
 
 `merge --ff-only` and not `git update-ref refs/heads/main <sha>`, for the reason recorded under
 [Landing on main](#landing-on-main): the ref moves, the files don't, and the tree reports every
 landed file as deleted.
 
+You will see one line of its output at the top of the session — `already current with origin/main`,
+or `fast-forwarded N commit(s)`. **That line is the receipt.** If it is missing, the hook did not
+run and you are back to reading a tree that may be stale; run the two commands yourself.
+
+The script finds the shared checkout from `git rev-parse --git-common-dir`, so it works unchanged
+from inside a worktree — worktrees share one git dir — and hardcodes nobody's home directory. It
+fast-forwards the shared checkout only, and never touches the worktree you are standing in.
+
+It fires on `startup`, `resume` and `clear` but **not** `compact`: those three are the moments a
+session begins reading from scratch, whereas a compacting session is mid-ticket and already holds
+what it read. A fetch costs about 1.4s and there is no reason to spend it on every compaction.
+
+### Why a hook and not a rule
+
+Because the rule's failure is **silent**, which is the one kind no incentive can fix. The reader is
+the one who pays for skipping the fast-forward — that is why
+[#54](https://github.com/moeriki/tinker-lab/issues/54) moved it off the writer — but they pay
+without ever finding out: `git status` says clean, the stale file is perfectly plausible, and the
+wrong answer looks exactly like a right one. That is precisely what happened in #46 above. A cost
+you never observe teaches nothing, so the reader-side rule would have degraded the same way the
+writer-side one did — 31 of 35 — just with a better story about why it shouldn't.
+
+The obstacle was never the argument, only the plumbing: `~/.gitignore` ignores `.claude/` globally,
+which is what keeps `.claude/worktrees/` out of every `git status`. A repo `.gitignore` outranks the
+global one, so three lines in [`.gitignore`](../../.gitignore) carve out the single tracked file and
+leave the worktrees and `settings.local.json` as invisible as before.
+
 ### If the fast-forward refuses
 
-Another session has left the shared tree dirty or on a branch. It is not yours to reset — read
-through the ref instead, which needs no clean tree and no fetch:
+Another session has left the shared tree dirty or on a branch. The hook says so in its startup line
+and then stops — it reports, it never repairs, and it always exits 0 so a stale checkout cannot stop
+you working. It is not yours to reset either — read through the ref instead, which needs no clean
+tree and no fetch:
 
 ```sh
 git -C /Users/moeriki/Projects/moeriki/bday-games show origin/main:src/app.js
