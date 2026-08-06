@@ -38,14 +38,11 @@
       then built into a page.
     -->
 
-    <div class="marquee">
-      <div class="marquee__track">
-        <span class="marquee__item">★ ★ ★ THIS IS NOT THE PARTY SITE ★ THIS IS THE STYLE KIT ★ EVERY BOX HERE GETS REUSED ★ NOTHING HERE IS A GAME ★ BEST VIEWED ON A PHONE, IN A KITCHEN, SLIGHTLY DRUNK ★</span>
-        <span class="marquee__item" aria-hidden="true">★ ★ ★ THIS IS NOT THE PARTY SITE ★ THIS IS THE STYLE KIT ★ EVERY BOX HERE GETS REUSED ★ NOTHING HERE IS A GAME ★ BEST VIEWED ON A PHONE, IN A KITCHEN, SLIGHTLY DRUNK ★</span>
-      </div>
-    </div>
-
-    <div class="owed-slot"><!--@owed name="the marquee"--></div>
+    <!-- The real one, from marquee() in src/render.js, carrying the real site copy out of
+         content/chrome.js. It used to say THIS IS NOT THE PARTY SITE and a few other lines about
+         the kit; those went when #58 built it into the site, because a kit that keeps its own
+         wording is a kit that can show something the site does not do. -->
+    <!--@marquee-->
 
     <div class="app">
       <header class="kit-head">
@@ -118,22 +115,22 @@
         <div class="stack">
           <div>
             <!--@scorebar name="NAAMLOOS" score="0" open="2" total="10"-->
-            <p class="standing">Nothing on the board yet. That is a state, not a verdict.</p>
+            <!--@standing band="fresh"-->
           </div>
 
           <div>
             <!--@scorebar name="BADGER" score="47" open="7" total="10"-->
-            <p class="standing standing--top">Top three. Enjoy it — nobody else can see it.</p>
+            <!--@standing band="podium"-->
           </div>
 
           <div>
             <!--@scorebar name="OTTERSPOOR" score="22" open="4" total="10"-->
-            <p class="standing standing--mid">The top three is catchable from here. That is all we are prepared to say.</p>
+            <!--@standing band="chasing"-->
           </div>
 
           <div>
             <!--@scorebar name="MOSSEL" score="3" open="2" total="10"-->
-            <p class="standing standing--low">Your effort is appreciated.</p>
+            <!--@standing band="rest"-->
           </div>
         </div>
 
@@ -143,15 +140,16 @@
           open-count is what tells a team the starter tiles exist at all.
         </p>
         <h3 class="sect__sub">The standing colours</h3>
-        <!--@owed name="the three standing colours"-->
         <p class="sect__note">
-          The four lines are the real band copy from <code>content/economy.js</code>, kept in step
-          by hand — the app emits a bare <code>.standing</code> with no modifier, so
-          <strong>the colours are still the kit running ahead of the site.</strong>
+          The four lines are <code>standing()</code> in <code>src/render.js</code> — the same call
+          the dashboard makes — and each marker names only its <em>band</em>, so the copy is read
+          out of <code>content/economy.js</code> rather than typed here. It used to be typed here,
+          and it drifted twice.
           <code>fresh</code> deliberately has no colour of its own: a team on zero has not done
           anything a colour could report, and the neutral line is the honest one. That leaves
           <code>.standing--top/--mid/--low</code> for the three bands that are a judgement, which
-          is why four bands still want only three colours.
+          is why four bands want only three colours. Nothing is carried by the colour — every band
+          says its whole piece in words.
         </p>
       </section>
 
@@ -260,14 +258,12 @@
       <section class="sect" id="nonsense">
         <h2 class="sect__h">11. Structural nonsense</h2>
         <p class="sect__note">Load-bearing. Do not remove.</p>
-        <p class="sect__note">One of these is not nonsense: the speech bubble is built by <code>bubble()</code> in <code>src/render.js</code>, and has been on a page since hints landed. It is a <code>&lt;div&gt;</code> around a <code>&lt;p&gt;</code> because <code>.bubble p</code> carries the type rule, and because a list row wraps it in its own <code>&lt;li&gt;</code> — no single element is valid both inside a <code>&lt;ul&gt;</code> and outside one (#53). The rest of this section is still hand-written here.</p>
+        <p class="sect__note">The first three are all real components now. The speech bubble is <code>bubble()</code> and has been on a page since hints landed — a <code>&lt;div&gt;</code> around a <code>&lt;p&gt;</code>, because <code>.bubble p</code> carries the type rule and a list row wraps it in its own <code>&lt;li&gt;</code>, and no single element is valid both inside a <code>&lt;ul&gt;</code> and outside one (#53). The sunburst went to <code>/rules</code>, next to the block that explains the points, where its own small print undercuts the arithmetic the page has just done. The stamp went to the door — the arrival screen — and stopped saying <em>R.S.V.P. OR ELSE</em> on the way, that being invite copy no page on a site you are already inside can make true (#58).</p>
 
         <div class="nonsense">
-          <!--@owed name="the starburst"-->
-          <div class="starburst"><span class="starburst__top">100% REAL</span><span class="starburst__big">POINTS</span><span class="starburst__fine">*points subject to availability</span></div>
+          <!--@starburst-->
           <!--@bubble text="“i did not consent to this scoring system but i DID scan the code, so please give me my points.”"-->
-          <!--@owed name="the stamp"-->
-          <p class="stamp">R.S.V.P. OR ELSE</p>
+          <!--@stamp-->
           <p>Some words are <span class="mark">highlighted like this</span> because they matter more than the other words.</p>
           <p class="blink">NEW!!</p>
           <p class="aside">↑ that is a real <code>blink</code>, implemented in CSS because the tag was taken away from us</p>
@@ -384,11 +380,7 @@
           <!--@built--> above are rendered by <code>src/render.js</code> — the same calls the site
           makes, so they cannot be out of date.
         </p>
-        <p class="aside">
-          <!--@owed-list--> are written by hand here, and this page is their only home.
-          <strong>That is the design the site still owes.</strong> Building one means moving its
-          markup into <code>render.js</code> and leaving a marker here in the same change.
-        </p>
+        <p class="aside"><!--@owed-list--></p>
         <p class="aside">
           Neither sentence above is typed by hand: the first is every primitive
           <code>src/kit.js</code> can inject, the second is every <code>STILL OWED</code> badge on
@@ -397,12 +389,9 @@
       </footer>
     </div>
 
-    <div class="owed-slot"><!--@owed name="the status bar"--></div>
-
-    <div class="statusbar">
-      <span class="mono">Made in MS Paint™ (spiritually)</span>
-      <span class="mono">✦ BEST VIEWED AT 800×600 ✦</span>
-    </div>
+    <!-- The real one, from statusbar() in src/render.js. Two of twelve lines, drawn fresh on every
+         page load out of content/chrome.js, so reloading this page changes them. -->
+    <!--@statusbar-->
 
     <!-- ================================ MODAL ================================= -->
     <!-- The real one, from hintModal() in src/render.js. A game page renders it already open,

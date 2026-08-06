@@ -96,17 +96,33 @@ function podiumLine(board) {
  * than occasionally showing four teams "top 3".
  */
 export function standingsMessage(teamId) {
+  return economy.standingsBands[standingBand(teamId)];
+}
+
+/**
+ * Which band a team is in, by name. Split out of `standingsMessage` because the dashboard needs
+ * both halves: the sentence to print, and the band to colour it with (#58 -- the kit has shown
+ * `.standing--top/--mid/--low` since #5 while the app emitted a bare `.standing`, so no guest has
+ * ever seen the colours).
+ *
+ * The name is the thing worth returning rather than a class. `podium`/`chasing`/`rest`/`fresh` are
+ * this file's vocabulary and CONTEXT.md's; `--top`/`--mid`/`--low` are the stylesheet's, and they
+ * do not correspond one-to-one -- there are four bands and three colours, `fresh` deliberately
+ * having none. Mapping one onto the other is the renderer's business, so scoring never learns a
+ * class name and the stylesheet never learns what `chasing` means.
+ */
+export function standingBand(teamId) {
   const board = standings();
   const me = board.find((row) => row.id === teamId);
-  if (!me) return economy.standingsBands.fresh;
+  if (!me) return 'fresh';
 
-  if (me.score === 0) return economy.standingsBands.fresh;
+  if (me.score === 0) return 'fresh';
 
   const line = podiumLine(board);
 
-  if (me.score > 0 && me.score >= line) return economy.standingsBands.podium;
-  if (line - me.score < economy.podiumGap) return economy.standingsBands.chasing;
-  return economy.standingsBands.rest;
+  if (me.score > 0 && me.score >= line) return 'podium';
+  if (line - me.score < economy.podiumGap) return 'chasing';
+  return 'rest';
 }
 
 // --- hints ---------------------------------------------------------------------------------

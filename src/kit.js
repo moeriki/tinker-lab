@@ -33,13 +33,20 @@ import {
   hintModal,
   rulesList,
   scorebar,
+  marquee,
   shoot,
   shot,
   shots,
+  stamp,
+  standing,
+  starburst,
+  statusbar,
   tile,
   unitRow,
   win,
 } from './render.js';
+import * as chrome from '../content/chrome.js';
+import economy from '../content/economy.js';
 import { escape } from './http.js';
 
 /** `<!--@name key="value" bare-key-->` */
@@ -180,6 +187,30 @@ const RENDERERS = {
       status: a.status ?? '',
       closeHref: a.href ?? '#window',
     }),
+
+  // The five #58 built into pages, and the only adapters here that take NO arguments from the
+  // marker. Everything above is a component a page hands its own words to, so the kit has to
+  // invent some to demo it. These four are chrome and one is a band lookup: their words are fixed
+  // site-wide in `content/`, there is exactly one correct value, and a marker attribute could only
+  // ever disagree with it. Passing nothing is what makes them impossible to show wrong.
+  marquee: () => marquee(),
+
+  // Deliberately resampled per request, exactly as a page gets it -- so reloading /kit is the way
+  // to see the other ten lines.
+  statusbar: () => statusbar(),
+
+  starburst: () => starburst(chrome.starburst),
+  stamp: () => stamp(chrome.stamp),
+
+  // The marker names a BAND, never a sentence. The kit used to hand-copy all four lines out of
+  // `content/economy.js` and they drifted twice -- once when the mission's placeholder copy was
+  // left behind after economy.js moved (#37), and once more before that. Reading them here means
+  // the kit cannot show band copy the site does not have. An unknown band falls back to `fresh`'s
+  // line rather than rendering an empty paragraph, which would look like a styling bug.
+  standing: (a) => {
+    const band = a.band ?? 'fresh';
+    return standing({ band, text: economy.standingsBands[band] ?? economy.standingsBands.fresh });
+  },
 };
 
 function parseAttrs(source) {
@@ -212,6 +243,11 @@ const BUILT_NAMES = {
   shot: 'the shots',
   shots: 'the shots',
   win: 'the window frame',
+  marquee: 'the marquee',
+  statusbar: 'the status bar',
+  starburst: 'the starburst',
+  stamp: 'the stamp',
+  standing: 'the standing colours',
 };
 
 /** `a, b and c` -- the footer is prose, not a bullet list. */
@@ -237,10 +273,22 @@ const pageChrome = (owed) => ({
 
   built: () => upperFirst(sentence([...new Set(injectable.map((key) => BUILT_NAMES[key] ?? key))])),
 
+  // The WHOLE sentence, both halves, rather than a subject the page supplies a predicate for.
+  // It used to be the subject only, with "... are written by hand here" typed after the marker in
+  // kit.html -- which reads correctly for every list except the empty one, and #58 is the ticket
+  // that emptied it: "Nothing — every section on this page is rendered by the app ARE WRITTEN BY
+  // HAND HERE". The empty branch had been written and never once rendered. A sentence whose
+  // grammar depends on how many items it has cannot be half-owned by a template.
   'owed-list': () =>
     owed.length
-      ? upperFirst(sentence(owed))
-      : 'Nothing — every section on this page is rendered by the app',
+      ? `${upperFirst(sentence(owed))} ${owed.length === 1 ? 'is' : 'are'} written by hand here,
+        and this page is their only home. <strong>That is the design the site still owes.</strong>
+        Building one means moving its markup into <code>render.js</code> and leaving a marker here
+        in the same change.`
+      : `Nothing. Every section on this page is rendered by the app, so the site owes the kit no
+        design at all right now — <strong>the list is empty for the first time since it existed
+        (#58).</strong> When new design is drawn here it wears an <code>@owed</code> badge, and
+        this sentence starts counting again on its own.`,
 });
 
 /**

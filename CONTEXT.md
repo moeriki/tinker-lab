@@ -725,6 +725,34 @@ used, and have no home on the kit ([#59](https://github.com/moeriki/tinker-lab/i
 `@owed` badges cannot catch that class of gap — they count hand-written demos, and a utility with
 no section has no demo to badge.
 
+**The owed list is empty for the first time since it existed**
+([#58](https://github.com/moeriki/tinker-lab/issues/58)). The last five hand-written demos each
+found a page: the marquee and the status bar became site **chrome**, the sunburst went to `/rules`
+beside the block explaining the points, the stamp went to the arrival screen, and the standing
+colours reached the dashboard, which had emitted a bare `.standing` since #5 while the kit showed
+three modifiers. Nothing was retired, which was a live option and not a defeat.
+
+## Chrome
+
+The two strips that frame every team-facing page and belong to no page: the **marquee** stuck to
+the top, and the **status bar** along the foot. Both are branding rather than features — they say
+the same thing to every team, never mention a score, a rank or another team, and no page depends on
+having read them, which is what makes them `aria-hidden` decoration rather than content.
+
+Their words live in `content/chrome.js`, and `layout()` is the only caller — the one place in
+`src/render.js` that reaches into `content/`, because a frame has no page to be handed its words by.
+The marquee's order is fixed and shuffled once, in the file; the status bar draws two of twelve
+lines per request.
+
+> **`layout({ still: true })` drops both.** `still` already meant *this is a working surface, not a
+> party* ([#14](https://github.com/moeriki/tinker-lab/issues/14)), so the admin board gets no
+> scrolling banner and no strip that would resample itself under a host every time it polls.
+
+One line is deliberately absent from the marquee: an early draft carried *HINTS COST YOU POINTS*,
+which would have announced rule 4 on every page from minute one — the one thing on this site that
+is hidden until a team stumbles into it. The replacement, *YOUR SCORE CAN GO BELOW ZERO*, is the
+tease `/rules` already prints in public.
+
 `GET /healthz` is the container health check and the pre-party liveness probe — JSON, no cookie
 required, `503` if the database is unreachable. It reports nothing about teams or scores, being
 the one route reachable by anyone ([#13](https://github.com/moeriki/tinker-lab/issues/13)).

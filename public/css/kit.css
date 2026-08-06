@@ -188,8 +188,9 @@
   align-items: flex-start;
 }
 
-.nonsense .starburst,
-.nonsense .stamp { align-self: center; }
+/* The starburst and the stamp used to be centred from here. They centre themselves now: #58 built
+   both into real pages and found that this rule was the kit doing a job the primitive should do,
+   so `align-self` moved into app.css beside them. */
 
 /* the badge is a flex row of its own here, so centre it too or it floats away from what it marks */
 .nonsense .owed { align-self: center; }

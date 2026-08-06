@@ -3,7 +3,21 @@
 // what each page is *made of* is owned by the per-game and dashboard tickets. What matters at
 // this stage is that the route exists, the data is real, and nothing lies.
 
+import * as chrome from '../content/chrome.js';
 import { escape } from './http.js';
+
+/**
+ * The only thing in this file that reaches into `content/`, and the exception is narrow on
+ * purpose. Every other primitive here is handed its words by the page rendering it, because the
+ * words belong to that page. The marquee and the status bar belong to no page: they are the frame
+ * every page is drawn inside, they say the same thing on all of them, and `layout()` is the only
+ * caller there will ever be. Threading them through twenty-five call sites so that all twenty-five
+ * pass the identical constant would be a seam that reports nothing.
+ *
+ * It stays a one-way dependency on static strings. Nothing here calls into content, and content
+ * still never opens the database (ADR-game-content-lives-on-disk).
+ */
+
 
 /**
  * `still` opts a page out of the arrival animation. The admin board is the only caller that
@@ -41,6 +55,7 @@ export function layout({ title, body, bar = '', showClose = false, still = false
 </head>
 <body class="shell">
   ${modal}
+  ${still ? '' : marquee()}
   <div class="app${still ? '' : ' anim-page'}">
     <div class="stack">
       ${bar}
@@ -49,9 +64,122 @@ export function layout({ title, body, bar = '', showClose = false, still = false
       ${showClose ? '<a class="btn btn--close" href="/">close</a>' : ''}
     </div>
   </div>
+  ${still ? '' : statusbar()}
   <script type="module" src="/js/app.js"></script>
 </body>
 </html>`;
+}
+
+/**
+ * The scrolling banner across the top of every page: site branding, and explicitly not a feature.
+ * The obvious content for a marquee on a party site is a live feed -- TEAM BADGER JUST FOUND A
+ * CODE -- and #8 locked that out for the whole night, so this says one fixed jumble to everyone
+ * and never mentions a team.
+ *
+ * **`aria-hidden` on the whole strip, not just the second copy.** It sits ahead of `.app` in
+ * document order, so without this a screen reader would read forty-odd gags before the page title
+ * on every route. It carries no information and has no tab stops, which is exactly the case for
+ * treating it as decoration -- the same call `win()` makes for its two chrome buttons.
+ *
+ * **Two identical copies** because the keyframe translates the track by -50%: at the halfway point
+ * copy two sits exactly where copy one started, so the loop is seamless. That is also why the
+ * duration is derived rather than fixed. The animation moves one copy's width in whatever time it
+ * is given, so a hardcoded 34s -- correct for the ~180 characters the kit used to carry -- would
+ * crawl this list at a sixth of a readable speed. Dividing by 7 lands near 70px/s at this font
+ * size, and unlike a constant it cannot go stale when someone edits the list.
+ *
+ * It sits **outside `.app`** for the reason the modal does (#30): `anim-page` animates a
+ * `transform`, and a transformed ancestor becomes the containing block for `position: sticky`
+ * inside it, which would peg this to the page instead of to the viewport.
+ */
+export function marquee(items = chrome.marquee) {
+  const line = `★ ${items.join(' ★ ')} ★`;
+  const copy = `<span class="marquee__item">${escape(line)}</span>`;
+  const secs = Math.max(20, Math.round(line.length / 7));
+
+  return `<div class="marquee" aria-hidden="true" style="--marquee-secs: ${secs}s">
+    <div class="marquee__track">${copy}${copy}</div>
+  </div>`;
+}
+
+/**
+ * The strip of small print along the foot of every page. The marquee is a poster on the wall; this
+ * is the bottom edge of the screen, and together they are what make a page read as a piece of
+ * software rather than as a web page with a banner stuck to it.
+ *
+ * Sampled without replacement, so the two slots can never show the same line twice side by side --
+ * the only repeat here that would look like a bug rather than a coincidence.
+ *
+ * `aria-hidden` for the marquee's reason, and dropped from `still` surfaces by `layout()` for one
+ * more: the admin board polls, so a resampling strip would rewrite itself under a host who is
+ * trying to read the page.
+ */
+export function statusbar(items = sample(chrome.status, chrome.STATUS_SLOTS)) {
+  return `<div class="statusbar" aria-hidden="true">
+    ${items.map((text) => `<span class="mono">${escape(text)}</span>`).join('')}
+  </div>`;
+}
+
+/** `count` distinct members of `list`, in random order. Partial Fisher-Yates over a copy. */
+function sample(list, count) {
+  const pool = [...list];
+  const picked = [];
+  for (let n = 0; n < count && pool.length; n += 1) {
+    picked.push(...pool.splice(Math.floor(Math.random() * pool.length), 1));
+  }
+  return picked;
+}
+
+/**
+ * The as-seen-on-TV sunburst. One live caller: `/rules`, beside the block explaining the points,
+ * where its own words are already on topic and the fine print undercuts the arithmetic the page
+ * has just finished doing.
+ *
+ * Three spans rather than one string because the badge is a type specimen -- three sizes in three
+ * fonts, stacked and centred inside the clip path -- and collapsing them would leave the caller
+ * unable to say which line is which.
+ */
+export function starburst({ top = '', big = '', fine = '' }) {
+  return `<div class="starburst">
+    <span class="starburst__top">${escape(top)}</span>
+    <span class="starburst__big">${escape(big)}</span>
+    <span class="starburst__fine">${escape(fine)}</span>
+  </div>`;
+}
+
+/**
+ * A rubber stamp, tilted off level. One live caller: the arrival screen, which is the only moment
+ * on this site that is an arrival, and a stamp is what a door gives you.
+ *
+ * The text is a parameter rather than baked in because the shape outlived its original words --
+ * the kit drew it saying "R.S.V.P. OR ELSE", which nothing on a site you are already inside can
+ * make true. See `content/chrome.js` for what it says instead, and why that line matters.
+ */
+export function stamp(text = '') {
+  return `<p class="stamp">${escape(text)}</p>`;
+}
+
+/**
+ * The one-line verdict under a team's score, and the first time a guest will ever have seen it
+ * wearing a colour: the app has always emitted a bare `.standing` while the kit showed three
+ * modifiers, so this is the site catching up with a design drawn back in #5.
+ *
+ * **Four bands, three colours.** `fresh` -- a team on zero -- is deliberately plain. It is a state
+ * rather than a judgement (#37), and nothing about having just walked in deserves a colour.
+ *
+ * The colour is decoration and nothing rests on it: each band's sentence already says the whole
+ * thing in words, which is what keeps green-amber-red safe for the roughly one guest in twelve who
+ * cannot reliably tell those three apart.
+ */
+const STANDING_CLASS = {
+  podium: 'standing--top',
+  chasing: 'standing--mid',
+  rest: 'standing--low',
+};
+
+export function standing({ band = 'fresh', text = '' }) {
+  const modifier = STANDING_CLASS[band];
+  return `<p class="standing${modifier ? ` ${modifier}` : ''}">${escape(text)}</p>`;
 }
 
 /**

@@ -4,6 +4,7 @@
 import { readFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 
+import * as chrome from '../content/chrome.js';
 import rulesCopy from '../content/rules.js';
 import {
   ADMIN_COOKIE,
@@ -102,6 +103,7 @@ import {
   rescore,
   revealNextHint,
   revealedHints,
+  standingBand,
   standings,
   standingsMessage,
   submissionsFor,
@@ -120,6 +122,9 @@ import {
   shoot,
   shot,
   shots,
+  stamp,
+  standing,
+  starburst,
   stub,
   tile,
   unitRow,
@@ -381,6 +386,7 @@ function showWelcome({ req, res, url }) {
           ${nameField(1, 'And who else? (leave empty if you are on your own)', false)}
           <button class="btn btn--primary">that's us</button>
         </form>
+        ${stamp(chrome.stamp)}
       `,
     }),
   );
@@ -692,7 +698,7 @@ function showDashboard({ req, res }) {
       title: 'Your board',
       bar: teamBar(team),
       body: `
-        <p class="standing">${escape(standingsMessage(team.id))}</p>
+        ${standing({ band: standingBand(team.id), text: standingsMessage(team.id) })}
         <div class="tiles">${grid}</div>
         <a class="btn" href="/rules">the rules</a>
       `,
@@ -1714,6 +1720,7 @@ function showRules({ req, res }) {
         ${win({ title: rulesCopy.filename, body: rulesList(rules), status })}
         <h2 class="shout">${escape(rulesCopy.pointsTitle)}</h2>
         ${rulesCopy.points.map((para) => `<p>${escape(para)}</p>`).join('')}
+        ${starburst(chrome.starburst)}
       `,
     }),
   );

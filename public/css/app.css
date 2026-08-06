@@ -159,10 +159,16 @@ code {
   padding: 0.4rem 0;
 }
 
+/*
+ * The duration is set per instance by `marquee()`, which derives it from the length of the line so
+ * the scroll speed stays readable however long the list gets. The keyframe moves one copy's width
+ * in whatever time it is given, so a constant here would silently change speed the next time
+ * somebody edits `content/chrome.js`. The 34s fallback is what the kit's original short line used.
+ */
 .marquee__track {
   display: flex;
   width: max-content;
-  animation: marquee 34s linear infinite;
+  animation: marquee var(--marquee-secs, 34s) linear infinite;
 }
 
 .marquee__item {
@@ -755,6 +761,20 @@ code {
 
 /* ------------------------------ decoration --------------------------------- */
 /* Load-bearing. Do not remove. */
+
+/*
+ * Both of these were demoed only inside `/kit`'s `.nonsense` column, which is in kit.css and
+ * centred them there. Building them into real pages (#58) showed that was the kit doing the
+ * primitive's job: a `.stack` is a flex column with `align-items: stretch`, so a bare `.stamp`
+ * stretched to the full width of the page and stopped looking like a stamp. Shrink-wrapping and
+ * centring travel with the component now. `width: fit-content` covers the non-flex case; neither
+ * carries an outer margin, so spacing stays the caller's job (#5).
+ */
+.starburst,
+.stamp {
+  align-self: center;
+  width: fit-content;
+}
 
 .starburst {
   width: 11rem;
