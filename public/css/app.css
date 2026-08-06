@@ -104,11 +104,23 @@ html {
   -webkit-text-size-adjust: 100%;
 }
 
+/*
+ * A column, so the status bar can be pushed to the foot of the SCREEN on a page too short to fill
+ * it. Without this the strip sits wherever the content happens to stop and the gradient carries on
+ * below it -- on `/q/<unknown>` and the gag pages that was most of the lower half of the phone,
+ * which reads as the page having bled past its own footer. The marquee is `position: sticky` and
+ * the hint modal is `position: fixed`; neither cares that its parent became a flex container.
+ */
 body {
   margin: 0;
   min-height: 100dvh;
   overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
 }
+
+/* the one part that grows, which is what puts the status bar on the floor rather than mid-screen */
+.app { flex: 1; }
 
 img {
   max-width: 100%;
