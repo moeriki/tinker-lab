@@ -53,6 +53,14 @@ The five canonical triage roles, using the default label strings. See `docs/agen
 
 Single-context — one `CONTEXT.md` and one `docs/adr/` at the repo root. See `docs/agents/domain.md`.
 
+### Screenshots
+
+**You can look at this site.** `node scripts/screenshot.js` boots the server against a throwaway
+database and writes phone-sized PNGs you can Read — no dependency, no browser extension, safe in a
+background session and in parallel worktrees. A page is verifiable here, so **never report a change
+as "not seen by eye"** for want of a way to look at it. It cannot log in as a team; that is #65. See
+`docs/agents/screenshots.md`.
+
 ### Containers
 
 **This machine runs Podman; there is no `docker` binary.** Use `podman` and `podman-compose` — a container change is verifiable here, so never report one as unproven for want of a runtime. The `docker compose` lines in `MM-HANDOFF.md` are Tower's and stay as they are. See `docs/agents/containers.md`.
