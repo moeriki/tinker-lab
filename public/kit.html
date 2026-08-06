@@ -525,6 +525,59 @@
         </p>
       </section>
 
+      <!-- ============================== MENU =============================== -->
+      <section class="sect" id="menu">
+        <h2 class="sect__h">17. The menu bar</h2>
+        <p class="sect__note">
+          The site's navigation, and the only piece of chrome that is not decoration — the marquee
+          and the status bar say the same nonsense to everyone and are <code>aria-hidden</code>;
+          these are links, and they differ per request.
+        </p>
+
+        <h3 class="sect__sub">What a host holds</h3>
+        <div class="stack">
+          <!--@navbar who="host" showdown="down" here="HQ"-->
+          <!--@navbar who="host" showdown="up" here="court"-->
+        </div>
+
+        <h3 class="sect__sub">What a guest holds</h3>
+        <p class="sect__note">
+          Nothing at all until the showdown is published — the tiles are the navigation, and the
+          empty case below is the one a guest lives in for five of the night's five hours. It draws
+          no strip rather than an empty one.
+        </p>
+        <div class="stack">
+          <!--@navbar who="guest" showdown="down" here="games"-->
+          <!--@navbar who="guest" showdown="up" here="games"-->
+        </div>
+
+        <p class="sect__note">
+          The words come from <code>menuFor()</code> in <code>content/chrome.js</code> — the same
+          call <code>navFor()</code> makes in <code>src/app.js</code>, so this section cannot show
+          a menu the site does not serve. Each marker types only <em>who</em> and <em>when</em>.
+        </p>
+        <p class="sect__note">
+          <strong>The page you are standing on wears the lime block</strong>, and carries
+          <code>aria-current="page"</code> with it. Five flat words in a loud room at one in the
+          morning are five identical words — but the colour is decoration like every other colour
+          here, and each of these pages says its own name in its <code>h1</code>.
+        </p>
+        <p class="sect__note">
+          <strong>Shown flat here, pinned on a real page.</strong> On the site this sits inside
+          <code>.foot</code>, which is <code>position: fixed</code> at the bottom of the viewport
+          with the status bar underneath it, and <code>.shell--nav</code> pays the page the
+          clearance that costs. Drawing those here would pin a bar over this documentation for its
+          whole length, which is §13's reason for replaying motion inside its own box rather than
+          on the page.
+        </p>
+        <p class="sect__note">
+          <strong>Width is a budget.</strong> At 390px the strip holds roughly 44 characters
+          including gaps, so five items share about 36. The host's five come to 23. The words were
+          cut to fit rather than the type size — <code>dashboard queue results highlights
+          gallery</code> came to 41 and did not.
+        </p>
+      </section>
+
       <footer class="kit-foot">
         <p class="aside">That is the whole kit. If a guest-facing page needs something that is not on this page, the page is wrong or the kit is incomplete — say which. The admin surface is not held to this, and the last sentence below says which classes that excuses and what it costs.</p>
         <p class="aside">

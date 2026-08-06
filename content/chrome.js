@@ -134,3 +134,58 @@ export const starburst = {
  * said so. A stamp is how you say it without it becoming a warning notice.
  */
 export const stamp = 'DO NOT LOSE THIS PHONE';
+
+/**
+ * The menu bar's words (#76, [ADR-the-menu-bar-is-pinned-to-the-bottom]).
+ *
+ * The one part of the site's chrome that is **not** decoration: these are links, they differ per
+ * request, and a guest who never reads them cannot reach four of the surfaces. Everything above is
+ * `aria-hidden` nonsense; this is navigation. It lives here anyway because the words are copy, a
+ * copy pass has to be able to find them, and the alternative was six strings inline in a route
+ * handler where nobody looking for the site's words would think to look.
+ *
+ * `who` and `when`, and nothing else -- no request, no database. `navFor()` in `src/app.js` reads
+ * the admin cookie and `showdownHasStarted()` and hands the two booleans down; `/kit` calls the
+ * same function with them typed by hand, which is what stops the kit demoing a menu the site has
+ * never rendered.
+ *
+ * **`dashboard` is deliberately not a word here.** It was #11's candidate and it meant two
+ * different pages depending on who read it -- the host's bird's-eye view, or a guest's tiles. It
+ * is `HQ` for one and `games` for the other, which is only safe because a host is never a team.
+ *
+ * **Width is a budget.** At 390px the bar holds roughly 44 characters including gaps. Five items
+ * spend about 8 of those on gaps, so the labels share ~36. The host's five come to 23. #11's own
+ * sketch -- `dashboard queue results highlights gallery` -- came to 41 and did not fit, which is
+ * how the words got cut rather than the type size.
+ */
+export const menuFor = ({ admin, showdown }) => {
+  const ending = showdown
+    ? [
+        { href: '/recap', label: 'recap' },
+        { href: '/shots', label: 'shots' },
+      ]
+    : [];
+
+  // `league` is not gated for the host. #8 locked out showing a GUEST anything comparative all
+  // night; the person running the night has to be able to read the rankings whenever they want,
+  // including during #77's gap between the freeze and the publish -- which is exactly when they
+  // are reading the top three off something.
+  if (admin) {
+    return [
+      { href: '/admin', label: 'HQ' },
+      { href: '/admin/court', label: 'court' },
+      { href: '/showdown', label: 'league' },
+      ...ending,
+    ];
+  }
+
+  // A guest has no bar at all until the showdown is up -- the tiles are the navigation, and this
+  // list is empty for five of the night's five hours.
+  if (!showdown) return [];
+
+  return [
+    { href: '/', label: 'games' },
+    { href: '/showdown', label: 'league' },
+    ...ending,
+  ];
+};

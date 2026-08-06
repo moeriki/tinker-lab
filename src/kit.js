@@ -39,6 +39,7 @@ import {
   rulesList,
   scorebar,
   marquee,
+  navbar,
   shoot,
   shot,
   shots,
@@ -254,6 +255,22 @@ const RENDERERS = {
   // to see the other ten lines.
   statusbar: () => statusbar(),
 
+  // The one chrome strip that is NOT fixed site-wide: its links depend on who is asking and how
+  // far the night has got. The marker types those two booleans by hand, and the LIST still comes
+  // from `menuFor()` in `content/chrome.js` -- the same call `navFor()` makes in `src/app.js` --
+  // so this page cannot demo a menu the site has never rendered. That is the whole point of the
+  // detour through `content/`: a hand-typed list here would have been the fifth thing #55 deleted.
+  //
+  // `here` names a LABEL rather than an href, because the label is what a reader of this page
+  // sees; naming the route would mean checking the section against the route table to know which
+  // word is meant to be lit.
+  navbar: (a) =>
+    navbar(
+      chrome
+        .menuFor({ admin: a.who === 'host', showdown: a.showdown === 'up' })
+        .map((item) => ({ ...item, here: item.label === a.here })),
+    ),
+
   starburst: () => starburst(chrome.starburst),
   stamp: () => stamp(chrome.stamp),
 
@@ -302,6 +319,7 @@ const BUILT_NAMES = {
   win: 'the window frame',
   marquee: 'the marquee',
   statusbar: 'the status bar',
+  navbar: 'the menu bar',
   starburst: 'the starburst',
   stamp: 'the stamp',
   standing: 'the standing colours',
@@ -400,6 +418,16 @@ const OFF_KIT = {
     'instead of opening a socket to show it',
 
   'hero__video': 'the same reason as <code>.hero--video</code>, and §7 names it',
+
+  foot:
+    'the fixed frame the menu bar sits in — <code>position: fixed</code> at the bottom of the ' +
+    'viewport, so the real class here would pin a bar over this documentation for its whole ' +
+    'length. Same reason as <code>.anim-page</code>, and §17 draws the bar itself flat',
+
+  'shell--nav':
+    'the bottom clearance a page owes the fixed foot — 8rem of dead space at the end of this one, ' +
+    'demonstrating nothing without <code>.foot</code> above it to be clear of. §17 says what it ' +
+    'pays for',
 };
 
 /**

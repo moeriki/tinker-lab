@@ -667,61 +667,30 @@ function afterOnboarding(req, res, team) {
 // --- the menu bar -----------------------------------------------------------------------------
 
 /**
- * Which links this request gets (#76). Server-rendered on every page load and nothing else: no
- * counts, no badges, nothing that could be stale by the time it is read.
+ * Which links this request gets (#76). This half is the GATE -- who you are, and how far the night
+ * has got; the words themselves are `menuFor()` in `content/chrome.js`, which is where a copy pass
+ * can find them and where `/kit` reads them from too.
  *
- * **Guests get no menu while the game is playing** (#11). The tiles are the navigation, and a bar
- * over them for five hours is chrome in the way of the thing it is pointing at. It arrives at the
- * reveal, when there are suddenly four places to be and the board has stopped being one of them.
- *
- * **The reveal is the showdown, not the freeze** (#77). The gap between them is the hour in which
- * the hosts finish the queue, and a guest whose bar had already sprouted `league` during it would
- * be one tap from an ending nobody has read out yet.
+ * Server-rendered on every page load and nothing else: no counts, no badges, nothing that could be
+ * stale by the time it is read. A count on `court` was the obvious candidate and lost, because
+ * this site polls nowhere but `/admin`.
  *
  * **A host is never a team.** Settled while resolving #76: one host runs the admin and does not
  * play, the other plays and is an ordinary guest. So the two bars never appear on one device and
- * no word has to mean two pages at once -- which is what killed `dashboard`, the ticket's own
- * candidate, in favour of `HQ` for the host's view and `games` for a guest's tiles.
+ * no word has to mean two pages at once.
  *
- * **`league` is in the host's bar from the first minute**, and that is a decision about who the
- * standings belong to rather than about a link. #8 locked out showing a guest anything comparative
- * all night; it never locked it out for the person running the night, who has to be able to look
- * at the rankings whenever they want. So `/showdown` stops being reveal-only and opens to the
- * admin cookie at any time, while a guest is still bounced to `/` until the game has ended.
- * `recap` and `shots` stay gated on the reveal for everyone, per #11.
+ * **The reveal is the showdown, not the freeze** (#77), which is why this reads
+ * `showdownHasStarted()` and not `gameIsOver()`. The gap between them is the hour in which the
+ * hosts finish the queue, and a guest whose bar had already sprouted `league` during it would be
+ * one tap from an ending nobody has read out yet.
  */
 function navFor(req, here) {
-  const over = showdownHasStarted();
+  const items = chrome.menuFor({
+    admin: isAdmin(req),
+    showdown: showdownHasStarted(),
+  });
 
-  if (isAdmin(req)) {
-    return navbar(
-      [
-        { href: '/admin', label: 'HQ' },
-        { href: '/admin/court', label: 'court' },
-        { href: '/showdown', label: 'league' },
-        ...(over
-          ? [
-              { href: '/recap', label: 'recap' },
-              { href: '/shots', label: 'shots' },
-            ]
-          : []),
-      ].map((item) => ({ ...item, here: item.href === here })),
-    );
-  }
-
-  if (!over) return '';
-
-  const team = currentTeam(req);
-  if (!team || !onboardingComplete(team.id)) return '';
-
-  return navbar(
-    [
-      { href: '/', label: 'games' },
-      { href: '/showdown', label: 'league' },
-      { href: '/recap', label: 'recap' },
-      { href: '/shots', label: 'shots' },
-    ].map((item) => ({ ...item, here: item.href === here })),
-  );
+  return navbar(items.map((item) => ({ ...item, here: item.href === here })));
 }
 
 // --- dashboard, games, rules ------------------------------------------------------------------
