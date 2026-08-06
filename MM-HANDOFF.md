@@ -624,6 +624,30 @@ rm -f data/bday.sqlite-wal data/bday.sqlite-shm
 docker compose start bday
 ```
 
+### Clearing the practice night
+
+The host does this himself, from his phone, shortly before guests arrive: `/admin` → **reset the
+game** → type `RESET`. It empties every team, answer, photograph and point, so the party does not
+start on top of the rehearsal. You do not need a shell for it, and you should not need to do it at
+all — it is here because it is the one button that can also be pressed by accident at 23:00.
+
+**It deletes nothing.** Before emptying anything it snapshots the database and *moves* the uploads
+directory, both into one place:
+
+```
+data/resets/<timestamp>/bday.sqlite
+data/resets/<timestamp>/uploads/
+```
+
+So if it is ever pressed mid-party, the night is recoverable: restore that `bday.sqlite` with the
+recipe above, and move the photographs back with `mv data/resets/<timestamp>/uploads/* data/uploads/`.
+
+A double-tap makes two directories a second apart. Take the **first**, not the newest — the second
+one snapshotted a board the first had already emptied, and is the one with nothing in it.
+
+Those directories are the only thing under `data/` that is safe to delete once the party they hold
+is over — they can be a few hundred MB of photographs each.
+
 ---
 
 ## During the party
@@ -636,6 +660,7 @@ docker compose start bday
 | It's wedged | `docker compose restart bday` — data is on the bind mount and survives |
 | Ship a content fix | `git pull && BUILD_COMMIT=$(git rev-parse --short HEAD) docker compose up -d --build` — roughly 10 seconds of downtime. Confirm with `curl -s .../healthz` that `"build"` moved |
 | Take a snapshot | `docker compose exec bday node scripts/backup.js` |
+| Somebody pressed **reset the game** by mistake | Nothing is lost. The whole night is in `data/resets/<timestamp>/` — see [§ Clearing the practice night](#clearing-the-practice-night) |
 | Lights aren't firing | Run the `GET` → 405 probe. If it returns 200, the automation isn't registered |
 | Host lost the admin page | They visit `/admin/key/<ADMIN_SECRET>` again on any phone |
 | "This QR code is broken" | Read the slug printed under the code, look it up at `/admin/codes` — it shows what the code should do and how many teams have scanned it |

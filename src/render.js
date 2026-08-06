@@ -692,8 +692,12 @@ export function win({ title = '', body = '', status = '', closeHref = '/' }) {
 /**
  * An honest placeholder. It names the ticket that owns the design, so nobody mistakes a stub for
  * a decision that was already made.
+ *
+ * `extra` is markup, not text, and is the one thing a stub renders un-escaped. It exists because a
+ * page can be undesigned and still owe a working link: `/admin` is a stub owned by #11, but the
+ * reset it has to reach (#63) is built and live, and a control nobody can get to is not built.
  */
-export function stub({ title, owner, does, data = null, still = false }) {
+export function stub({ title, owner, does, data = null, still = false, extra = '' }) {
   return layout({
     title,
     still,
@@ -701,6 +705,7 @@ export function stub({ title, owner, does, data = null, still = false }) {
       <p class="banner"><strong>Not designed yet.</strong> Owned by: ${escape(owner)}.</p>
       <p>${escape(does)}</p>
       ${data ? `<pre class="mono">${escape(JSON.stringify(data, null, 2))}</pre>` : ''}
+      ${extra}
       <a class="btn btn--close" href="/">back to the dashboard</a>
     `,
   });

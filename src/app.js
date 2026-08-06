@@ -111,6 +111,7 @@ import {
   submissionsFor,
   teamScore,
 } from './scoring.js';
+import { resetGame, whatWouldBeCleared } from './reset.js';
 import { fireWebhook } from './webhooks.js';
 import {
   blurb,
@@ -1814,6 +1815,10 @@ function adminBoard({ req, res }) {
       does: 'Live board with polling, per-game galleries, judging, manual awards, end game.',
       data: { gameOver: gameIsOver(), board },
       still: true, // it polls; a page that re-animates every few seconds cannot be read
+      // The board is undesigned, the reset is not, and the host has to be able to reach it from
+      // here at 19:45. Whoever builds the real board (#11) inherits this link -- it is in
+      // CONTEXT.md's route table, which is where the inventory is settled rather than here.
+      extra: `<a class="btn" href="/admin/reset">reset the game</a>`,
     }),
   );
 }
@@ -2106,6 +2111,107 @@ function adminCodes({ req, res }) {
   );
 }
 
+/** How long ago, in words, for the one line on the reset page that separates 19:45 from 23:00. */
+function ago(minutes) {
+  if (minutes < 1) return 'seconds ago';
+  if (minutes === 1) return 'a minute ago';
+  if (minutes < 90) return `${minutes} minutes ago`;
+  const hours = Math.round(minutes / 60);
+  return hours === 1 ? 'an hour ago' : `${hours} hours ago`;
+}
+
+/**
+ * The reset, as a page rather than a button on the board.
+ *
+ * That is the first of its three guards and the cheapest: the board carries a link, and a link
+ * destroys nothing. The second is this page, which counts what it is about to clear and says when
+ * somebody last played -- see src/reset.js for why that sentence is the one doing the work. The
+ * third is the typed word, because a page reached by one tap can be dismissed by another, and a
+ * five-letter word on a phone keyboard is a decision rather than a twitch.
+ *
+ * None of the three is a confirm dialog, deliberately: this site's client JS is animation and the
+ * hint modal, and `confirm()` would be the one place a control depended on a script running.
+ */
+function adminReset({ req, res, url }) {
+  if (!requireAdmin(req, res)) return undefined;
+
+  const state = whatWouldBeCleared();
+  const kept = url.searchParams.get('kept');
+  const wrong = url.searchParams.has('wrong');
+
+  const row = (label, value) =>
+    `<tr><th>${escape(label)}</th><td class="mono">${escape(String(value))}</td></tr>`;
+
+  const done = kept
+    ? `<p class="banner"><strong>Cleared.</strong> The night before this one is in
+        <code>data/resets/${escape(kept)}</code>.</p>`
+    : '';
+
+  const refused = wrong
+    ? `<p class="banner banner--bad">That was not the word. Nothing was cleared.</p>`
+    : '';
+
+  const activity = state.teams
+    ? `<p><strong>A team was last active ${escape(ago(state.minutesIdle))}.</strong> If that is
+        minutes rather than hours, the party is happening right now and this is the wrong page.</p>`
+    : '<p>The board is already empty.</p>';
+
+  return html(
+    res,
+    layout({
+      title: 'Reset',
+      still: true, // admin surface
+      body: `
+        ${done}
+        ${refused}
+        <p class="banner banner--bad">This empties the board.</p>
+        ${activity}
+        <table class="board">
+          <tbody>
+            ${row('teams', state.teams)}
+            ${row('submissions', state.submissions)}
+            ${row('photographs', state.photos)}
+            ${row('awards', state.awards)}
+            ${row('points on the board', state.points)}
+          </tbody>
+        </table>
+        <p>Games, codes, questions and hints are files in this repository and are not touched.
+          Only what the guests made is cleared.</p>
+        <p>Nothing is deleted. The database is snapshotted and the photographs are moved into
+          <code>data/resets/</code> first, so a mistake here is recoverable &mdash; see
+          <code>MM-HANDOFF.md</code>.</p>
+        <form method="post" action="/admin/reset">
+          ${field({
+            label: 'Type RESET to confirm',
+            name: 'confirm',
+            attrs: { autocomplete: 'off', autocapitalize: 'characters', autocorrect: 'off' },
+          })}
+          <button class="btn btn--primary" type="submit">reset the game</button>
+        </form>
+        <a class="btn btn--close" href="/admin">back to the board</a>
+      `,
+    }),
+  );
+}
+
+/**
+ * Redirects either way rather than rendering, so the one page in this site that can destroy five
+ * hours of a party is never sitting behind a form resubmission. A refused word goes back to the
+ * page with `?wrong`; a successful one comes back naming the directory the old night went into,
+ * which doubles as the proof it worked -- the counts above it are now zero.
+ */
+async function adminResetConfirm({ req, res }) {
+  if (!requireAdmin(req, res)) return undefined;
+
+  const form = await readForm(req);
+  // Trimmed and lowercased because phone keyboards capitalise and add a space, and refusing a
+  // host who typed the right word is a worse outcome than accepting `reset `.
+  const typed = String(form.get('confirm') ?? '').trim().toLowerCase();
+  if (typed !== 'reset') return redirect(res, '/admin/reset?wrong=1');
+
+  return redirect(res, `/admin/reset?kept=${encodeURIComponent(resetGame())}`);
+}
+
 // --- static -----------------------------------------------------------------------------------
 
 async function serveFrom(rootDir, relativePath, res, { immutable = false } = {}) {
@@ -2210,6 +2316,8 @@ const routes = [
   route('POST', '/admin/reopen', adminReopen),
   route('POST', '/admin/rescore', adminRescore),
   route('GET', '/admin/codes', adminCodes),
+  route('GET', '/admin/reset', adminReset),
+  route('POST', '/admin/reset', adminResetConfirm),
 
   route('GET', '/kit', serveKit),
   route('GET', '/healthz', healthz),

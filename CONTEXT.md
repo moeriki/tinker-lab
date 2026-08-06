@@ -556,6 +556,30 @@ see who was still hunting at midnight; they just buy nothing.
 
 **Reversible.** Reopening clears the timestamp; resolvers are idempotent, so re-running is free.
 
+### Reset
+
+The other end of the night from game end, and the only control that empties the board: **every
+table in the database, and the uploads directory with them**. Pressed once, shortly before guests
+arrive, to get the rehearsal out of the way — but it is a live control on `/admin/reset`, not a dev
+tool, because 19:45 on a phone is when it is needed and a shell on Tower is not reachable then.
+
+**What it clears is not a list.** The database holds player data *only* — content is files in this
+repository — so a reset empties whatever tables `sqlite_master` reports, read at the moment it
+runs. Nothing enumerates them, so a migration that adds a table never has to remember to update a
+wipe. Migrations themselves survive: `user_version` is a pragma on the file, not a row.
+
+**Nothing is deleted.** `VACUUM INTO` snapshots the database and the uploads directory is *moved*,
+both into `$DATA_DIR/resets/<timestamp>/`, before a row is emptied. That is what makes it safe to
+have on the board at 23:00: the worst a mis-press does is file the night away, restorable by the
+recipe in `MM-HANDOFF.md`.
+
+**Three guards, no dialog.** It is a page rather than a button, so one tap destroys nothing; the
+page counts what it would clear and says **how long ago somebody last played**, which is the line
+that separates a rehearsal from a party in progress; and the form takes the typed word `RESET`. It
+states the risk and never refuses — at 19:45 the recent activity is the host's own testing, and a
+machine that blocked him then would be wrong. Deliberately no `confirm()`: client JS here is
+animation and the hint modal, and this is the last control that should need a script to run.
+
 ### Profile answer
 
 An onboarding questionnaire answer, keyed by `question_id` from `content/questions.js`. Its
@@ -636,6 +660,9 @@ $DATA_DIR/bday.sqlite-wal    ┐ WAL sidecars — which is why the deployment mu
 $DATA_DIR/bday.sqlite-shm    ┘ bind-mount the DIRECTORY, never the .sqlite file
 $DATA_DIR/uploads/0007-yarn-20260814T2134-a3f9.jpg        a photo, as the camera made it
 $DATA_DIR/uploads/0007-yarn-20260814T2134-a3f9.thumb.jpg  its EXIF thumbnail, where there was one
+$DATA_DIR/backups/bday-<timestamp>.sqlite                 scripts/backup.js
+$DATA_DIR/resets/<timestamp>/bday.sqlite  ┐ a night filed away by /admin/reset — see **Reset**.
+$DATA_DIR/resets/<timestamp>/uploads/     ┘ Deletable once the party it holds is over.
 ```
 
 ## Route inventory
@@ -671,6 +698,8 @@ Admin, all behind one cookie gate
 | POST | `/admin/end` · `/admin/reopen` | the freeze, and its undo |
 | POST | `/admin/rescore` | re-run content scoring over existing player data |
 | GET | `/admin/codes` | slug → target inventory with scan counts, for debugging a code someone says is broken |
+| GET | `/admin/reset` | what a reset would clear, and the typed confirmation — see **Reset** |
+| POST | `/admin/reset` | file the night into `$DATA_DIR/resets/` and empty every table |
 
 **`HEAD` is answered wherever `GET` is** — `route()` matches a HEAD against a GET route and Node
 drops the body — so `curl -I` and the uptime monitors that default to HEAD read a healthy site as
