@@ -1007,6 +1007,72 @@ ol.stack {
   text-align: center;
 }
 
+/* ----------------------------------- menu ----------------------------------- */
+
+/*
+ * The pinned foot: the menu bar with the small print under it (#76). It exists only on pages that
+ * were given a menu -- `layout()` emits the statusbar bare otherwise -- so every page that had no
+ * bar before this ticket is laid out exactly as it was.
+ *
+ * `position: fixed` and not `sticky`, because sticky needs the element to be reachable by
+ * scrolling and the point of this bar is that it is reachable without. The pair is pinned
+ * together, with the menu on top, so the frame still ends in the same black strip it always did
+ * and iOS keeps sampling `<body>`'s background-color for its own bottom bar rather than this.
+ */
+.foot {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 60;
+}
+
+/*
+ * The clearance the fixed foot owes the page. It goes on `.app` for the same reason the 3rem
+ * already there does: the last thing a page says must stop above the frame rather than under it.
+ * Generous rather than measured, since the foot is two strips for a guest and one for a host and
+ * a page that ends slightly early reads as finished, while one that ends under the bar reads as
+ * broken.
+ */
+.shell--nav .app { padding-bottom: 8rem; }
+
+.navbar {
+  display: flex;
+  justify-content: center;
+  gap: 0.15rem;
+  background: var(--c-ink);
+  border-top: var(--edge-2) solid var(--c-ink);
+  padding: 0.35rem 0.4rem;
+}
+
+/*
+ * `flex: 0 1 auto` with `min-width: 0` so five words shrink together rather than the last one
+ * falling off the end. Measured at 390px: the host's five come to 23 characters against a budget
+ * of roughly 44, so this is insurance against a longer word arriving later, not a live squeeze.
+ */
+.navbar__item {
+  flex: 0 1 auto;
+  min-width: 0;
+  padding: 0.4rem 0.55rem;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #2bff2b;
+  text-decoration: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The page you are standing on. `aria-current` carries the same fact for anything not looking. */
+.navbar__item--here {
+  background: #2bff2b;
+  color: var(--c-ink);
+}
+
+.navbar__item:active { background: var(--c-magenta); color: var(--c-paper); }
+
 /* --------------------------------- photos ---------------------------------- */
 
 /* A banner that has gone wrong. Same box, different mood. */

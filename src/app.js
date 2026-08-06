@@ -124,6 +124,7 @@ import {
   hero,
   hintModal,
   layout,
+  navbar,
   notFound,
   rulesList,
   scorebar,
@@ -663,6 +664,66 @@ function afterOnboarding(req, res, team) {
   return applyCode({ team, slug: pending, target, deferred: true }) ?? '/';
 }
 
+// --- the menu bar -----------------------------------------------------------------------------
+
+/**
+ * Which links this request gets (#76). Server-rendered on every page load and nothing else: no
+ * counts, no badges, nothing that could be stale by the time it is read.
+ *
+ * **Guests get no menu while the game is playing** (#11). The tiles are the navigation, and a bar
+ * over them for five hours is chrome in the way of the thing it is pointing at. It arrives at the
+ * reveal, when there are suddenly four places to be and the board has stopped being one of them.
+ *
+ * **The reveal is the showdown, not the freeze** (#77). The gap between them is the hour in which
+ * the hosts finish the queue, and a guest whose bar had already sprouted `league` during it would
+ * be one tap from an ending nobody has read out yet.
+ *
+ * **A host is never a team.** Settled while resolving #76: one host runs the admin and does not
+ * play, the other plays and is an ordinary guest. So the two bars never appear on one device and
+ * no word has to mean two pages at once -- which is what killed `dashboard`, the ticket's own
+ * candidate, in favour of `HQ` for the host's view and `games` for a guest's tiles.
+ *
+ * **`league` is in the host's bar from the first minute**, and that is a decision about who the
+ * standings belong to rather than about a link. #8 locked out showing a guest anything comparative
+ * all night; it never locked it out for the person running the night, who has to be able to look
+ * at the rankings whenever they want. So `/showdown` stops being reveal-only and opens to the
+ * admin cookie at any time, while a guest is still bounced to `/` until the game has ended.
+ * `recap` and `shots` stay gated on the reveal for everyone, per #11.
+ */
+function navFor(req, here) {
+  const over = showdownHasStarted();
+
+  if (isAdmin(req)) {
+    return navbar(
+      [
+        { href: '/admin', label: 'HQ' },
+        { href: '/admin/court', label: 'court' },
+        { href: '/showdown', label: 'league' },
+        ...(over
+          ? [
+              { href: '/recap', label: 'recap' },
+              { href: '/shots', label: 'shots' },
+            ]
+          : []),
+      ].map((item) => ({ ...item, here: item.href === here })),
+    );
+  }
+
+  if (!over) return '';
+
+  const team = currentTeam(req);
+  if (!team || !onboardingComplete(team.id)) return '';
+
+  return navbar(
+    [
+      { href: '/', label: 'games' },
+      { href: '/showdown', label: 'league' },
+      { href: '/recap', label: 'recap' },
+      { href: '/shots', label: 'shots' },
+    ].map((item) => ({ ...item, here: item.href === here })),
+  );
+}
+
 // --- dashboard, games, rules ------------------------------------------------------------------
 
 function showDashboard({ req, res }) {
@@ -744,6 +805,7 @@ function showDashboard({ req, res }) {
     layout({
       title: 'Your board',
       bar: teamBar(team),
+      nav: navFor(req, '/'),
       body: `
         ${endNotice()}
         ${standing({ band: standingBand(team.id), text: standingsMessage(team.id) })}
@@ -1270,6 +1332,7 @@ function showGame({ req, res, params, url }) {
     layout({
       title: escape(game.title),
       bar: teamBar(team),
+      nav: navFor(req),
       modal: notice
         ? hintModal({ notice, cost: hintCost(), backHref: gamePath(game.id, { step }) })
         : '',
@@ -1771,6 +1834,7 @@ function showRules({ req, res }) {
     layout({
       title: rulesCopy.title,
       bar: team ? teamBar(team) : '',
+      nav: navFor(req),
       showClose: true,
       body: `
         ${win({ title: rulesCopy.filename, body: rulesList(rules), status })}
@@ -1814,24 +1878,71 @@ function showPage({ req, res, params }) {
     });
   }
 
-  return html(res, layout({ title: page.title, body, showClose: page.showClose }));
+  return html(res, layout({ title: page.title, body, showClose: page.showClose, nav: navFor(req) }));
 }
 
 /**
- * Gated on the showdown having been STARTED, not on the game having ended -- the gap between
- * those two is the hour in which the hosts finish the queue and read the top three off their own
- * board, and this page existing during it would hand the room the ending early.
+ * Gated for a GUEST on the showdown having been STARTED, not on the game having ended -- the gap
+ * between those two is the hour in which the hosts finish the queue and read the top three off
+ * their own board, and this page existing during it would hand the room the ending early (#77).
+ *
+ * **The admin cookie reaches it at any time** (#76). #8's rule that nothing comparative is ever
+ * shown all night is a rule about guests; the person running the night is the one it was written
+ * to protect, and they have to be able to read the rankings whenever they want -- including during
+ * exactly that gap, which is when they are reading the top three off something.
  */
 function showShowdown({ req, res }) {
-  if (!showdownHasStarted()) return redirect(res, '/');
+  if (!showdownHasStarted() && !isAdmin(req)) return redirect(res, '/');
 
   return html(
     res,
     stub({
       title: 'The showdown',
+      nav: navFor(req, '/showdown'),
       owner: 'Admin dashboard and results showdown',
       does: 'Final standings, winner badge and reveal animation.',
       data: standings(),
+    }),
+  );
+}
+
+/**
+ * The two surfaces the menu bar named before anybody built them (#76). Both are reachable only
+ * after the reveal, and both bounce to `/` before it for `/showdown`'s reason: a link that lands
+ * on an empty page is worse than a link that is not in the bar yet, and the bar does not offer
+ * these until the game is over either way.
+ *
+ * They exist now because the alternative was a bar with two words in it that 404. CONTEXT.md's
+ * rule is that a route a later ticket owns renders an honest stub naming it, so that is what
+ * these are -- the words `recap` and `shots` are settled, the pages behind them are not.
+ *
+ * Both gate on the showdown having been STARTED rather than on the game having ended, which is
+ * `/showdown`'s own line (#77) and for its reason: the freeze is not the reveal.
+ */
+function showRecap({ req, res }) {
+  if (!showdownHasStarted()) return redirect(res, '/');
+
+  return html(
+    res,
+    stub({
+      title: 'Recap',
+      nav: navFor(req, '/recap'),
+      owner: 'Nothing turns the night’s own material back into a moment',
+      does: 'The night played back from what teams actually wrote and shot.',
+    }),
+  );
+}
+
+function showShots({ req, res }) {
+  if (!showdownHasStarted()) return redirect(res, '/');
+
+  return html(
+    res,
+    stub({
+      title: 'Shots',
+      nav: navFor(req, '/shots'),
+      owner: 'Every photograph of the night is visible only to the hosts',
+      does: 'Every photograph of the night, open to the people who took them.',
     }),
   );
 }
@@ -1917,6 +2028,7 @@ function adminBoard({ req, res }) {
     res,
     stub({
       title: 'Admin',
+      nav: navFor(req, '/admin'),
       owner: 'Admin dashboard and results showdown',
       does: 'Live board with polling, per-game galleries, judging, manual awards, end game.',
       data: { gameOver: gameIsOver(), showdown: showdownHasStarted(), board },
@@ -1973,6 +2085,7 @@ function trophyPanel(res, game) {
     res,
     layout({
       title: game.title,
+      nav: navFor(req),
       still: true, // admin surface
       body: `
         <p class="statusline">A trophy — no form, no submissions. Award it to whoever is holding
@@ -1993,6 +2106,27 @@ function trophyPanel(res, game) {
  * content, never from a hardcoded list -- so locking the roster needs no change here. A trophy
  * has no submissions to gallery, and hands off above.
  */
+/**
+ * `court` in the host's menu bar (#76): one queue across every game, rather than the per-game
+ * galleries `HQ` already links. It is in the bar from the first minute of the night because it is
+ * the only surface a host opens repeatedly -- and it is a stub because what a queue holds is
+ * #83's decision, not this ticket's.
+ */
+function adminCourt({ req, res }) {
+  if (!requireAdmin(req, res)) return undefined;
+
+  return html(
+    res,
+    stub({
+      title: 'Court',
+      nav: navFor(req, '/admin/court'),
+      owner: 'Photographs are trusted, and nobody has decided what the queue holds',
+      does: 'Everything waiting on a human verdict, across all games, in one list.',
+      still: true, // admin surface
+    }),
+  );
+}
+
 function adminGame({ req, res, params }) {
   if (!requireAdmin(req, res)) return undefined;
 
@@ -2049,6 +2183,7 @@ function adminGame({ req, res, params }) {
     res,
     layout({
       title: game.title,
+      nav: navFor(req),
       still: true, // admin surface: judging a gallery, not arriving at a party page
       body: `
         <p class="statusline">${escape(explainer)}</p>
@@ -2255,6 +2390,7 @@ function adminCodes({ req, res }) {
     res,
     layout({
       title: 'Codes',
+      nav: navFor(req),
       still: true, // admin surface
       body: `
         <p>${listCodes().length} codes. Scans are shown as <em>accepted / total</em>; a code with
@@ -2323,6 +2459,7 @@ function adminReset({ req, res, url }) {
     res,
     layout({
       title: 'Reset',
+      nav: navFor(req),
       still: true, // admin surface
       body: `
         ${done}
@@ -2468,9 +2605,12 @@ const routes = [
   route('GET', '/rules', showRules),
   route('GET', '/p/:pageId', showPage),
   route('GET', '/showdown', showShowdown),
+  route('GET', '/recap', showRecap),
+  route('GET', '/shots', showShots),
 
   route('GET', '/admin/key/:secret', adminKey),
   route('GET', '/admin', adminBoard),
+  route('GET', '/admin/court', adminCourt),
   route('GET', '/admin/game/:gameId', adminGame),
   route('POST', '/admin/judge', adminJudge),
   route('POST', '/admin/trophy', adminTrophy),

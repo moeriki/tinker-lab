@@ -702,7 +702,9 @@ Team-facing:
 | POST | `/g/:gameId/hint` | reveal next hint, write the negative award | PRG |
 | GET | `/rules` | rules; the hidden hint rule appears after the first reveal | ✓ |
 | GET | `/p/:pageId` | gag and hidden pages | ✓ |
-| GET | `/showdown` | final standings, once the **showdown has been started** — not merely once the game has ended | ✓ |
+| GET | `/showdown` | final standings, once the **showdown has been started** — not merely once the game has ended. The admin cookie reaches it at any time ([ADR-the-menu-bar-is-pinned-to-the-bottom](docs/adr/the-menu-bar-is-pinned-to-the-bottom.md)) | ✓ |
+| GET | `/recap` | the night played back from its own material; once the showdown has started. Honest stub, owned by #81 | ✓ |
+| GET | `/shots` | every photograph of the night, open to the teams; once the showdown has started. Honest stub, owned by #80 | ✓ |
 
 Admin, all behind one cookie gate
 ([ADR-admin-is-a-one-time-secret-url](docs/adr/admin-is-a-one-time-secret-url.md)):
@@ -711,6 +713,7 @@ Admin, all behind one cookie gate
 | --- | --- | --- |
 | GET | `/admin/key/:secret` | set the admin cookie, redirect to `/admin` |
 | GET | `/admin` | live board: teams, scores, hunt progress, unjudged count |
+| GET | `/admin/court` | everything waiting on a human verdict, across all games, in one list. Honest stub, owned by #83 |
 | GET | `/admin/game/:gameId` | the gallery: every submission for one game, with the actions its judging mode calls for — or, for a `trophy`, the team list with one button each |
 | POST | `/admin/judge` | verdict + award on one submission; rejecting writes a zero rather than deleting, so re-judging upserts |
 | POST | `/admin/trophy` | hand a trophy over, or take it back (which writes a zero) |
@@ -921,6 +924,18 @@ lines per request.
 > **`layout({ still: true })` drops both.** `still` already meant *this is a working surface, not a
 > party* ([#14](https://github.com/moeriki/tinker-lab/issues/14)), so the admin board gets no
 > scrolling banner and no strip that would resample itself under a host every time it polls.
+
+The **menu bar** is the third strip, and the only one that is content rather than decoration: it is
+the site's navigation, pinned to the bottom of the screen with the status bar under it
+([ADR-the-menu-bar-is-pinned-to-the-bottom](docs/adr/the-menu-bar-is-pinned-to-the-bottom.md)). It
+is the exception to everything above — its words are links, not branding, and they differ per
+request, so `navbar()` is a **slot** filled by `navFor()` in `src/app.js` rather than something
+`render.js` reaches into `content/` for. `still` does **not** drop it: an admin surface is exactly
+the surface that needs it.
+
+**A guest has no menu bar while the game is playing.** The tiles are the navigation for five hours;
+the bar arrives at the reveal, when there are suddenly four places to be and the board has stopped
+being one of them.
 
 One line is deliberately absent from the marquee: an early draft carried *HINTS COST YOU POINTS*,
 which would have announced rule 4 on every page from minute one — the one thing on this site that

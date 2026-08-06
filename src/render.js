@@ -51,7 +51,17 @@ import { escape } from './http.js';
  * Chrome and iOS below 26 do read the tag, and the party's guests bring whatever they bring, so one
  * line covering them is worth having as long as nobody mistakes it for the mechanism.
  */
-export function layout({ title, body, bar = '', showClose = false, still = false, modal = '' }) {
+export function layout({
+  title,
+  body,
+  bar = '',
+  nav = '',
+  showClose = false,
+  still = false,
+  modal = '',
+}) {
+  const foot = `${nav}${still ? '' : statusbar()}`;
+
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -61,7 +71,7 @@ export function layout({ title, body, bar = '', showClose = false, still = false
   <title>${escape(title)}</title>
   <link rel="stylesheet" href="/css/app.css">
 </head>
-<body class="shell">
+<body class="shell${nav ? ' shell--nav' : ''}">
   ${devBar()}
   ${modal}
   ${still ? '' : marquee()}
@@ -73,7 +83,7 @@ export function layout({ title, body, bar = '', showClose = false, still = false
       ${showClose ? '<a class="btn btn--close" href="/">close</a>' : ''}
     </div>
   </div>
-  ${still ? '' : statusbar()}
+  ${nav ? `<div class="foot">${foot}</div>` : foot}
   <script type="module" src="/js/app.js"></script>
 </body>
 </html>`;
@@ -157,6 +167,38 @@ export function statusbar(items = sample(chrome.status, chrome.STATUS_SLOTS)) {
   return `<div class="statusbar" aria-hidden="true">
     ${items.map((text) => `<span class="mono">${escape(text)}</span>`).join('')}
   </div>`;
+}
+
+/**
+ * The menu bar, pinned to the bottom of the screen above the small print (#76). Two audiences and
+ * one list: a host holds `HQ court league recap shots`, a guest after the reveal holds
+ * `games league recap shots`, and the three words in the middle are the same words on both.
+ *
+ * **It is a slot, not something this file decides.** Which links a request gets depends on the
+ * admin cookie and on whether the game has ended, and `render.js` is the one file here that never
+ * opens the database -- so `navFor()` in `app.js` picks the items and this draws them. Same seam
+ * as `bar`, for the same reason.
+ *
+ * **Bottom rather than top, and that is the whole design.** The top of a guest page already holds
+ * a sticky marquee and a scorebar, and nothing may go above the marquee: Safari 26 samples the
+ * topmost sticky element to tint the phone's own status bar, which is what makes the frame run to
+ * the edge of the screen (#72). The bottom was empty on every host surface -- `still: true` drops
+ * the small print too -- and it is where a thumb already is at one in the morning.
+ *
+ * **`aria-current` and a lime block on the page you are standing on.** Five flat words in a loud
+ * room are five identical words; the block is the only thing that says which one you already
+ * pressed. Colour is decoration, `aria-current` is the meaning, and neither is load-bearing --
+ * every one of these pages says its own name in its `<h1>`.
+ */
+export function navbar(items) {
+  if (!items.length) return '';
+
+  const link = ({ href, label, here }) =>
+    `<a class="navbar__item${here ? ' navbar__item--here' : ''}" href="${escape(href)}"${
+      here ? ' aria-current="page"' : ''
+    }>${escape(label)}</a>`;
+
+  return `<nav class="navbar" aria-label="Menu">${items.map(link).join('')}</nav>`;
 }
 
 /** `count` distinct members of `list`, in random order. Partial Fisher-Yates over a copy. */
@@ -704,10 +746,11 @@ export function win({ title = '', body = '', status = '', closeHref = '/' }) {
  * page can be undesigned and still owe a working link: `/admin` is a stub owned by #11, but the
  * reset it has to reach (#63) is built and live, and a control nobody can get to is not built.
  */
-export function stub({ title, owner, does, data = null, still = false, extra = '' }) {
+export function stub({ title, owner, does, data = null, still = false, extra = '', nav = '' }) {
   return layout({
     title,
     still,
+    nav,
     body: `
       <p class="banner"><strong>Not designed yet.</strong> Owned by: ${escape(owner)}.</p>
       <p>${escape(does)}</p>
