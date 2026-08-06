@@ -52,3 +52,7 @@ The five canonical triage roles, using the default label strings. See `docs/agen
 ### Domain docs
 
 Single-context — one `CONTEXT.md` and one `docs/adr/` at the repo root. See `docs/agents/domain.md`.
+
+### Containers
+
+**This machine runs Podman; there is no `docker` binary.** Use `podman` and `podman-compose` — a container change is verifiable here, so never report one as unproven for want of a runtime. The `docker compose` lines in `MM-HANDOFF.md` are Tower's and stay as they are. See `docs/agents/containers.md`.
