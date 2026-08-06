@@ -1047,8 +1047,18 @@ code {
   padding: 0.4rem;
 }
 
-/* Keeps a long prompt or a long quote from shoving the thumbnail out of the row. */
+/* Keeps a long prompt or a long quote from shoving the thumbnail out of the row.
+   It is also a STACK, and that is not tidiness. Primitives here carry no outer margin, so anything
+   this column holds sits flush against its neighbour -- and a speech bubble's 6px shadow then
+   paints straight across the top of whatever follows it. On Guess Who that is the `who wrote
+   this?` label, sliced in half on all ten cards of the longest form on the site, from the day the
+   tile landed (#22). /kit could not catch it: its unit row demos a bubble with nothing under it,
+   and the dropdown under a card belongs to the page. 0.6rem is the row's own gap, so the column
+   reads like the row it sits in. */
 .unit__said {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
   flex: 1;
   min-width: 0;
 }
