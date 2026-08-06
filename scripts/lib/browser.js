@@ -134,7 +134,7 @@ function connect(socket) {
  * JS on any team-facing interaction, so there is no hover, no wait-for-selector and no network
  * idle to model. Load the page, read it, fill the form the server sent, submit it, look.
  */
-function makePage(cdp, { base, outDir, overflow }) {
+function makePage(cdp, { base, outDir, overflow, width }) {
   /** Run an expression in the page and get a real JS value back. */
   async function evaluate(expression) {
     const reply = await cdp.send('Runtime.evaluate', {
@@ -363,6 +363,15 @@ function makePage(cdp, { base, outDir, overflow }) {
         'return JSON.stringify({inner: innerWidth, doc: document.documentElement.scrollWidth})',
       );
       const { inner, doc } = JSON.parse(measured ?? '{}');
+      // Two different ways to be too wide, and the second one hid a real defect from this very
+      // check. A box that sizes itself to its content -- `contain: inline-size` on `.board`, on
+      // /admin/codes -- widens the VIEWPORT to match rather than overflowing inside it. Both
+      // numbers rise together, `doc > inner` stays quiet, and the page is laid out at 672px on a
+      // 390px phone with `body { overflow-x: hidden }` clipping the rest. The width we asked for
+      // is the only fixed thing here, so it has to be one of the comparisons.
+      if (inner > width) {
+        overflow.push(`${name}: the viewport stretched to ${inner}px, asked for ${width}px`);
+      }
       if (doc > inner) overflow.push(`${name}: content is ${doc}px wide in a ${inner}px viewport`);
 
       const shot = await cdp.send('Page.captureScreenshot', {
@@ -512,7 +521,7 @@ export async function withBrowser(options, fn) {
       });
     }
 
-    const page = makePage(cdp, { base, outDir, overflow });
+    const page = makePage(cdp, { base, outDir, overflow, width });
     const result = await fn({ page, base, outDir });
     socket.close();
     return { result, outDir, overflow };
