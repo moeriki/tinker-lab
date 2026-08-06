@@ -512,9 +512,14 @@ ol.stack {
 }
 
 /* flavour: a video. The frame keeps its outline and shadow and drops its padding, so the picture
-   goes edge to edge inside the border. Ink rather than paper underneath: an embed that is slow,
-   blocked or offline leaves a black rectangle, which reads as a dead screen rather than as a
-   broken page -- and on the one page that uses this, a dead screen is still the joke. */
+   goes edge to edge inside the border. Ink rather than paper underneath, so a player that is up
+   before its video is reads as a dead screen rather than as a hole in the page -- and on the one
+   page that uses this, a dead screen is still the joke.
+
+   It only reaches that far. An embed that fails outright paints the BROWSER's error document
+   inside the frame, opaque and cross-origin, and this background never shows through it: measured
+   in Chrome at 390x844 on 2026-08-06, that is a light grey box with a sad-document glyph. See
+   content/pages/rickroll.js for what each of the three failures actually looks like. */
 .hero--video {
   padding: 0;
   background: var(--c-ink);
