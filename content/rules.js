@@ -19,7 +19,7 @@
 export default {
   title: 'The rules',
 
-  // The window frame's title bar. The style kit drew this page as a document (kit.html §7) and
+  // The window frame's title bar. The style kit drew this page as a document (kit.html §8) and
   // captioned the fake file `de_regels.txt` -- Dutch, and the map's locked constraints say English
   // throughout, so it is anglicised here rather than quoted. The `.txt` is the joke; the language
   // was not carrying it.

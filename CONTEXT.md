@@ -767,20 +767,52 @@ would be a file nobody runs that looks like enforcement — [#32](https://github
 reasoning, unchanged.
 
 No **component** the app renders is missing from `/kit` any more. The last one was the **signature
-card** — `card()` and `square()`, demoed at §15 in all three of its states, and the one component
+card** — `card()` and `square()`, demoed at §16 in all three of its states, and the one component
 the kit can show *completely*, since the grid takes no `<form>` and the dropdown under it belongs
 to the page. Before that it was the `.unit` /
 `.units` row — the list every game that pays **per unit** puts on its tile — which looked like a
 page composition because the scavenger wraps each row in a form. It is not: Guess Who and Herd wrap
 the whole list in one form and the portrait gallery has none, so the row never needed a route.
 `unitRow()` takes the caller's rendered markup as its `body`, `render.js` still renders no form
-action anywhere, and §14 demos the row holding real parts
+action anywhere, and §15 demos the row holding real parts
 ([#51](https://github.com/moeriki/tinker-lab/issues/51)).
 
-What is still missing is the **spacing utilities**: `.stack--tight` and `.stack--loose` ship, are
-used, and have no home on the kit ([#59](https://github.com/moeriki/tinker-lab/issues/59)). The
-`@owed` badges cannot catch that class of gap — they count hand-written demos, and a utility with
-no section has no demo to badge.
+The **spacing utilities** now have a home too — `/kit` §4, *Layout & spacing*, which is where the
+rule *a primitive carries no outer margin* is stated to the people who have to obey it rather than
+only in a comment in `app.css` ([#59](https://github.com/moeriki/tinker-lab/issues/59)). It sits
+with the tokens, ahead of every component, because a rule met after nine component sections has
+already been broken nine times. `.stack--loose` was retired there: it shipped with the rule in
+`126369b` and no page ever used it, which is #58's rule taking its second branch for the first
+time.
+
+> **`.field` carries no CSS at all, and that is the point.** It used to say
+> `margin-bottom: 1rem`, landed by the same commit that wrote the no-outer-margin rule. A
+> `<label>` is inline, so in ordinary flow the margin never applied — but inside a `.stack` the
+> label is a flex item, gets blockified, and the margin **adds to the gap**. Every form on this
+> site measured 2rem where the design says 1rem, and `.stack--tight` measured 1.4rem instead of
+> 0.4rem, so the tighter of the two gaps had never once been the thing on screen.
+
+> **The kit counts its coverage as well as its debt.** The footer's third sentence is every class
+> `public/css/app.css` declares, compared against every class the rendered page wears — read per
+> request, so it cannot go stale. **Read it rather than this file for the current number.**
+
+The `@owed` badges cannot catch that class of gap on their own: they count hand-written demos, so a
+section that exists and is unbuilt wears one, and a class with *no section* has no demo to badge.
+That blind spot was found by accident four times running — the photo section
+([#41](https://github.com/moeriki/tinker-lab/issues/41)), the scavenger's row
+([#51](https://github.com/moeriki/tinker-lab/issues/51)), the signature card
+([#60](https://github.com/moeriki/tinker-lab/issues/60)) and these — each by a session doing
+something else. [#32](https://github.com/moeriki/tinker-lab/issues/32) ruled out a drift *script*
+because no test suite and no CI makes a check nobody runs worse than none — and that reasoning is
+why the duplicate-selector check two paragraphs above was declined as well. It does not reach this
+one, and the difference is the only thing that matters here: **a script has to be remembered, and a
+sentence in a footer does not.** Nobody runs this; it runs because somebody opened the page, which
+is exactly the property #55 found when it made the debt list count itself. If it ever becomes a
+file in `scripts/`, #32 applies again and it should go.
+
+Classes deliberately kept off the kit are named with their reason in `OFF_KIT` in `src/kit.js`, and
+an exemption naming a class `app.css` no longer declares is reported just as loudly as a missing
+section, so the list cannot rot in either direction.
 
 **The owed list is empty for the first time since it existed**
 ([#58](https://github.com/moeriki/tinker-lab/issues/58)). The last five hand-written demos each

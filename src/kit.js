@@ -26,6 +26,9 @@
 // halves are generated from those markers and from `injectable`, and the page reports its own
 // debt rather than being told what it is (#55).
 
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
 import {
   bubble,
   card,
@@ -48,6 +51,7 @@ import {
 } from './render.js';
 import * as chrome from '../content/chrome.js';
 import economy from '../content/economy.js';
+import { PUBLIC_DIR } from './config.js';
 import { escape } from './http.js';
 
 /** `<!--@name key="value" bare-key-->` */
@@ -58,7 +62,7 @@ const num = (value, fallback = 0) => (value === undefined ? fallback : Number(va
 
 /**
  * A marker's flat bag of strings onto `field()`. Its own function rather than an inline adapter
- * because §14 needs to put a field *inside* a unit row, and a second copy of this mapping is the
+ * because §15 needs to put a field *inside* a unit row, and a second copy of this mapping is the
  * kind of duplication this whole file exists to stop.
  */
 function fieldFrom({ label, name, type, value, rows, options, ...attrs }) {
@@ -158,7 +162,7 @@ const RENDERERS = {
   // The row every unit game puts on its tile. Its `body` is markup the page renders, and a marker
   // attribute is one flat string, so the kit cannot pass one -- it NAMES the primitives to compose
   // instead, and this adapter builds the body out of the same functions a game page calls. Which
-  // is the point: §14 demos the row holding real parts, not a drawing of one.
+  // is the point: §15 demos the row holding real parts, not a drawing of one.
   //
   // The one thing it cannot show is the `<form>` around it, because render.js renders no form
   // action anywhere and this file is not allowed to invent one. So the scavenger's send button is
@@ -326,14 +330,130 @@ const pageChrome = (owed) => ({
         this sentence starts counting again on its own.`,
 });
 
+// ---------------------------------------------------------------------------------------------
+// Coverage: the gap `@owed` cannot see (#59).
+//
+// `@owed` counts hand-written demos -- sections that EXIST and are not yet built. It is blind by
+// construction to a class that ships in `app.css` and has no section at all, because a section
+// that was never written has no badge to wear. That blindness has now been discovered by accident
+// four times running -- #41 (eight photo classes), #51 (the scavenger's row), #60 (the signature
+// card) and #59 (these spacing utilities) -- each time by a session doing something else and
+// noticing. Four accidents is a pattern, not bad luck.
+//
+// #32 ruled out a drift CHECK on reasoning that still holds: there is no test suite and no CI, so
+// a script nobody runs is worse than none, because it looks like enforcement. That objection is
+// about a script. It is not about this. #55 had already found the way out without naming it -- the
+// kit COUNTS rather than remembers, and the count is rendered into the page, so nobody has to run
+// anything and nobody can forget. This is the same move pointed at the other half of the gap.
+//
+// So: every class `app.css` declares, against every class this page actually renders. The
+// difference is either owed a section or listed below with a reason.
+
+const APP_CSS = join(PUBLIC_DIR, 'css/app.css');
+
+/**
+ * Classes `app.css` declares that `/kit` deliberately does not render, and why. Everything not
+ * named here and not on the page is reported in the footer as a gap.
+ *
+ * This is a hand-maintained list, which is the thing #55 spent a whole ticket deleting -- so it is
+ * kept honest in BOTH directions rather than trusted. A class that goes missing from `app.css`
+ * leaves its exemption behind, and a stale exemption is reported just as loudly as a missing
+ * section. The list can therefore be wrong only for as long as it takes somebody to open the page.
+ *
+ * Keep it small. An exemption is a claim that a class cannot be shown, not that showing it is
+ * inconvenient.
+ */
+const OFF_KIT = {
+  'anim-page':
+    'the page-arrival animation, applied to <code>.app</code> on every team-facing page — the ' +
+    'real class here would make the kit itself animate on every load, which is why §13 replays ' +
+    'motion inside its own box instead',
+
+  'anim-unlock': 'the same reason as <code>.anim-page</code>, and §13 replays it on a real tile',
+
+  'banner--bad':
+    'this page’s own error state, for a marker naming a primitive that does not exist — a ' +
+    'permanent example of it would be a page that always looks broken',
+};
+
+const CSS_COMMENT = /\/\*[\s\S]*?\*\//g;
+const CSS_URL = /url\([^)]*\)/g;
+const CSS_CLASS = /\.([a-zA-Z][\w-]*)/g;
+const CLASS_ATTR = /class="([^"]*)"/g;
+
+/**
+ * Every class selector in `app.css`. Comments go first because they are full of prose class names
+ * -- this file's own rules are documented in them -- and `url(...)` goes with them, or the five
+ * `@font-face` sources contribute a class called `woff2`.
+ *
+ * Read per request, like `kit.html` itself, so an edit to the stylesheet shows up on reload.
+ */
+function declaredClasses() {
+  const css = readFileSync(APP_CSS, 'utf8').replace(CSS_COMMENT, '').replace(CSS_URL, '');
+  return new Set([...css.matchAll(CSS_CLASS)].map(([, name]) => name));
+}
+
+/** Every class this page renders -- after injection, so a component's own classes count. */
+function renderedClasses(html) {
+  const shown = new Set();
+  for (const [, list] of html.matchAll(CLASS_ATTR)) {
+    for (const name of list.trim().split(/\s+/)) if (name) shown.add(name);
+  }
+  return shown;
+}
+
+const code = (names) => names.map((name) => `<code>.${escape(name)}</code>`).join(', ');
+
+/**
+ * The footer's third generated sentence. Takes the INJECTED html, because most of what the kit
+ * shows arrives from `render.js` and is not in `kit.html` at all -- counting the source would
+ * report every component on the site as missing.
+ */
+function coverageSentence(html) {
+  const declared = declaredClasses();
+  const shown = renderedClasses(html);
+
+  const missing = [...declared].filter((name) => !shown.has(name) && !(name in OFF_KIT)).sort();
+  const stale = Object.keys(OFF_KIT)
+    .filter((name) => !declared.has(name))
+    .sort();
+
+  const exemptions = Object.entries(OFF_KIT)
+    .filter(([name]) => declared.has(name))
+    .map(([name, why]) => `<code>.${escape(name)}</code> — ${why}`)
+    .join('; ');
+
+  const staleLine = stale.length
+    ? ` <strong>${code(stale)} ${stale.length === 1 ? 'is' : 'are'} excused below and no longer
+        exist${stale.length === 1 ? 's' : ''} in <code>app.css</code></strong> — delete the
+        exemption, it is now the only thing keeping the name alive.`
+    : '';
+
+  const headline = missing.length
+    ? `<code>app.css</code> declares ${declared.size} classes and this page renders all but
+       <strong>${missing.length}</strong>: ${code(missing)}. Not broken — undocumented. Each one
+       ships, some page wears it, and there is nowhere here to look it up.`
+    : `<code>app.css</code> declares ${declared.size} classes and <strong>every one of them is on
+       this page.</strong>`;
+
+  return `${headline}${staleLine} Counted on every load by comparing the stylesheet against this
+    page's own rendered markup, because the <code>STILL OWED</code> badges above cannot see this:
+    they count sections that exist and are unbuilt, and a class with no section has no badge to
+    wear (#59). Deliberately not shown: ${exemptions}.`;
+}
+
 /**
  * Swap every marker for the real component. An unknown name renders a loud banner rather than
  * nothing: a marker that silently disappears would look exactly like a section somebody deleted,
  * which is the failure this whole mechanism exists to prevent.
  *
- * Two passes. The first collects the `@owed` names so the footer can report them; the second
+ * Three passes. The first collects the `@owed` names so the footer can report them; the second
  * injects. One pass would work only while the footer stays last in the file, and a rule that holds
  * because of line ordering is the kind that breaks the day someone moves a section.
+ *
+ * The third is `@coverage`, which has to run last for the same reason in reverse: it counts the
+ * classes on the finished page, and almost none of them are in `kit.html` -- they arrive from
+ * `render.js` during pass two. Counting any earlier would report the whole design system missing.
  */
 export function inject(source) {
   const owed = [];
@@ -345,13 +465,19 @@ export function inject(source) {
 
   const chrome = pageChrome(owed);
 
-  return source.replace(MARKER, (whole, name, rawAttrs) => {
+  const injected = source.replace(MARKER, (whole, name, rawAttrs) => {
     const key = name.toLowerCase();
+    // Left standing for the third pass. It is a known name, so it must be skipped here by name
+    // rather than by falling through to the unknown-primitive banner.
+    if (key === 'coverage') return whole;
+
     const render = chrome[key] ?? RENDERERS[key];
     if (!render) {
       return `<p class="banner banner--bad">style kit: no primitive named <code>${name}</code>.
-        Known: ${[...injectable, ...Object.keys(chrome)].join(', ')}.</p>`;
+        Known: ${[...injectable, ...Object.keys(chrome), 'coverage'].join(', ')}.</p>`;
     }
     return render(parseAttrs(rawAttrs));
   });
+
+  return injected.replace(MARKER, () => coverageSentence(injected));
 }

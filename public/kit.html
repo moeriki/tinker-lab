@@ -107,9 +107,82 @@
         </div>
       </section>
 
+      <!-- The last of the tokens, and the one that is a RULE rather than a value. It sits here,
+           ahead of every component, because a page author who meets it further down has already
+           read nine sections that quietly imply their own spacing. -->
+      <section class="sect" id="stack">
+        <h2 class="sect__h">4. Layout &amp; spacing</h2>
+        <p class="sect__note">
+          The rule underneath every section below this one: <strong>a primitive carries no outer
+          margin.</strong> A button, a field, a tile, a hero, a speech bubble — every one of them
+          stops exactly where its own border stops. Nothing on this site decides how much air goes
+          above or below it. That is the caller's job, and <code>.stack</code> is how the caller
+          does it.
+        </p>
+        <p class="sect__note">
+          Which is what makes a component portable: moving one from one page to another never
+          brings its spacing with it, and a page that wants things closer together changes one
+          class instead of fighting a margin it did not write.
+        </p>
+
+        <h3 class="sect__sub">No stack — what "no outer margin" looks like</h3>
+        <p class="sect__note">
+          Two real fields, as direct children of a plain block. Nothing is broken here: there is
+          simply no air, because neither field claims any. This is the default state of every
+          primitive on this page.
+        </p>
+        <div class="gapdemo">
+          <!--@field label="FIRST" name="k-gap-a" value="nothing above"-->
+          <!--@field label="SECOND" name="k-gap-b" value="nothing below"-->
+        </div>
+
+        <h3 class="sect__sub"><code>.stack</code> — 1rem</h3>
+        <p class="sect__note">
+          A flex column with a gap, and the default answer. Every form on this site is one, and so
+          is most of what sits under a hero.
+        </p>
+        <div class="gapdemo stack">
+          <!--@field label="FIRST" name="k-gap-c" value="1rem apart"-->
+          <!--@field label="SECOND" name="k-gap-d" value="1rem apart"-->
+        </div>
+
+        <h3 class="sect__sub"><code>.stack--tight</code> — 0.4rem</h3>
+        <p class="sect__note">
+          For things that belong to each other rather than a sequence of separate asks — the camera
+          form, and the list of hints on a game page.
+        </p>
+        <div class="gapdemo stack stack--tight">
+          <!--@field label="FIRST" name="k-gap-e" value="0.4rem apart"-->
+          <!--@field label="SECOND" name="k-gap-f" value="0.4rem apart"-->
+        </div>
+
+        <p class="sect__note">
+          Two gaps, and this section is the first time either has been shown. Both shipped with the
+          rule itself, in the commit that adopted this kit, and <code>/kit</code> went straight from
+          borders to the score header — so the one rule every component below depends on lived in a
+          CSS comment and nowhere a page author would meet it (#59).
+        </p>
+        <p class="sect__note">
+          Finding that out cost <code>.field</code> its <code>margin-bottom</code>, which shipped in
+          the same commit as the rule it broke. A <code>&lt;label&gt;</code> is inline, so in
+          ordinary flow the margin never applied at all — which is why the fields in the first box
+          above are touching, and why they were touching in §10 before this section existed. Inside
+          a <code>.stack</code> the label becomes a flex item, the margin applies, and it
+          <em>adds</em> to the gap: every form on this site measured 2rem, and
+          <code>.stack--tight</code> measured 1.4rem. The three boxes above only became honest
+          demonstrations when it came out.
+        </p>
+        <p class="sect__note">
+          There was a third step, <code>.stack--loose</code> at 1.8rem. It shipped with the other
+          two and no page ever used it, so it is gone rather than given a use invented to keep it
+          (#58's rule, taking its second branch for the first time). Putting a step back is one
+          line — and it arrives with a demo here, because new design is drawn on this page first.
+        </p>
+      </section>
+
       <!-- =========================== SCORE HEADER ========================== -->
       <section class="sect" id="score">
-        <h2 class="sect__h">4. Score header</h2>
+        <h2 class="sect__h">5. Score header</h2>
         <p class="sect__note">Sits at the top of the dashboard. The standing message is deliberately vague — never a number, never a rank.</p>
 
         <div class="stack">
@@ -155,7 +228,7 @@
 
       <!-- ============================== TILES ============================== -->
       <section class="sect" id="tiles">
-        <h2 class="sect__h">5. Game tiles — all five states</h2>
+        <h2 class="sect__h">6. Game tiles — all five states</h2>
         <p class="sect__note">The dashboard is nothing but a grid of these. Title, state, points. Nothing else.</p>
 
         <div class="tiles">
@@ -181,7 +254,7 @@
 
       <!-- ============================== HERO =============================== -->
       <section class="sect" id="hero">
-        <h2 class="sect__h">6. Hero — two flavours</h2>
+        <h2 class="sect__h">7. Hero — two flavours</h2>
         <p class="sect__note">Top half of every game page. Either words or a picture, never both.</p>
 
         <div class="stack">
@@ -198,7 +271,7 @@
 
       <!-- ============================= WINDOW ============================== -->
       <section class="sect" id="window">
-        <h2 class="sect__h">7. The window frame</h2>
+        <h2 class="sect__h">8. The window frame</h2>
         <p class="sect__note">Straight off the invite. Used for anything that wants to feel like a document: the rules, the results, the handoff. <code>/rules</code> was the first page to build one, so it lives in <code>render.js</code> now — this is the real frame, shown in its rule-4 state.</p>
 
         <!--@win title="the_rules.txt" status="4 rule(s) · 2 of them enforced" rules="Have fun. This is not a suggestion.|Be nice. Even to the people you are about to lie to.|Stay out of the bedroom. There is nothing in there. That is why it is a rule.|Hints cost you 3 points. This rule was always here."-->
@@ -206,7 +279,7 @@
 
       <!-- ============================= BUTTONS ============================= -->
       <section class="sect" id="buttons">
-        <h2 class="sect__h">8. Buttons</h2>
+        <h2 class="sect__h">9. Buttons</h2>
         <p class="sect__note">Four jobs, four looks. Everything is thumb-sized because everyone is holding a drink.</p>
         <div class="stack">
           <div class="btnrow">
@@ -223,13 +296,19 @@
 
       <!-- ============================== FORMS ============================== -->
       <section class="sect" id="forms">
-        <h2 class="sect__h">9. Form fields</h2>
+        <h2 class="sect__h">10. Form fields</h2>
         <p class="sect__note">Forms POST and redirect. No client-side validation theatre.</p>
-        <!--@field label="WHAT DID YOU WANT TO BE WHEN YOU WERE YOUNG" name="k-young" value="astronaut"-->
-        <!--@field label="YOUR ANSWER" name="k-answer" placeholder="type something, anything"-->
-        <!--@field label="EXPLAIN YOURSELF" name="k-long" rows="3" placeholder="optional, nobody will read it"-->
-        <!--@field label="PROOF" name="k-photo" type="file" accept="image/*"-->
-        <!--@field label="WHO WROTE THIS" name="k-who" value="3" options="=nobody yet|1=Anna|2=Bram|3=Sofie|4=Wouter"-->
+
+        <!-- The `.stack` is not decoration and it is not new: it is what §4's rule requires, and
+             every form on the site already had one. This section did not, so it was rendering five
+             fields with no air between them at all, and had been since the kit was adopted (#59). -->
+        <div class="stack">
+          <!--@field label="WHAT DID YOU WANT TO BE WHEN YOU WERE YOUNG" name="k-young" value="astronaut"-->
+          <!--@field label="YOUR ANSWER" name="k-answer" placeholder="type something, anything"-->
+          <!--@field label="EXPLAIN YOURSELF" name="k-long" rows="3" placeholder="optional, nobody will read it"-->
+          <!--@field label="PROOF" name="k-photo" type="file" accept="image/*"-->
+          <!--@field label="WHO WROTE THIS" name="k-who" value="3" options="=nobody yet|1=Anna|2=Bram|3=Sofie|4=Wouter"-->
+        </div>
 
         <p class="sect__note">
           <code>field()</code> from <code>src/render.js</code>, the same call onboarding makes for
@@ -248,7 +327,7 @@
 
       <!-- ============================== MODAL ============================== -->
       <section class="sect" id="modal">
-        <h2 class="sect__h">10. Modal</h2>
+        <h2 class="sect__h">11. Modal</h2>
         <p class="sect__note">Fires on every hint reveal, saying a different thing the first time a team ever asks (free, a gift) than every time after (the price, a fine). Built by <code>hintModal()</code> in <code>src/render.js</code> and rendered <em>already open</em> by the server, because the hint has been revealed and charged by the time it appears — it announces, it never asks. On a real page it sits <em>outside</em> <code>.app</code> — because <code>anim-page</code> animates a transform and a transformed ancestor would pin a <code>position: fixed</code> box to the page instead of the viewport — and <em>first</em>, ahead of it, so the box you are looking at is also the first thing read and the first thing tabbed to. That is the whole of this site's focus management (#31, ADR-document-order-instead-of-focus-management): no trap, no move-in, no restore, no script. Here it is at the end of the page instead, because this is the one place that opens it by hand.</p>
         <p class="sect__note">Shown here in its <em>paid</em> framing. The free one is the same box with different words, and there is only one <code>#hint-modal</code> on a page — demoing both would mean a second copy, which is the thing this page no longer keeps.</p>
         <button class="btn btn--hint" type="button" data-open-modal>Open it</button>
@@ -256,7 +335,7 @@
 
       <!-- ============================= NONSENSE ============================ -->
       <section class="sect" id="nonsense">
-        <h2 class="sect__h">11. Structural nonsense</h2>
+        <h2 class="sect__h">12. Structural nonsense</h2>
         <p class="sect__note">Load-bearing. Do not remove.</p>
         <p class="sect__note">The first three are all real components now. The speech bubble is <code>bubble()</code> and has been on a page since hints landed — a <code>&lt;div&gt;</code> around a <code>&lt;p&gt;</code>, because <code>.bubble p</code> carries the type rule and a list row wraps it in its own <code>&lt;li&gt;</code>, and no single element is valid both inside a <code>&lt;ul&gt;</code> and outside one (#53). The sunburst went to <code>/rules</code>, next to the block that explains the points, where its own small print undercuts the arithmetic the page has just done. The stamp went to the door — the arrival screen — and stopped saying <em>R.S.V.P. OR ELSE</em> on the way, that being invite copy no page on a site you are already inside can make true (#58).</p>
 
@@ -272,7 +351,7 @@
 
       <!-- ============================ ANIMATIONS =========================== -->
       <section class="sect" id="anim">
-        <h2 class="sect__h">12. Animations</h2>
+        <h2 class="sect__h">13. Animations</h2>
         <p class="sect__note">Three moments. Everything else stays still.</p>
 
         <div class="animrow">
@@ -297,7 +376,7 @@
 
       <!-- ============================== PHOTOS ============================= -->
       <section class="sect" id="photos">
-        <h2 class="sect__h">13. Photos — the camera and the shots</h2>
+        <h2 class="sect__h">14. Photos — the camera and the shots</h2>
         <p class="sect__note">Two of the ten tiles are photo tiles, so this is the half of the site nobody could look at without a phone, a party and a real submission behind it. All of it is <code>shoot()</code>, <code>shot()</code> and <code>shots()</code> from <code>src/render.js</code> — the same calls a game page makes.</p>
 
         <h3 class="sect__sub">The camera</h3>
@@ -337,12 +416,12 @@
           thumbnail — and it is a drawing, because <strong>this repository is public</strong> and
           nothing in the house belongs in it.
         </p>
-        <p class="sect__note">Both photo tiles arrange these into a list rather than a strip — see §14.</p>
+        <p class="sect__note">Both photo tiles arrange these into a list rather than a strip — see §15.</p>
       </section>
 
       <!-- ============================= UNIT ROWS =========================== -->
       <section class="sect" id="units">
-        <h2 class="sect__h">14. Unit rows — the list a tile pays by</h2>
+        <h2 class="sect__h">15. Unit rows — the list a tile pays by</h2>
         <p class="sect__note">Four of the ten tiles pay <strong>per unit</strong> rather than per answer, and all four put the same list on the page: the photo scavenger's ten prompts, Portrait of a stranger's gallery, Guess Who's dealt cards and Herd Mentality's five predictions. One <code>unitRow()</code> renders every one of them.</p>
         <p class="sect__note">These classes said <code>.prompt</code> until #51. They are <code>.unit</code> now, because a prompt is one <em>label</em> of one unit — and three of those four pages have no prompt on them at all, just a card, a question, or a photograph with something somebody said.</p>
 
@@ -376,7 +455,7 @@
 
       <!-- ========================= SIGNATURE CARD ========================== -->
       <section class="sect" id="card">
-        <h2 class="sect__h">15. The signature card — Sign Here's 3×3</h2>
+        <h2 class="sect__h">16. The signature card — Sign Here's 3×3</h2>
         <p class="sect__note">One tile, open for every team from the first minute of the night, and the only grid on the site. <code>card()</code> and <code>square()</code> in <code>src/render.js</code> — the same calls the tile makes.</p>
         <p class="sect__note">These classes said <code>.cell</code> until #60. They are <code>.square</code> now, because that is the word the glossary uses and the word the tile says out loud: <em>write it in the square</em>, <em>three in a row</em>. And <code>.card</code> itself was being worn by two unrelated things — this grid and the admin gallery's submission boxes — which is a collision rather than a synonym, and the cascade was quietly merging them.</p>
 
@@ -403,7 +482,7 @@
           what says so. There is no wrong answer on a card: there is a line, or there is not yet.
         </p>
         <p class="sect__note">
-          Unlike §13 and §14, <strong>nothing is missing from this section</strong>. The grid takes
+          Unlike §14 and §15, <strong>nothing is missing from this section</strong>. The grid takes
           no <code>&lt;form&gt;</code> — the one dropdown and the one name box sit underneath it and
           belong to the page — so an empty card, a part-signed one and a lit line are the entire
           component. That is what turned #60 into an extraction rather than another question about
@@ -418,10 +497,15 @@
           makes, so they cannot be out of date.
         </p>
         <p class="aside"><!--@owed-list--></p>
+        <p class="aside"><!--@coverage--></p>
         <p class="aside">
-          Neither sentence above is typed by hand: the first is every primitive
+          None of the three sentences above is typed by hand: the first is every primitive
           <code>src/kit.js</code> can inject, the second is every <code>STILL OWED</code> badge on
-          this page. A hand-typed version of them was wrong for months, in four files at once (#55).
+          this page, and the third is <code>public/css/app.css</code> read at request time and
+          compared against what this page actually rendered. A hand-typed version of the first two
+          was wrong for months, in four files at once (#55). The third exists because the badges
+          are blind to a class that has no section to badge, which is how four separate tickets
+          came to find this page incomplete by accident (#59).
         </p>
       </footer>
     </div>
@@ -433,7 +517,7 @@
     <!-- ================================ MODAL ================================= -->
     <!-- The real one, from hintModal() in src/render.js. A game page renders it already open,
          because the hint has been revealed and charged by the time it appears. Only this page
-         wants it shut on arrival, so kit.js hides it and the button in §10 opens it. -->
+         wants it shut on arrival, so kit.js hides it and the button in §11 opens it. -->
     <!--@hintmodal notice="paid" cost="3"-->
 
     <!-- Both as modules, exactly as layout() loads app.js. As classic scripts they shared one

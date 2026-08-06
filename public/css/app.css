@@ -220,7 +220,10 @@ code {
 }
 
 /* --------------------------------- layout ---------------------------------- */
-/* Primitives carry no outer margin. Stacking is the caller's job, via .stack. */
+/* Primitives carry no outer margin. Stacking is the caller's job, via .stack.
+   That rule is load-bearing for every component below it, and it is the one thing on this page a
+   page author has to know before composing anything -- so /kit devotes a section to it (§4) rather
+   than leaving it in a comment only the stylesheet's own readers meet. */
 
 .stack {
   display: flex;
@@ -228,8 +231,13 @@ code {
   gap: 1rem;
 }
 
+/* Used by the camera form and the hint list -- and it did nothing until #59, because `.field`
+   carried a margin that added to this gap. Two steps, because two are what pages have asked for:
+   `.stack--loose` was a third, shipped in 126369b with the rule above, and no page ever used it in
+   the whole life of the project. Retired rather than given a use, on #58's rule -- inventing a
+   caller to justify a class is the tail wagging the dog. Putting it back is one line, and it
+   arrives with a demo, because new design is drawn on /kit first. */
 .stack--tight { gap: 0.4rem; }
-.stack--loose { gap: 1.8rem; }
 
 /* ------------------------------ type utilities ----------------------------- */
 
@@ -655,7 +663,13 @@ code {
 
 /* ---------------------------------- forms ---------------------------------- */
 
-.field { margin-bottom: 1rem; }
+/* `.field` deliberately carries NO rules of its own. It used to say `margin-bottom: 1rem`, which
+   shipped in 126369b -- the same commit that wrote "primitives carry no outer margin" 400 lines
+   above -- and was wrong in both directions at once (#59). A `<label>` is inline, so in ordinary
+   flow that margin never applied at all; inside a `.stack` the label is a flex item, gets
+   blockified, and the margin lands ON TOP of the gap. So every form on this site measured 2rem
+   between fields where the design says 1rem, and `.stack--tight` measured 1.4rem instead of
+   0.4rem. Spacing is the caller's job. If a field needs air, its parent is a `.stack`. */
 
 .field__label {
   display: block;
