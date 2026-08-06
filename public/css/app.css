@@ -624,9 +624,20 @@ code {
   max-width: 100%;
 }
 
+/* Half the buttons on this site are anchors -- `close`, `the rules`, the modal's two, the
+   showdown's way back -- and until now every one of them rendered as a raw browser link: blue,
+   underlined and shoved against the left edge of its own box. A <button> gets `color` and centred
+   text from the UA sheet and an <a> gets neither, so the three lines below are what a <button>
+   was being handed for free. /kit is not to blame and could not have been: every .btn demo on it
+   is a <button>, so the page that exists to catch drift was showing the half of the component
+   that already worked. The modifiers below set their own `color` and still win -- they come
+   later. */
 .btn {
   min-height: var(--tap);
   padding: 0.6rem 1rem;
+  color: var(--c-ink);
+  text-align: center;
+  text-decoration: none;
   border: var(--edge-2) solid var(--c-ink);
   box-shadow: var(--shadow-1);
   background: var(--c-paper);
