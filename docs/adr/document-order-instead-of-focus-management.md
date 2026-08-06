@@ -60,10 +60,16 @@ that does not get it. Document order works identically with JS blocked, under
   is still reachable by tabbing on, which is correct for a notice you are allowed to ignore.
 - Nothing about the page underneath is made inert, and nothing should be. Tapping the backdrop and
   pressing Escape still close it — enhancements, both, and both still optional.
-- **The role came out rather than being tested.** No screen reader was available to the session that
-  decided this, and an untested assertion that is wrong on inspection is worth less than no
-  assertion. Hearing the arrival on a real phone before the party is
-  [#50](https://github.com/moeriki/tinker-lab/issues/50), and it is a human's job.
+- **The role came out rather than being tested, and no screen reader will ever be held to this.**
+  An untested assertion that is wrong on inspection is worth less than no assertion, so removing it
+  stands on its own. But the other half — hearing the arrival on a real phone — was
+  [ruled out of scope](https://github.com/moeriki/tinker-lab/issues/50): a guest who arrives with
+  VoiceOver or TalkBack running is arriving with their own settings, and this is a party that runs
+  for five hours on one night. So what follows is **assumed, not measured**: a full page load resets
+  the reading cursor to the top of the document, the modal *is* the top of the document, and nothing
+  competes for the cursor — no `autofocus`, no scripted focus, no live region, and
+  `document.activeElement` is `<body>` on arrival. The expected order is the page title, then
+  "on the house.", then the price, then the two links. Nobody checked, and nobody is going to.
 - If a second modal is ever built, it inherits this: server-rendered, already open, links for
   actions, first in the document. A modal that genuinely gates something would be a new decision
   and would need this ADR revisited rather than quietly ignored.
