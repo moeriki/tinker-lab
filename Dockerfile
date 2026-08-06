@@ -33,13 +33,6 @@ COPY . .
 # already provides.
 USER node
 
-# Which commit is this? `.dockerignore` drops `.git/` on purpose -- the image stays small and the
-# source of truth stays GitHub -- so the sha cannot be read at runtime and has to be handed in at
-# build time. Deliberately last: `COPY . .` above already busts the cache on any source change, so
-# rebuilding the same source under a new label only redoes this trivial layer.
-#
-# Unset is honest rather than fatal. A build nobody labelled reports "unknown", which is exactly
-# what the site said before this existed -- it never claims to be a commit it is not.
 # Which flavour is this image? `development` builds the dev harness in -- test team already
 # logged in, every tile unlocked, /admin open, /dev/logout wired (see src/dev.js and #62).
 # ANYTHING else, including unset, is the real site.
@@ -59,6 +52,13 @@ RUN echo "NODE_ENV=$NODE_ENV"
 
 ENV NODE_ENV=$NODE_ENV
 
+# Which commit is this? `.dockerignore` drops `.git/` on purpose -- the image stays small and the
+# source of truth stays GitHub -- so the sha cannot be read at runtime and has to be handed in at
+# build time. Deliberately last: `COPY . .` above already busts the cache on any source change, so
+# rebuilding the same source under a new label only redoes this trivial layer.
+#
+# Unset is honest rather than fatal. A build nobody labelled reports "unknown", which is exactly
+# what the site said before this existed -- it never claims to be a commit it is not.
 ARG BUILD_COMMIT=unknown
 
 # The RUN is load-bearing, not decoration. With `ARG` + `ENV` and nothing between them the layer
