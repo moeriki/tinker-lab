@@ -55,11 +55,17 @@ Single-context — one `CONTEXT.md` and one `docs/adr/` at the repo root. See `d
 
 ### Screenshots
 
-**You can look at this site.** `node scripts/screenshot.js` boots the server against a throwaway
-database and writes phone-sized PNGs you can Read — no dependency, no browser extension, safe in a
-background session and in parallel worktrees. A page is verifiable here, so **never report a change
-as "not seen by eye"** for want of a way to look at it. It cannot log in as a team; that is #65. See
-`docs/agents/screenshots.md`.
+**You can look at this site, including from inside a team.** Both scripts boot the server against a
+throwaway database and write phone-sized PNGs you can Read — no dependency, no browser extension,
+safe in a background session and in parallel worktrees.
+
+- `node scripts/screenshot.js` — any route a URL can reach, cold.
+- `node scripts/walk.js` — arrives as a team: walks onboarding, scans, submits an answer and a
+  photograph, and puts a real score on the board so the three standing colours can be seen. It is
+  also the E2E suite, which is why there is still no `test` script.
+
+A page **and a state** are verifiable here, so **never report a change as "not seen by eye"** for
+want of a way to look at it. See `docs/agents/screenshots.md`.
 
 ### Containers
 

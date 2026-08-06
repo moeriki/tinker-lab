@@ -848,6 +848,16 @@ sentence in a footer does not.** Nobody runs this; it runs because somebody open
 is exactly the property #55 found when it made the debt list count itself. If it ever becomes a
 file in `scripts/`, #32 applies again and it should go.
 
+> **`scripts/walk.js` is a file in `scripts/` carrying 31 checks, and it survives that rule rather
+> than breaking it** ([#65](https://github.com/moeriki/tinker-lab/issues/65)). The test is not
+> whether a check lives in a script; it is whether the check has to be *remembered*. Nobody will
+> run a suite eight days before a party. Everybody wants to see the page — and every flow in
+> `walk.js` both walks a state and **shoots** it, so a broken flow cannot produce its screenshot.
+> You run it because you want the picture; the regression check is what you get on the way past.
+> That is the footer's property, moved. What #32 forbids is still forbidden: there is **no `test`
+> script and no CI**, and if `walk.js` ever stops taking screenshots it becomes exactly the thing
+> that rule is against.
+
 Classes deliberately kept off the kit are named with their reason in `OFF_KIT` in `src/kit.js`, and
 an exemption naming a class `app.css` no longer declares is reported just as loudly as a missing
 section, so the list cannot rot in either direction.

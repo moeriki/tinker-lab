@@ -1,7 +1,13 @@
 # Screenshots: you can look at this site
 
-**A page is verifiable here.** `node scripts/screenshot.js` boots the server on a free port against
-a throwaway database, drives headless Chrome, and writes PNGs you can open with the Read tool.
+**A page is verifiable here, and so is a state.** Two scripts, sharing one Chrome driver in
+`scripts/lib/browser.js`:
+
+- `node scripts/screenshot.js` — shoot anything a URL can reach, cold.
+- `node scripts/walk.js` — arrive as a team, play, and shoot what is behind the door.
+
+Both boot the server on a free port against a throwaway database, drive headless Chrome, and write
+PNGs you can open with the Read tool.
 
 That is the exact wrong conclusion this file exists to prevent: an agent that reached for a browser,
 got *"Browser extension is not connected"*, and reported a layout change as **"not seen by eye"**
@@ -55,13 +61,65 @@ Two consequences worth knowing:
   can be judged. `--scroll 9999` clamps to the bottom, which is how you check the status bar is the
   last thing on the page.
 
-## What it cannot do
+## What it cannot do: be a team. That is `walk.js`
 
-**It cannot become a team.** There is no cookie and no form submission, so everything behind arrival
-is out of reach, and the database it shoots is always empty — `/` is the arrival page, never a
-board. Walking a hunt, submitting an answer, and seeing a real score need Playwright, which is
-[issue #65](https://github.com/moeriki/tinker-lab/issues/65). Until that lands, a state nobody
-reaches by browsing is still checked by hand.
+`screenshot.js` holds no cookie and submits no form, so its database is always empty and `/` is
+always the arrival page. Everything behind the door — the board, a tile mid-play, a verdict, a
+photo coming back as a thumbnail, the three standing colours — needs a state nobody reaches by
+browsing.
+
+```sh
+node scripts/walk.js                    # every flow, shot as it goes
+node scripts/walk.js standings          # one flow by name
+node scripts/walk.js --list             # what the flows are
+node scripts/walk.js --reduced-motion   # the frozen marquee, on a real board
+node scripts/walk.js --out shots
+```
+
+It arrives as a stranger, walks both onboarding screens, scans codes, submits answers and
+photographs, and moves points through `/admin/award` — then shoots each of those states. Five
+flows: `door`, `scan`, `answer`, `photo`, `standings`. Each gets its **own server and its own
+database**, so a flow never inherits the teams the flow before it left lying around.
+
+The standings flow is the one that pays for the rest: it puts three rivals on the board and walks
+the viewing team through **podium, chasing and rest**, which is the only way to see all three
+standing colours (`#0a7a0a`, `#a35b00`, `#8a0d0d`) — they appear one band at a time and need a
+real score to reach.
+
+### It is the E2E suite, and that is deliberately not a separate thing
+
+[#32](https://github.com/moeriki/tinker-lab/issues/32) settled that this repo has no test script
+and no CI, because a check nobody runs is worse than none: it looks like enforcement.
+[#59](https://github.com/moeriki/tinker-lab/issues/59) found the way out without naming it — make
+the check a byproduct of something somebody already wants.
+
+Nobody will run a suite eight days before a party. Everybody wants to see the page. So every flow
+both **walks** the state and **shoots** it, and a flow that breaks cannot produce its screenshot:
+the run fails, loudly, naming the step. You run it because you want the picture. The regression
+check is what you get on the way past. There is still no `test` script, and that is on purpose.
+
+### Why not Playwright
+
+[#65](https://github.com/moeriki/tinker-lab/issues/65) was filed expecting it. Three things, and
+the first is measured rather than argued:
+
+- **Its browsers are not cached.** `playwright@1.62.1` pins chromium revision **1234**; this
+  machine holds 1194, 1217 and 1228. `playwright install` would pull ~150MB. The ticket's premise
+  came from a directory listing that was never checked against the pin.
+- **`node_modules` is gitignored and every session takes a fresh worktree.** A devDependency turns
+  *you can look at this site* into *you can look, once `pnpm install` succeeds against a registry*.
+  That guarantee is the whole of what #64 bought.
+- **There is no client JS to drive.** Forms POST and redirect; nothing team-facing is wired to a
+  listener. Becoming a team needs a cookie jar, a form submit and a file input — a browser already
+  has the first two, and the third is one CDP call (`DOM.setFileInputFiles`).
+
+### One thing that surprised the build
+
+Checking that a redirect carried its `?just=` moment **reads false however well the site works**.
+`public/js/app.js` deletes `just` and `hint` on the first animation frame — they are one-shot
+signals, so a pull-to-refresh cannot replay an animation. By the time anything can read
+`location`, the param is gone by design. Check what the server baked into the HTML instead: the
+`anim-unlock` class on the hero, the verdict banner under it.
 
 ## Housekeeping it already does
 
