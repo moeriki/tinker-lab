@@ -1036,6 +1036,12 @@ ol.stack {
   gap: 0.5rem;
 }
 
+/* An anchor, so `color` and `text-decoration` have to be said out loud here for the same reason
+   they do on `.btn`: the UA sheet hands a <button> both and an <a> neither. Only the download
+   flavour has any text in it -- the other holds an <img> and had no glyph to render wrong -- so
+   what shipped was the format name in browser blue, underlined, on the house yellow: the one piece
+   of type on this site wearing a colour the palette does not contain, on the one branch nobody can
+   reach without an iPhone. §14 draws it, and looking at §14 is what found it (#41). */
 .shot {
   display: flex;
   align-items: center;
@@ -1043,6 +1049,8 @@ ol.stack {
   width: 4.5rem;
   height: 4.5rem;
   overflow: hidden;
+  color: var(--c-ink);
+  text-decoration: none;
   border: var(--edge-2) solid var(--c-ink);
   box-shadow: var(--shadow-1);
   background: var(--c-gray);
