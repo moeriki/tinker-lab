@@ -251,6 +251,20 @@ code {
   gap: 1rem;
 }
 
+/* A `.stack` is sometimes a list: the hint list on a game page is a `<ul>`, which is what the kit
+   means in §4 when it names it. A list arrives wearing a marker, a 40px indent and a `1em` block
+   margin, and a flex column with a gap has no use for any of the three -- seen on a real phone
+   (#53), the markers sat out in the speech bubbles' own tail gutter, the indent pushed every hint
+   in from everything else on the page, and the margin added a whole rem to a gap the caller had
+   just asked to be 0.4rem. A list that wants its markers says so with a class of its own, the way
+   `/rules` does; wearing `.stack` is a request for the flex column and nothing else. */
+ul.stack,
+ol.stack {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
 /* Used by the camera form and the hint list -- and it did nothing until #59, because `.field`
    carried a margin that added to this gap. Two steps, because two are what pages have asked for:
    `.stack--loose` was a third, shipped in 126369b with the rule above, and no page ever used it in
