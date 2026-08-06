@@ -32,9 +32,15 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import codes from '../content/codes.js';
+import economy from '../content/economy.js';
 import { reportOverflow, PHONE, withBrowser } from './lib/browser.js';
 
 const REPO = new URL('../', import.meta.url).pathname;
+
+// The hunt the `hunt` flow walks. Both hunts have identical mechanics -- an ordered chain of
+// codes, points banked per step -- so one flow covers the pair, and the lights hunt inherits every
+// check below by changing this string once its content lands (#18).
+const HUNT = 'riddle';
 
 // Fixed, and handed to the server we boot. The walker needs the admin surfaces and there is no
 // human here to read a secret off a terminal.
@@ -230,6 +236,71 @@ const FLOWS = [
       check(`the thumbnail points at the upload (${src})`, String(src).startsWith('/uploads/'));
 
       await shoot('photo-sent');
+    },
+  },
+
+  {
+    name: 'hunt',
+    what: 'walk a treasure hunt end to end, banking a step at a time',
+    async run({ page, shoot, check }) {
+      await onboard(page);
+
+      // Every step of the riddle hunt, in step order. Written against `codes` rather than against
+      // the game file so it stays true of whichever hunt is named here -- the lights hunt walks
+      // this same flow once its content lands (#18) by changing one string.
+      const steps = Object.entries(codes)
+        .filter(([, code]) => code.game === HUNT && !code.pending)
+        .sort((a, b) => a[1].step - b[1].step);
+
+      if (!steps.length) return check(`the ${HUNT} hunt has codes to scan`, false);
+
+      // Out of order FIRST, while the team is on step zero. Hunt position is the longest
+      // CONTIGUOUS run of accepted scans, so stumbling on the last card early has to do nothing
+      // at all -- that is the whole of why this site needs no anti-cheat, and it is worth one
+      // check rather than one paragraph. See docs/adr/hunt-progress-is-derived-from-scans.md.
+      const [lastSlug] = steps[steps.length - 1];
+      await page.goto(`/q/${lastSlug}`);
+      check(
+        `the last card, found first, does not open the hunt`,
+        !(await page.url()).startsWith(`/g/${HUNT}`),
+      );
+      await shoot('hunt-out-of-order');
+
+      let previous = 0;
+      for (const [slug, code] of steps) {
+        await page.goto(`/q/${slug}`);
+        check(`step ${code.step}: ${slug} lands in the hunt`, (await page.url()).startsWith(`/g/${HUNT}`));
+
+        const line = (await page.text('.statusline')) ?? '';
+        check(
+          `step ${code.step}: the page says where it is (${line})`,
+          line.includes(`Step ${code.step} of ${steps.length}`),
+        );
+
+        await shoot(`hunt-step-${code.step}`);
+
+        await page.goto('/');
+        const score = Number(await page.text('.scorebar__num'));
+
+        // The first card is hung in plain sight, so reaching it is not playing and pays nothing
+        // (#27). Every other step banks something the moment it is reached.
+        if (code.step === 1) {
+          check(`step 1 banks nothing (${score})`, score === 0);
+        } else {
+          check(`step ${code.step}: the score went up (${previous} -> ${score})`, score > previous);
+        }
+        previous = score;
+      }
+
+      // A hunt is the one kind whose whole payout is knowable before anybody plays it, so this is
+      // the arithmetic the tile budget actually promises.
+      check(
+        `finishing pays exactly the tile budget (${previous} of ${economy.tilePoints})`,
+        previous === economy.tilePoints,
+      );
+      check('a finished hunt turns the tile green', await page.has('.tile--correct'));
+
+      await shoot('hunt-finished');
     },
   },
 

@@ -23,7 +23,7 @@
 //            a typo. Boot warns instead of failing; `scripts/qr-sheet.js` REFUSES TO PRINT while
 //            any pending flag survives. Delete the flag in the same commit that lands the game.
 //
-// Order matters: the position in this file is the card number (#01..#19) on the printed sheet and
+// Order matters: the position in this file is the card number (#01..#21) on the printed sheet and
 // on the host key. Insert new codes at the end, never in the middle, or every number shifts.
 
 export default {
@@ -32,10 +32,36 @@ export default {
   nx9ufv: { game: 'lights', step: 2, label: 'Lights hunt, step 2', where: null, pending: true },
   pknn8v: { game: 'lights', step: 3, label: 'Lights hunt, step 3', where: null, pending: true },
 
-  // --- Riddle hunt (3 steps) -- #04..#06 --------------------------------------------------------
-  '5sjjsh': { game: 'riddle', step: 1, label: 'Riddle hunt, step 1', where: null, pending: true },
-  eh8tgu: { game: 'riddle', step: 2, label: 'Riddle hunt, step 2', where: null, pending: true },
-  w5q2tc: { game: 'riddle', step: 3, label: 'Riddle hunt, step 3', where: null, pending: true },
+  // --- Riddle hunt (5 steps) -- #04..#06, then #20..#21 -----------------------------------------
+  // Five cards, four riddles: each card's hero says where the next one is, and the fifth is the
+  // end. Steps 4 and 5 were minted after this block was written, so they sit at the bottom of the
+  // file with the card numbers that go with it -- inserting them here would renumber every card
+  // from #07 down. On the host key sheet, read #04, #05, #06, then jump to #20 and #21. See #27.
+  '5sjjsh': {
+    game: 'riddle',
+    step: 1,
+    label: 'Riddle hunt, step 1 (THE ONLY UNHIDDEN CARD)',
+    where:
+      'IN PLAIN SIGHT, at eye height, on a wall or door where people gather. This is the one ' +
+      'card in the house that is deliberately not hidden -- it is how the hunt starts, and it ' +
+      'has no second slug. If nobody sees it, nobody plays this tile at all.',
+  },
+  eh8tgu: {
+    game: 'riddle',
+    step: 2,
+    label: 'Riddle hunt, step 2',
+    where:
+      'On the coat rack in the living room. Tape it to the FRAME, never to a coat -- a coat ' +
+      'leaves at 01:00 and takes the middle of the hunt with it.',
+  },
+  w5q2tc: {
+    game: 'riddle',
+    step: 3,
+    label: 'Riddle hunt, step 3',
+    where:
+      'On the piano. Inside the lid or under the keyboard cover -- somewhere anybody who opens ' +
+      'it sees it at once, rather than somewhere they have to grope for.',
+  },
 
   // --- Roaming tiles, two slugs each so a tile is findable from more than one room -- #07..#14 ---
   // A slug is not consumed when it is scanned; every team can scan the same one. Two slugs buy
@@ -77,6 +103,30 @@ export default {
     // deliberately harder than the other two gags. Settled in #28 -- if it ends up somewhere
     // obvious, the copy is a lie and the counter is pointless.
     where: 'THE HARDEST SPOT IN THE HOUSE. Not yet chosen -- see the hiding plan.',
+  },
+
+  // --- Riddle hunt, the last two steps -- #20..#21 ----------------------------------------------
+  // Appended rather than filed beside #04..#06 on purpose: position in this file IS the card
+  // number, so slotting them in the middle would shift every card from #07 to #19 and invalidate
+  // the numbers already test-printed (#34). Two more codes cost no extra paper -- the sheet holds
+  // six per A4 and four sheets is 24 slots.
+  h933qh: {
+    game: 'riddle',
+    step: 4,
+    label: 'Riddle hunt, step 4',
+    where:
+      'In the garden shed. Taped INSIDE the door at eye height, where a phone torch finds it in ' +
+      'one sweep. Not among the bin bags -- people will be out there in the dark, and the card ' +
+      'is not the puzzle.',
+  },
+  '6gcteu': {
+    game: 'riddle',
+    step: 5,
+    label: 'Riddle hunt, step 5 (THE END -- put the treasure here)',
+    where:
+      'Inside the technical cabinet above the toilet, together with whatever the treasure turns ' +
+      'out to be. Nothing on the outside of the cabinet may suggest it opens: the whole joke is ' +
+      'that everyone has stood underneath it all night without looking up.',
   },
 
   // Human Bingo and Longest yarn deliberately have no code: both are starter tiles, unlocked for
