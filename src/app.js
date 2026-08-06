@@ -1816,6 +1816,22 @@ function adminBoard({ req, res }) {
     ).count,
   }));
 
+  // Every surface behind /admin/game/:id, one link each. Two real pages live there -- the photo
+  // gallery (#10) and the trophy panel (#36) -- and until now NOTHING linked to either, so the
+  // only way to judge a photograph or hand Teddy over was to type the game id into the address
+  // bar of a phone at 23:00. That is #36's note against #11, and it is a broken link rather than
+  // a design decision, so it is fixed here rather than waited on.
+  //
+  // A hunt is left out on purpose. It can never hold a submission, so its gallery would be the
+  // empty grid under "You judge these" that #36 called a lie with no rows under it.
+  const galleries = listGames()
+    .filter((game) => takesForm(game) || game.kind === 'trophy')
+    .map(
+      (game) =>
+        `<a class="btn" href="/admin/game/${escape(game.id)}">${escape(game.title)}</a>`,
+    )
+    .join('');
+
   return html(
     res,
     stub({
@@ -1825,9 +1841,9 @@ function adminBoard({ req, res }) {
       data: { gameOver: gameIsOver(), board },
       still: true, // it polls; a page that re-animates every few seconds cannot be read
       // The board is undesigned, the reset is not, and the host has to be able to reach it from
-      // here at 19:45. Whoever builds the real board (#11) inherits this link -- it is in
+      // here at 19:45. Whoever builds the real board (#11) inherits these links -- they are in
       // CONTEXT.md's route table, which is where the inventory is settled rather than here.
-      extra: `<a class="btn" href="/admin/reset">reset the game</a>`,
+      extra: `${galleries}<a class="btn" href="/admin/reset">reset the game</a>`,
     }),
   );
 }
