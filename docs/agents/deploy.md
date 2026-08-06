@@ -93,7 +93,9 @@ Six things. Miss one and you get a report you cannot act on.
 2. **The commit you want live**, by sha, not "the latest". `main` moves; several sessions land to it.
 3. **The steps**: pull, then build and restart with `BUILD_COMMIT` set to the short sha of HEAD.
 4. **What to report**: the sha it ended up on, the compose output, the container state, and the JSON
-   from `/healthz` on both `127.0.0.1:3040` and the public URL.
+   from `/healthz` on both `192.168.129.201:3040` and the public URL. **Not `127.0.0.1:3040`** —
+   `BIND_ADDR` publishes the port on the LAN address only, so loopback is refused on a perfectly
+   healthy container. The first real deploy asked for it and MM had to work around the request.
 5. **What good looks like**: `/healthz` answering `ok: true` with `build` equal to the sha it pulled.
 6. **What to do on failure**: paste the error, change nothing else, do not roll back on its own
    initiative. A half-fixed container is worse than a stopped one two hours before a party.
@@ -147,6 +149,18 @@ MM ran every command asked of it on Tower and pasted the output, and its `/healt
 `git pull` and `docker compose up -d --build` in that checkout on request, and that GitHub is
 reachable from it.
 
-**The deploy prompt itself has not been fired yet** — the survey deliberately changed nothing. The
-template above is built from a verified channel and a verified inventory, but the first real
-`compose up --build` driven this way is still the first one.
+**The deploy prompt has now been fired for real**, on the same day
+([#68](https://github.com/moeriki/tinker-lab/issues/68)). It took the site from `fc76918` to
+`3bcc995` — 39 commits, the largest gap the site has ever carried — in one shot, with no follow-up
+prompt and nothing for a human to do on Tower. MM pulled, built with `BUILD_COMMIT=3bcc995`
+correctly interpolated from the prose instruction, recreated the container, and reported it healthy;
+`curl -s https://bday.moeriki.com/healthz` from this machine independently returned
+`build: 3bcc995`, and `screenshot.js --base https://bday.moeriki.com` showed the arrival page with
+every recent visual fix on it.
+
+**The run found one bug, and it was in this document.** The prompt asked MM to report `/healthz` on
+`127.0.0.1:3040`, which cannot answer — `BIND_ADDR` publishes on the LAN address only, exactly as
+`docker-compose.yml` warns. MM hit *connection refused*, correctly worked out why, curled the
+published address instead and flagged the mismatch. That was the good outcome of a real risk: the
+prompt also says *stop on failure*, and a more literal reading would have halted a deploy that had
+already succeeded. Both the template and step 4 above now name the right address.
