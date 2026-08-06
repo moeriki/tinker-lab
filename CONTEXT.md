@@ -108,8 +108,11 @@ night can work one out. It declares no judging: there is nothing to judge.
 
 ### Hero, and blurb
 
-The top half of a game page. Two flavours, and the style kit's rule is **words or a picture,
-never both**: `hero: { text }` or `hero: { asset, alt }`. Declaring both is a boot error.
+The top half of a game page. Three flavours, and the style kit's rule is **words or a picture,
+never both**: `hero: { text }` or `hero: { asset, alt }`. Declaring both is a boot error. The third
+is a **video** embed, which no game declares — it belongs to the rickroll gag page alone
+([#28](https://github.com/moeriki/tinker-lab/issues/28)) and is the one piece of markup on this
+site that reaches off the network.
 
 A game that needs a picture *and* a sentence puts the sentence in its **blurb**, which renders
 underneath the frame rather than inside it. Teddy is the case that forced it: a photograph, then
@@ -746,6 +749,12 @@ badges ([#55](https://github.com/moeriki/tinker-lab/issues/55)), so there is not
 > **New design is drawn on the kit first, then built into a page.** A component that appears
 > directly on a page, having never been on `/kit`, is the drift this rule exists to stop.
 
+That rule reaches as far as the kit's contract does, so the **admin surface is not held to it**
+([#66](https://github.com/moeriki/tinker-lab/issues/66)) — its markup is written inline in
+`src/app.js` and is allowed to stay there. What does **not** lapse with it is the naming rule
+below: admin classes share one cascade with everything else, which is precisely how the collision
+in the next paragraph happened.
+
 > **Two unrelated components may never wear one class name**, and this is a stronger rule than it
 > sounds, because the failure is silent and it is not a naming complaint. The signature card and
 > the admin gallery's judging boxes were both `.card`
@@ -813,6 +822,21 @@ file in `scripts/`, #32 applies again and it should go.
 Classes deliberately kept off the kit are named with their reason in `OFF_KIT` in `src/kit.js`, and
 an exemption naming a class `app.css` no longer declares is reported just as loudly as a missing
 section, so the list cannot rot in either direction.
+
+> **The kit's contract covers the pages guests see, and stops there**
+> ([#66](https://github.com/moeriki/tinker-lab/issues/66)). The **admin surface** — the judging
+> table, the photo gallery and the verdict buttons — is outside it. It is a working tool one person
+> uses on one night, opted out of the party's chrome by `layout({ still: true })`, and nothing is
+> ever assembled out of its parts, which is the drift `/kit` exists to catch.
+
+Those nine classes live in `OFF_REMIT` in `src/kit.js`, kept apart from `OFF_KIT` because they are a
+different claim: `OFF_KIT` says a class **cannot** be drawn on the page — it would animate on every
+load, look permanently broken, or fetch from YouTube — and `OFF_REMIT` says it **should** not be.
+One is a fact and the other is an argument, and merging them costs the rule that keeps `OFF_KIT`
+short. Both are staleness-checked the same way. **The stated cost:** admin has no visual contract at
+all, so the only thing that catches a break there is the host looking at it — which is how the
+judging boxes rendered as padding-less three-column grids from #21 until
+[#60](https://github.com/moeriki/tinker-lab/issues/60) found them.
 
 **The owed list is empty for the first time since it existed**
 ([#58](https://github.com/moeriki/tinker-lab/issues/58)). The last five hand-written demos each

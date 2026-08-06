@@ -113,6 +113,7 @@ import {
 } from './scoring.js';
 import { fireWebhook } from './webhooks.js';
 import {
+  blurb,
   bubble,
   card,
   field,
@@ -1145,9 +1146,7 @@ function showGame({ req, res, params, url }) {
 
   const heroBlock =
     hero({ ...source, anim: heroAnimation(moment), assetExists: assetIsPresent(source?.asset) }) +
-    // Words underneath the frame, for the one case the kit forbids inside it: a picture that
-    // still needs a sentence. Teddy is a photograph plus the only rule that matters.
-    (game.blurb ? `<p class="blurb">${escape(game.blurb)}</p>` : '');
+    (game.blurb ? blurb(game.blurb) : '');
 
   // What sits between the banners and the hints. A hunt says which step it is on; a trophy is the
   // hero and its blurb and nothing else -- no form, because the object is in the room and the

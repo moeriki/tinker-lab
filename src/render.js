@@ -398,6 +398,18 @@ export function hero({
 }
 
 /**
+ * Words underneath an asset hero, for the one case the frame forbids inside it: a picture that
+ * still needs a sentence. Teddy is a photograph plus the only rule that matters.
+ *
+ * One line of markup, and it earns a function anyway. It was typed by hand on the game page while
+ * `/kit` had no way to show it, which is the two-copies shape ADR-a-component-has-one-markup
+ * exists to stop -- and the reason `.blurb` was sitting in #59's undocumented count with nothing
+ * to say about itself. It is the other half of the rule `hero()` states above, so the kit has to
+ * be able to draw the escape hatch and not only the prohibition.
+ */
+export const blurb = (text = '') => `<p class="blurb">${escape(text)}</p>`;
+
+/**
  * Someone said a thing: a box with a tail, for text that came out of a person's mouth. A hint is
  * the house talking, and a Guess Who card is a stranger's answer read back.
  *

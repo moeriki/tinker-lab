@@ -15,6 +15,17 @@
       here and make no new design decisions. If a page needs something that is
       not on this page, either the page is wrong or the kit is incomplete.
 
+      That contract covers the pages GUESTS see, and stops there (#66). The
+      admin surface -- the host's judging table and photo gallery -- is
+      deliberately outside it: a working tool one person uses on one night,
+      already opted out of the party's chrome, and nothing else is ever
+      assembled out of its parts. Its classes are named in OFF_REMIT in
+      src/kit.js and the footer reports them under their own sentence, so the
+      count stays honest instead of reporting nine classes forever that nobody
+      intends to draw. The cost is real and is written down there rather than
+      glossed: admin has no visual contract, so the only thing that catches a
+      break in it is the host looking at it.
+
       A component's markup exists in EXACTLY ONE PLACE (#32). Where the app
       renders it, that place is src/render.js and this page calls it through a
       marker comment -- one opening with `@` and naming a primitive, such as
@@ -254,18 +265,42 @@
 
       <!-- ============================== HERO =============================== -->
       <section class="sect" id="hero">
-        <h2 class="sect__h">7. Hero — two flavours</h2>
+        <h2 class="sect__h">7. Hero — three flavours</h2>
         <p class="sect__note">Top half of every game page. Either words or a picture, never both.</p>
 
         <div class="stack">
           <!--@hero kicker="GAME 04" text="Most teams answered one of five things to this. Guess which. Be brave — wrong answers are also answers."-->
           <!--@hero flavour="asset" kicker="GAME 07" text="[ asset goes here ]"-->
+
+          <!-- The picture flavour with a file behind it, and a blurb under it, as one block rather
+               than two rows of the stack: the game page renders them as adjacent siblings and
+               `.blurb` brings its own top margin, so putting a 1rem gap between them here would
+               demo a spacing the site does not have. -->
+          <div>
+            <!--@hero asset="/img/kit-shot.jpg" alt="A cyan and pink card with a yellow square, a black bar and a hazard stripe." kicker="GAME 07"-->
+            <!--@blurb text="Whoever is holding it when the game ends takes the points. There is no second place."-->
+          </div>
         </div>
 
         <p class="sect__note">
-          Both are <code>hero()</code> from <code>src/render.js</code>. The kicker is optional and
-          the game page passes none today — no game has a number to put in one — so this page is
-          showing a slot that works rather than one that is used.
+          All three boxes above are <code>hero()</code> from <code>src/render.js</code>, and they
+          are two flavours rather than three, because the picture flavour has two states both worth
+          showing: the empty frame is what a game renders while its photograph is unshot — boot has
+          already shouted about the missing file — and the one under it is what every game looks
+          like on the night. The kicker is optional and the game page passes none today — no game
+          has a number to put in one — so this page is showing a slot that works rather than one
+          that is used.
+        </p>
+        <p class="sect__note">
+          The sentence under the picture is <code>blurb()</code>, and it is the escape hatch for the
+          rule in the line above: the frame holds words <em>or</em> a picture, so a game that needs
+          both says the second part out here. Teddy is the only game using it.
+        </p>
+        <p class="sect__note">
+          The third flavour is named here and not drawn: the 16:9 video embed on the rickroll card.
+          Drawing it would mean this page fetching YouTube every time it loads, and that card is the
+          only markup on the site that leaves the network at all. The footer lists it by name rather
+          than letting it pass as undocumented.
         </p>
       </section>
 
@@ -491,7 +526,7 @@
       </section>
 
       <footer class="kit-foot">
-        <p class="aside">That is the whole kit. If a page needs something that is not on this page, the page is wrong or the kit is incomplete — say which.</p>
+        <p class="aside">That is the whole kit. If a guest-facing page needs something that is not on this page, the page is wrong or the kit is incomplete — say which. The admin surface is not held to this, and the last sentence below says which classes that excuses and what it costs.</p>
         <p class="aside">
           <!--@built--> above are rendered by <code>src/render.js</code> — the same calls the site
           makes, so they cannot be out of date.

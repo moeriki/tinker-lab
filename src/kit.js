@@ -30,6 +30,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import {
+  blurb,
   bubble,
   card,
   field,
@@ -117,7 +118,23 @@ const RENDERERS = {
       attrs,
     }),
 
-  hero: (a) => hero({ text: a.text ?? '', kicker: a.kicker ?? '', flavour: a.flavour ?? 'text' }),
+  // `asset` is what tells the two states apart, and both are worth showing. Without a file the
+  // frame holds the placeholder, which is the boot-warning state a game renders while its
+  // photograph is unshot; with one it holds the picture, which is what every game actually looks
+  // like on the night. §7 demoed only the first, so `.hero__img` -- the normal state -- was one of
+  // the classes #59's count had nowhere to point at (#66). `assetExists` is deliberately NOT a
+  // marker attribute: the file is committed, so the kit lying about its presence would demo a
+  // state the page can reach only by being broken.
+  hero: (a) =>
+    hero({
+      text: a.text ?? '',
+      kicker: a.kicker ?? '',
+      flavour: a.flavour ?? (a.asset ? 'asset' : 'text'),
+      asset: a.asset ?? '',
+      alt: a.alt ?? '',
+    }),
+
+  blurb: (a) => blurb(a.text ?? ''),
 
   // Everything `field` does not name itself is a real HTML attribute on the control, escaped on
   // the way out by `field` -- so a marker can demo `required` or a `placeholder` without this
@@ -273,6 +290,7 @@ const BUILT_NAMES = {
   scorebar: 'the scorebar',
   tile: 'the tiles',
   hero: 'the heroes',
+  blurb: 'the blurb',
   field: 'the fields',
   hintmodal: 'the modal',
   bubble: 'the speech bubble',
@@ -374,6 +392,49 @@ const OFF_KIT = {
   'banner--bad':
     'this page’s own error state, for a marker naming a primitive that does not exist — a ' +
     'permanent example of it would be a page that always looks broken',
+
+  'hero--video':
+    'the rickroll’s 16:9 embed (#28) — demoing it means this page fetching YouTube on every ' +
+    'load, and everything else here is self-hosted on purpose: five woff2 fonts, one committed ' +
+    '7KB drawing, nothing that can fail to arrive on the night. §7 names the flavour in words ' +
+    'instead of opening a socket to show it',
+
+  'hero__video': 'the same reason as <code>.hero--video</code>, and §7 names it',
+};
+
+/**
+ * The one part of this site the kit's contract does not cover, and why (#66).
+ *
+ * Kept apart from `OFF_KIT` on purpose, because it is a different claim. An entry above says a
+ * class CANNOT be drawn here — the page would animate on every load, or look permanently broken,
+ * or reach off the network. An entry here says it SHOULD not be, which is an argument rather than
+ * a fact. Merging them would cost the rule that keeps `OFF_KIT` short: a list that holds both
+ * facts and arguments becomes somewhere to put things.
+ *
+ * Staleness is checked the same way in both, so a class deleted from `app.css` is reported here
+ * too rather than quietly keeping its own name alive.
+ */
+const OFF_REMIT = {
+  reason:
+    'the host’s judging table and photo gallery. This page is the contract for the pages GUESTS ' +
+    'see, and an admin surface is not one of them: it is a working tool one person uses on one ' +
+    'night, already opted out of the party’s chrome by <code>layout({ still: true })</code>, and ' +
+    'nothing will ever be assembled out of its parts — which is the drift this page exists to ' +
+    'catch. The cost is named rather than denied: these have no visual contract at all, so a ' +
+    'break is caught only by the host looking at it, which is how the judging boxes rendered as ' +
+    'padding-less three-column grids from #21 until #60 noticed',
+
+  classes: [
+    'board',
+    'gallery',
+    'judge',
+    'submission',
+    'submission--correct',
+    'submission--incorrect',
+    'submission--pending',
+    'submission__body',
+    'submission__who',
+  ],
 };
 
 const CSS_COMMENT = /\/\*[\s\S]*?\*\//g;
@@ -413,15 +474,23 @@ function coverageSentence(html) {
   const declared = declaredClasses();
   const shown = renderedClasses(html);
 
-  const missing = [...declared].filter((name) => !shown.has(name) && !(name in OFF_KIT)).sort();
-  const stale = Object.keys(OFF_KIT)
-    .filter((name) => !declared.has(name))
-    .sort();
+  const excused = new Set([...Object.keys(OFF_KIT), ...OFF_REMIT.classes]);
+
+  const missing = [...declared].filter((name) => !shown.has(name) && !excused.has(name)).sort();
+  const stale = [...excused].filter((name) => !declared.has(name)).sort();
 
   const exemptions = Object.entries(OFF_KIT)
     .filter(([name]) => declared.has(name))
     .map(([name, why]) => `<code>.${escape(name)}</code> — ${why}`)
     .join('; ');
+
+  // Named as a group rather than one entry each. The reason is identical for all nine and it is a
+  // paragraph long, so nine copies of it would be the noise that makes a footer ignorable -- the
+  // same failure #32 warned about, which is what this whole sentence is here to avoid.
+  const remitLine = OFF_REMIT.classes.some((name) => declared.has(name))
+    ? ` Outside this page's remit: ${code(OFF_REMIT.classes.filter((name) => declared.has(name)))}
+        — ${OFF_REMIT.reason}.`
+    : '';
 
   const staleLine = stale.length
     ? ` <strong>${code(stale)} ${stale.length === 1 ? 'is' : 'are'} excused below and no longer
@@ -439,7 +508,7 @@ function coverageSentence(html) {
   return `${headline}${staleLine} Counted on every load by comparing the stylesheet against this
     page's own rendered markup, because the <code>STILL OWED</code> badges above cannot see this:
     they count sections that exist and are unbuilt, and a class with no section has no badge to
-    wear (#59). Deliberately not shown: ${exemptions}.`;
+    wear (#59). Deliberately not shown: ${exemptions}.${remitLine}`;
 }
 
 /**
