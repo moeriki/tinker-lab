@@ -10,10 +10,12 @@ import {
   ADMIN_COOKIE,
   ADMIN_SECRET,
   BUILD_COMMIT,
+  IS_DEV,
   PENDING_COOKIE,
   PUBLIC_DIR,
   UPLOADS_DIR,
 } from './config.js';
+import { devAttach, devRoutes } from './dev.js';
 import { all, get, run, transact } from './db.js';
 import {
   assetIsPresent,
@@ -2210,10 +2212,18 @@ const routes = [
 
   route('GET', '/kit', serveKit),
   route('GET', '/healthz', healthz),
+
+  // Empty in production. On a dev build: the two ends of the logout that lets real onboarding be
+  // walked. See src/dev.js and #62.
+  ...devRoutes,
 ];
 
 export async function handle(req, res) {
   const url = new URL(req.url, `http://${req.headers.host}`);
+
+  // Before routing, because it decides who this request is FROM: on a dev build the browser is
+  // handed the test team and the admin cookie if it is not carrying them already.
+  if (IS_DEV) devAttach(req, res);
 
   for (const candidate of routes) {
     const params = candidate.match(req.method, url.pathname);

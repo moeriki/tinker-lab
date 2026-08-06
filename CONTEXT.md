@@ -683,6 +683,40 @@ Static: `/css/*`, `/js/*`, `/fonts/*`, `/img/*` from `public/`; `/uploads/*` fro
 `/kit` is the style kit — served from `public/kit.html`, with the real components injected into it
 (see **Component** below).
 
+Dev build only — these two routes are appended to the inventory when `NODE_ENV=development` and
+are **absent**, not forbidden, on any other build:
+
+| method | route | what |
+| --- | --- | --- |
+| GET | `/dev/logout` | drop the test team and stop re-attaching it → `/welcome`, so real onboarding can be walked |
+| GET | `/dev/login` | back into the test team → `/` |
+
+## Dev build
+
+`NODE_ENV=development` builds a harness around the site, so that testing a change does not start
+with nine onboarding fields and nineteen slugs tapped out of `/admin/codes`
+([#62](https://github.com/moeriki/tinker-lab/issues/62)). It gives you:
+
+- a **test team** — `TEST TEAM`, two members, through the questionnaire, attached automatically to
+  any browser that is not already carrying a team;
+- **every tile unlocked** and nothing played, which is the seed in full: no fabricated rival teams,
+  no submissions, no photographs;
+- the **admin cookie**, so `/admin` and `/` link to each other from a strip across the top of every
+  page rather than through a secret URL;
+- a **logout**, which is a dev affordance and not a change of heart — this site still has no
+  sign-out, no rejoin and no recovery (see **Team**).
+
+Everything it does lives in `src/dev.js`. Production imports it and calls nothing: the routes are
+an empty array, the strip renders an empty string, and no test team is ever written.
+
+The switch is an explicit equality, so an **unset `NODE_ENV` is production**. That asymmetry is
+deliberate: a laptop that forgets the flag shows locked tiles and you notice within one screen,
+while a container that lost its env file would hand every guest every game and say nothing.
+
+`npm run dev` sets it. `npm run dev:prod` is the same watcher without it, for the times the locked
+wall is the thing being tested. Docker builds either flavour — `NODE_ENV=development docker compose
+up -d --build` — and defaults to production when the arg is unset.
+
 ## Component
 
 A piece of markup the design system ships: a tile, a hero, a form field, the scorebar, the hint

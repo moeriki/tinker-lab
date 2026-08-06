@@ -4,6 +4,7 @@
 // this stage is that the route exists, the data is real, and nothing lies.
 
 import * as chrome from '../content/chrome.js';
+import { IS_DEV } from './config.js';
 import { escape } from './http.js';
 
 /**
@@ -54,6 +55,7 @@ export function layout({ title, body, bar = '', showClose = false, still = false
   <link rel="stylesheet" href="/css/app.css">
 </head>
 <body class="shell">
+  ${devBar()}
   ${modal}
   ${still ? '' : marquee()}
   <div class="app${still ? '' : ' anim-page'}">
@@ -68,6 +70,36 @@ export function layout({ title, body, bar = '', showClose = false, still = false
   <script type="module" src="/js/app.js"></script>
 </body>
 </html>`;
+}
+
+/**
+ * The dev build's own strip, above everything, on every page including the admin surfaces --
+ * which is the point: "back and forth between dashboard and admin" is one link each way, from
+ * wherever you are. Empty string in production, so the markup is not there to be inspected (#62).
+ *
+ * Styled INLINE rather than in `public/css/app.css`. The stylesheet is served to guests, and a
+ * dev-only rule sitting in it would be dead weight on the night and one more thing on the style
+ * kit's list of components the site owes. Six declarations in a string keep production's CSS
+ * byte-identical to what it was.
+ *
+ * Both links are always shown rather than one of them chosen from request state, so `layout()`
+ * does not have to start taking a request in order to draw its frame. Tapping the wrong one costs
+ * a redirect.
+ */
+function devBar() {
+  if (!IS_DEV) return '';
+
+  const link = (href, text) =>
+    `<a href="${href}" style="color:#000;text-decoration:none;padding:0 .5rem">${text}</a>`;
+
+  const strip =
+    'background:#ff0;color:#000;font:700 12px/2.2 monospace;' +
+    'letter-spacing:.08em;text-align:center;text-transform:uppercase';
+
+  return `<div style="${strip}">DEV ${link('/', 'board')}${link('/admin', 'admin')}${link(
+    '/dev/login',
+    'test team',
+  )}${link('/dev/logout', 'log out')}</div>`;
 }
 
 /**

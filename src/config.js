@@ -2,6 +2,16 @@ import { join } from 'node:path';
 
 export const PORT = Number(process.env.PORT ?? 3040);
 
+// The dev build: a test team already logged in, every tile open, and a way back out to walk real
+// onboarding. See src/dev.js and #62.
+//
+// It turns on for the EXPLICIT value and nothing else. An unset NODE_ENV is production here --
+// not because unset is meaningful, but because the failure directions are not symmetric: a
+// laptop that forgets the flag shows locked tiles and you notice in one screen, while a deployed
+// container that loses its env file would hand every guest every game with no way to tell. The
+// Dockerfile bakes `production` in and docker-compose can override it at build time.
+export const IS_DEV = process.env.NODE_ENV === 'development';
+
 // Everything mutable lives here so the container can bind-mount one directory. See
 // docs/adr/sqlite-via-node-sqlite.md -- it must be the DIRECTORY, not the .sqlite file.
 export const DATA_DIR = process.env.DATA_DIR ?? new URL('../data/', import.meta.url).pathname;
@@ -37,3 +47,4 @@ export const BUILD_COMMIT = process.env.BUILD_COMMIT || 'dev';
 export const TEAM_COOKIE = 'team';
 export const ADMIN_COOKIE = 'admin';
 export const PENDING_COOKIE = 'pending'; // the slug someone arrived on, held across onboarding
+export const DEV_OUT_COOKIE = 'devout'; // dev only: "leave me logged out, I am testing the door"

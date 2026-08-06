@@ -6,7 +6,6 @@ FROM node:26-alpine
 # Timestamps decide when the game ended and are read back on the showdown screen. Left at UTC the
 # logs read two hours early, which is confusing at 01:00 while trying to fix something.
 ENV TZ=Europe/Brussels
-ENV NODE_ENV=production
 ENV PORT=3040
 ENV DATA_DIR=/data
 
@@ -41,6 +40,25 @@ USER node
 #
 # Unset is honest rather than fatal. A build nobody labelled reports "unknown", which is exactly
 # what the site said before this existed -- it never claims to be a commit it is not.
+# Which flavour is this image? `development` builds the dev harness in -- test team already
+# logged in, every tile unlocked, /admin open, /dev/logout wired (see src/dev.js and #62).
+# ANYTHING else, including unset, is the real site.
+#
+# Down here beside BUILD_COMMIT rather than up with TZ and PORT because nothing during the build
+# reads it: this image has no install step, so NODE_ENV has no build-time meaning at all and only
+# ever describes the process that CMD starts. Keeping it below `COPY . .` also means switching
+# flavours reuses every source layer.
+#
+# `docker compose` passes it through: NODE_ENV=development docker compose up -d --build.
+ARG NODE_ENV=production
+
+# Same reason the BUILD_COMMIT RUN below exists: without a layer that consumes the ARG's VALUE,
+# the cache does not key on it and a rebuild keeps whichever flavour it was first handed. That is
+# the difference between "I rebuilt in dev mode" and an image that silently stayed production.
+RUN echo "NODE_ENV=$NODE_ENV"
+
+ENV NODE_ENV=$NODE_ENV
+
 ARG BUILD_COMMIT=unknown
 
 # The RUN is load-bearing, not decoration. With `ARG` + `ENV` and nothing between them the layer

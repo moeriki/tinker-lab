@@ -11,12 +11,16 @@ import { PORT, ADMIN_SECRET_IS_DEFAULT, HA_WEBHOOK_URL } from './src/config.js';
 import { migrate } from './src/db.js';
 import { loadContent, warnAboutOrphans } from './src/content.js';
 import { handle } from './src/app.js';
+import { announceDevBuild } from './src/dev.js';
 import { html } from './src/http.js';
 import { layout } from './src/render.js';
 
 migrate();
 await loadContent();
 warnAboutOrphans();
+
+// After content is loaded, because seeding the test team unlocks every game the roster declares.
+announceDevBuild();
 
 const server = createServer(async (req, res) => {
   try {

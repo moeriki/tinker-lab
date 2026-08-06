@@ -14,6 +14,15 @@ services:
       args:
         # Interpolated from the shell (or from `.env` beside this file). Unset -> "unknown".
         BUILD_COMMIT: ${BUILD_COMMIT:-unknown}
+
+        # Which flavour to build. Unset -> the real site, which is the only default that is safe
+        # to get wrong. A dev image:
+        #
+        #   NODE_ENV=development docker compose up -d --build
+        #
+        # Do not park this in `.env`: that file is applied at RUN time and would override the
+        # build for good, the same trap BUILD_COMMIT documents at the foot of .env.example.
+        NODE_ENV: ${NODE_ENV:-production}
     image: bday-games:local
     container_name: bday
     restart: unless-stopped

@@ -6,7 +6,8 @@
   "type": "module",
   "scripts": {
     "start": "node server.js",
-    "dev": "node --watch server.js",
+    "dev": "NODE_ENV=development node --watch server.js",
+    "dev:prod": "node --watch server.js",
     "backup": "node scripts/backup.js",
     "qr": "node scripts/qr-sheet.js",
     "migrate-check": "node scripts/migrate-check.js"
