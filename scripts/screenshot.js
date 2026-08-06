@@ -5,6 +5,7 @@
 //   node scripts/screenshot.js /kit /no-such-code
 //   node scripts/screenshot.js --reduced-motion /
 //   node scripts/screenshot.js --full /kit           -> the whole page, not just the fold
+//   node scripts/screenshot.js --scroll 600 /        -> the fold 600px down, where sticky is pinned
 //   node scripts/screenshot.js --base https://bday.moeriki.com /   -> the real deploy
 //   node scripts/screenshot.js --out shots /         -> somewhere you choose
 //
@@ -50,6 +51,11 @@ let height = 844;
 let scale = 2;
 let reducedMotion = false;
 let full = false;
+// How far down the page to scroll before shooting. Zero is the fold, and the fold is the one place
+// a STICKY thing is still sitting where it started -- so at zero the marquee is indistinguishable
+// from an ordinary strip at the top, and `--full` renders from the top too. Neither shows the thing
+// worth looking at: the marquee pinned over content that has scrolled under it.
+let scroll = 0;
 
 for (let i = 0; i < argv.length; i += 1) {
   const arg = argv[i];
@@ -60,6 +66,7 @@ for (let i = 0; i < argv.length; i += 1) {
   else if (arg === '--width') width = Number(argv[(i += 1)]);
   else if (arg === '--height') height = Number(argv[(i += 1)]);
   else if (arg === '--scale') scale = Number(argv[(i += 1)]);
+  else if (arg === '--scroll') scroll = Number(argv[(i += 1)]);
   else if (arg.startsWith('-')) {
     console.error(`unknown flag: ${arg}`);
     process.exit(1);
@@ -253,6 +260,11 @@ try {
       awaitPromise: true,
     });
     await sleep(250);
+
+    if (scroll) {
+      await cdp.send('Runtime.evaluate', { expression: `scrollTo(0, ${scroll})` });
+      await sleep(150);
+    }
 
     // Free, and worth having: the page's own measurement of whether it overflows sideways. On a
     // mobile-only site that is a real defect, and this is the one moment it can be seen.

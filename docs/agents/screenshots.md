@@ -48,7 +48,12 @@ Two consequences worth knowing:
   that is a real defect, and this is the one moment it can be seen.
 - **`--full` misplaces sticky things.** Rendering past the fold shows the whole page but puts
   anything `position: sticky` where it would sit at the top, not where a scrolling guest sees it.
-  Trust a default shot for the marquee and the scorebar.
+- **So use `--scroll <px>` for anything sticky.** A default shot is taken at the top of the page,
+  which is the one place a sticky thing is still sitting where it started — so at zero the marquee
+  is indistinguishable from an ordinary strip, and `--full` renders from the top too. Neither shows
+  the marquee *pinned over content that has scrolled under it*, which is the only view in which it
+  can be judged. `--scroll 9999` clamps to the bottom, which is how you check the status bar is the
+  last thing on the page.
 
 ## What it cannot do
 
