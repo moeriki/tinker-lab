@@ -77,14 +77,20 @@ node scripts/walk.js --out shots
 ```
 
 It arrives as a stranger, walks both onboarding screens, scans codes, submits answers and
-photographs, and moves points through `/admin/award` — then shoots each of those states. Five
-flows: `door`, `scan`, `answer`, `photo`, `standings`. Each gets its **own server and its own
-database**, so a flow never inherits the teams the flow before it left lying around.
+photographs, moves points through `/admin/award` and ends the night — then shoots each of those
+states. Six flows: `door`, `scan`, `answer`, `photo`, `standings`, `ending`. Each gets its **own
+server and its own database**, so a flow never inherits the teams the flow before it left lying
+around.
 
 The standings flow is the one that pays for the rest: it puts three rivals on the board and walks
 the viewing team through **podium, chasing and rest**, which is the only way to see all three
 standing colours (`#0a7a0a`, `#a35b00`, `#8a0d0d`) — they appear one band at a time and need a
 real score to reach.
+
+The `ending` flow reaches the other state nobody can browse to: **01:00**. It presses
+`/admin/end`, sits in the gap with a frozen board, then presses `/admin/showdown` — so the two
+endings, the locked dashboard and the confirm page are all photographable. It holds both cookies at
+once, which is what the hosts actually have on the night.
 
 ### It is the E2E suite, and that is deliberately not a separate thing
 

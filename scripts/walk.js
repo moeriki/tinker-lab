@@ -442,7 +442,92 @@ const FLOWS = [
       await shoot('standing-fresh');
     },
   },
+
+  {
+    name: 'ending',
+    what: 'end the game, sit in the gap, then start the showdown',
+    async run({ page, shoot, check }) {
+      await onboard(page);
+
+      // Both cookies at once, which is what the hosts actually have on the night: they are a team
+      // as well, and the same phone presses /admin.
+      await page.goto(`/admin/key/${ADMIN_SECRET}`);
+      check('the admin key lets us in', !(await page.url()).startsWith('/admin/key'));
+      await shoot('admin-running');
+
+      await page.goto('/showdown');
+      check('while the game runs, /showdown turns you away', (await page.url()) === '/');
+      check('a team mid-game gets no ending banner', !(await page.has('.banner')));
+
+      // --- the first ending: the freeze ---------------------------------------------------
+      await page.post('/admin/end', {});
+      check('ending the game lands back on the board', (await page.url()) === '/admin');
+      check(
+        'the board now offers the showdown',
+        await page.has('a[href="/admin/showdown"]'),
+      );
+      check('and offers to reopen', await page.has('form[action="/admin/reopen"]'));
+      await shoot('admin-ended');
+
+      // The whole of #77 in one check: the freeze must NOT publish the results.
+      await page.goto('/showdown');
+      check(
+        'a frozen game still does not publish the results',
+        (await page.url()) === '/',
+      );
+
+      await page.goto('/');
+      const frozen = await page.text('.banner');
+      check(`the locked board says why (${frozen})`, /pens down/i.test(frozen ?? ''));
+      check('and the team keeps its tiles', (await page.count('.tile')) > 0);
+      await shoot('board-frozen');
+
+      await page.goto(`/g/${STARTER}`);
+      check('a frozen game page carries the banner too', await page.has('.banner'));
+      check('and its submit button is dead', await page.has('button[disabled]'));
+
+      // A stale tab pressing submit anyway. It must come home, not jump the queue to the results.
+      await page.post(`/g/${STARTER}/submit`, { body: 'too late' });
+      check(
+        'a late submission bounces back to its own game, not to the results',
+        (await page.url()).startsWith(`/g/${STARTER}`),
+      );
+
+      // --- the second ending: the publish -------------------------------------------------
+      await page.goto('/admin/showdown');
+      check('the confirm page says it out loud', await page.has('form[action="/admin/showdown"]'));
+      await shoot('showdown-confirm');
+
+      await page.press('form[action="/admin/showdown"] button');
+      check(
+        'starting the showdown lands the host on the results',
+        (await page.url()) === '/showdown',
+      );
+      await shoot('showdown');
+
+      await page.goto('/');
+      check(
+        'the published board points a guest at the results',
+        await page.has('a.btn[href="/showdown"]'),
+      );
+      await shoot('board-published');
+
+      // Socially irreversible, and the site holds that line: the button is gone, and the route
+      // underneath it refuses too.
+      await page.goto('/admin');
+      check('the board stops offering to reopen', !(await page.has('form[action="/admin/reopen"]')));
+      await page.post('/admin/reopen', {});
+      await page.goto('/showdown');
+      check(
+        'and a stale reopen cannot unpublish the results',
+        (await page.url()) === '/showdown',
+      );
+    },
+  },
 ];
+
+/** A tile every team has from the moment it exists, so the flow above needs no scan. */
+const STARTER = 'yarn';
 
 const BAND_CLASS = { podium: 'top', chasing: 'mid', rest: 'low' };
 

@@ -106,9 +106,11 @@ import {
   rescore,
   revealNextHint,
   revealedHints,
+  showdownHasStarted,
   standingBand,
   standings,
   standingsMessage,
+  startShowdown,
   submissionsFor,
   teamScore,
 } from './scoring.js';
@@ -202,11 +204,46 @@ const teamBar = (team) => {
   });
 };
 
-/** After game end the site is read-only for teams. One guard, one place. */
-const blockedByGameEnd = (res) => {
+/**
+ * After game end the site is read-only for teams. One guard, one place.
+ *
+ * It sends them BACK rather than onward to the showdown, which is the whole of #77 in one line:
+ * game end is the freeze and the showdown is a separate press that may still be an hour away, so
+ * a stale submit at 00:20 must not publish a results page nobody has released yet. `backTo` is
+ * the page they were already on, per ADR-the-page-you-are-on-is-the-stage -- nobody is routed to
+ * the dashboard to be told something, and `endNotice()` is on both pages to do the telling.
+ */
+const blockedByGameEnd = (res, backTo = '/') => {
   if (!gameIsOver()) return false;
-  redirect(res, '/showdown');
+  redirect(res, backTo);
   return true;
+};
+
+/**
+ * What the night is doing, said on the team's own pages. Three states, and the middle one is the
+ * reason this exists: between game end and the showdown a team keeps the board they spent five
+ * hours on, every control on it dead, and nothing else on the page would say why.
+ *
+ * The line after the showdown is also the only thing on this site that points a guest at
+ * `/showdown` -- the menu bar (#76) is where that link properly belongs, and this is what stops
+ * the results being a page with no way in until it lands.
+ */
+const endNotice = () => {
+  if (showdownHasStarted()) {
+    // The way on is a `.btn` and not a link inside the sentence. Written the other way first, and
+    // it rendered as a raw purple underlined link: `app.css` styles anchors only as `.btn`,
+    // because until this banner nothing on the guest side had ever put a link inside prose. The
+    // fix is the site's own grammar rather than a new rule -- every "go somewhere" here is a
+    // button-shaped thing.
+    return `<p class="banner"><strong>That's the night.</strong> The scores are final and the
+        table is up.</p>
+      <a class="btn btn--primary" href="/showdown">see where you came</a>`;
+  }
+  if (gameIsOver()) {
+    return `<p class="banner"><strong>Pens down.</strong> Nothing on this board will answer you
+      now. The hosts are adding it all up, which should worry some of you more than others.</p>`;
+  }
+  return '';
 };
 
 // --- the front door ---------------------------------------------------------------------------
@@ -237,9 +274,13 @@ const noSuchCode = (res) => {
  * define -- which the caller turns into a 404.
  */
 function applyCode({ team, slug, target, deferred = false }) {
+  // The scan is still recorded, so who was still hunting at midnight stays visible -- it just
+  // buys nothing. They land on their own board, where `endNotice()` says which of the two endings
+  // the night is in; before #77 this went straight to `/showdown`, which published the results to
+  // anybody who scanned a code in the gap.
   if (gameIsOver()) {
     recordScan(team.id, slug, false);
-    return '/showdown';
+    return '/';
   }
 
   if (target.page) {
@@ -704,6 +745,7 @@ function showDashboard({ req, res }) {
       title: 'Your board',
       bar: teamBar(team),
       body: `
+        ${endNotice()}
         ${standing({ band: standingBand(team.id), text: standingsMessage(team.id) })}
         <div class="tiles">${grid}</div>
         <a class="btn" href="/rules">the rules</a>
@@ -1232,6 +1274,7 @@ function showGame({ req, res, params, url }) {
         ? hintModal({ notice, cost: hintCost(), backHref: gamePath(game.id, { step }) })
         : '',
       body: `
+        ${endNotice()}
         ${problem ? `<p class="banner banner--bad">${escape(problem)}</p>` : ''}
         ${arrival ? `<p class="banner">${escape(arrival)}</p>` : ''}
         ${submitted ? `<p class="banner${verdictAnimation(moment)}">${escape(submitted)}</p>` : ''}
@@ -1479,7 +1522,7 @@ async function savePredictions({ req, res, team, game }) {
 async function submitToGame({ req, res, params }) {
   const team = requireOnboardedTeam(req, res);
   if (!team) return undefined;
-  if (blockedByGameEnd(res)) return undefined;
+  if (blockedByGameEnd(res, `/g/${encodeURIComponent(params.gameId)}`)) return undefined;
 
   const game = getGame(params.gameId);
   if (!game || !isUnlocked(team.id, game.id)) return html(res, notFound(), 404);
@@ -1682,7 +1725,7 @@ async function submitToGame({ req, res, params }) {
 async function revealHint({ req, res, params }) {
   const team = requireOnboardedTeam(req, res);
   if (!team) return undefined;
-  if (blockedByGameEnd(res)) return undefined;
+  if (blockedByGameEnd(res, `/g/${encodeURIComponent(params.gameId)}`)) return undefined;
 
   const game = getGame(params.gameId);
   if (!game || !isUnlocked(team.id, game.id)) return html(res, notFound(), 404);
@@ -1774,8 +1817,13 @@ function showPage({ req, res, params }) {
   return html(res, layout({ title: page.title, body, showClose: page.showClose }));
 }
 
+/**
+ * Gated on the showdown having been STARTED, not on the game having ended -- the gap between
+ * those two is the hour in which the hosts finish the queue and read the top three off their own
+ * board, and this page existing during it would hand the room the ending early.
+ */
 function showShowdown({ req, res }) {
-  if (!gameIsOver()) return redirect(res, '/');
+  if (!showdownHasStarted()) return redirect(res, '/');
 
   return html(
     res,
@@ -1804,6 +1852,36 @@ function adminKey({ res, params }) {
   setCookie(res, ADMIN_COOKIE, ADMIN_SECRET);
   return redirect(res, '/admin');
 }
+
+/**
+ * The night's two endings, as whatever the state allows next and nothing else. The host at 01:00
+ * is holding a drink and reading a phone in a loud room, so the page never shows both presses at
+ * once and never shows a press that would be refused.
+ *
+ * Ending is a bare button because it is a toggle and reopening costs nothing. The showdown is a
+ * LINK to a confirm page rather than a button, which is the whole of its guard: it is
+ * irreversible socially rather than technically, so what it needs is a sentence in front of it,
+ * not a harder gate. A typed word on the RESET pattern was considered and rejected in #11 -- a
+ * spelling test in front of the climax, at 01:00, with a room watching.
+ */
+const endControls = () => {
+  if (showdownHasStarted()) {
+    return `<p class="banner"><strong>The showdown is up.</strong> The game does not reopen from
+      here.</p>
+      <a class="btn" href="/showdown">the results</a>`;
+  }
+  if (gameIsOver()) {
+    return `<p class="banner"><strong>The game is frozen and the numbers are final.</strong>
+        Nothing has been published yet.</p>
+      <a class="btn btn--primary" href="/admin/showdown">start the showdown</a>
+      <form method="post" action="/admin/reopen">
+        <button class="btn">reopen the game</button>
+      </form>`;
+  }
+  return `<form method="post" action="/admin/end">
+      <button class="btn btn--primary">end the game</button>
+    </form>`;
+};
 
 function adminBoard({ req, res }) {
   if (!requireAdmin(req, res)) return undefined;
@@ -1841,12 +1919,12 @@ function adminBoard({ req, res }) {
       title: 'Admin',
       owner: 'Admin dashboard and results showdown',
       does: 'Live board with polling, per-game galleries, judging, manual awards, end game.',
-      data: { gameOver: gameIsOver(), board },
+      data: { gameOver: gameIsOver(), showdown: showdownHasStarted(), board },
       still: true, // it polls; a page that re-animates every few seconds cannot be read
       // The board is undesigned, the reset is not, and the host has to be able to reach it from
-      // here at 19:45. Whoever builds the real board (#11) inherits these links -- they are in
+      // here at 19:45. Whoever builds the real board (#79) inherits these links -- they are in
       // CONTEXT.md's route table, which is where the inventory is settled rather than here.
-      extra: `${galleries}<a class="btn" href="/admin/reset">reset the game</a>`,
+      extra: `${endControls()}${galleries}<a class="btn" href="/admin/reset">reset the game</a>`,
     }),
   );
 }
@@ -2071,8 +2149,57 @@ const adminEnd = ({ req, res }) => {
 
 const adminReopen = ({ req, res }) => {
   if (!requireAdmin(req, res)) return undefined;
+  // Refused once the showdown is up; `endControls()` stops offering it there, so reaching this is
+  // a stale tab. Either way the host lands back on a board that says which ending they are in.
   reopenGame();
   return redirect(res, '/admin');
+};
+
+/**
+ * The sentence in front of the second press. It is not a gate -- one tap gets past it -- and that
+ * is the design: what makes the showdown irreversible is thirteen phones having been looked at,
+ * which no confirmation can undo, so the only useful thing to put here is the checklist the hosts
+ * would otherwise be running from memory at 01:00.
+ *
+ * Redirects rather than renders in both dead ends: pressed too early there is nothing to publish,
+ * and pressed twice the results themselves are the better answer than a page asking again.
+ */
+function adminShowdown({ req, res }) {
+  if (!requireAdmin(req, res)) return undefined;
+  if (showdownHasStarted()) return redirect(res, '/showdown');
+  if (!gameIsOver()) return redirect(res, '/admin');
+
+  return html(
+    res,
+    layout({
+      title: 'The showdown',
+      still: true, // admin surface
+      body: `
+        <p class="banner"><strong>This puts the final table on every phone in the house.</strong>
+          You cannot take it back &mdash; not because the button is one-way, but because they will
+          have read it.</p>
+        <p>The game is already frozen and the scores are already final. Nothing below changes a
+          number; it only decides when the room finds out.</p>
+        <p>Before you press it:</p>
+        <ul>
+          <li>Is there anything left to judge?</li>
+          <li>Have you read the top three out?</li>
+        </ul>
+        <p>Do that first. The button publishes; the announcement is yours.</p>
+        <form method="post" action="/admin/showdown">
+          <button class="btn btn--primary" type="submit">start the showdown</button>
+        </form>
+        <a class="btn btn--close" href="/admin">back to the board</a>
+      `,
+    }),
+  );
+}
+
+/** Straight to the results, which is the page the hosts are about to be reading from. */
+const adminShowdownConfirm = ({ req, res }) => {
+  if (!requireAdmin(req, res)) return undefined;
+  if (!startShowdown()) return redirect(res, '/admin');
+  return redirect(res, '/showdown');
 };
 
 const adminRescore = ({ req, res }) => {
@@ -2350,6 +2477,8 @@ const routes = [
   route('POST', '/admin/award', adminAward),
   route('POST', '/admin/end', adminEnd),
   route('POST', '/admin/reopen', adminReopen),
+  route('GET', '/admin/showdown', adminShowdown),
+  route('POST', '/admin/showdown', adminShowdownConfirm),
   route('POST', '/admin/rescore', adminRescore),
   route('GET', '/admin/codes', adminCodes),
   route('GET', '/admin/reset', adminReset),

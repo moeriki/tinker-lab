@@ -9,10 +9,16 @@ import { herdByUnit } from './harvest.js';
 import { normalise } from './matching.js';
 import { reachedStep } from './progress.js';
 
+// The night ends in two moments, and they are two settings rather than one flag with two jobs.
+// See docs/adr/the-night-ends-twice.md.
 export const GAME_ENDED_AT = 'game_ended_at';
+export const SHOWDOWN_AT = 'showdown_at';
 
 export const gameEndedAt = () => setting(GAME_ENDED_AT);
 export const gameIsOver = () => Boolean(gameEndedAt());
+
+export const showdownAt = () => setting(SHOWDOWN_AT);
+export const showdownHasStarted = () => Boolean(showdownAt());
 
 /**
  * Upsert on (team, game, kind, source_id) -- which is what makes rescoring and re-running a
@@ -202,7 +208,13 @@ export const submissionsFor = (teamId, gameId) =>
 export const allSubmissionsFor = (gameId) =>
   all('select * from submissions where game_id = ? order by created_at', gameId);
 
-// --- end game ------------------------------------------------------------------------------
+// --- the two endings -------------------------------------------------------------------------
+//
+// Running -> ended -> showdown. Only the first arrow goes both ways.
+//
+// Ending the game is what runs the resolvers for Herd Mentality, Guess Who and the Triangle Test,
+// so it is also what makes the numbers final. The showdown is the publish, and the gap between
+// them is where the hosts finish the queue and read the top three off their own board.
 
 /**
  * Stamp the end and run every resolver, in one transaction. Idempotent, because awards upsert --
@@ -215,8 +227,31 @@ export function endGame() {
   });
 }
 
+/**
+ * Refuses once the showdown is up, and returns whether it did anything. Reopening is safe by
+ * design -- the resolvers are idempotent, so ending, reopening and re-ending land on the same
+ * numbers -- but that safety is arithmetic, and it stops being the whole story the moment a room
+ * has read the table. Reopening after that would leave the site publishing final standings for a
+ * game that is accepting answers again, which is the one state this split exists to make
+ * impossible to reach.
+ */
 export function reopenGame() {
-  return transact(() => setSetting(GAME_ENDED_AT, null));
+  if (showdownHasStarted()) return false;
+  transact(() => setSetting(GAME_ENDED_AT, null));
+  return true;
+}
+
+/**
+ * Publish. Nothing is computed here and nothing is frozen -- both of those already happened at
+ * game end -- so this writes one timestamp and changes who may read `/showdown`.
+ *
+ * Refuses while the game is still running, which keeps the states in one order rather than two:
+ * there is no "revealed but still playing", so no page has to decide what that would mean.
+ */
+export function startShowdown() {
+  if (!gameIsOver()) return false;
+  setSetting(SHOWDOWN_AT, new Date().toISOString());
+  return true;
 }
 
 // --- hunts ---------------------------------------------------------------------------------

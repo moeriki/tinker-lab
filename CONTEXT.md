@@ -545,16 +545,36 @@ A **`trophy` has no judging mode at all**, and declaring one is a boot error: a 
 *submissions* become points, and a trophy has none. Its admin page is the team list, not a
 gallery.
 
-### Game end
+### Game end, and the showdown
 
-A real event: `game_ended_at` in the `settings` key/value table, stamped when the host presses
-**End game**. In one transaction it stamps the timestamp and runs every game's `resolve()`.
+**The night ends twice**, and the gap between the two is deliberate — see
+[ADR-the-night-ends-twice](docs/adr/the-night-ends-twice.md). Two rows in the `settings` key/value
+table, `game_ended_at` and `showdown_at`, and three states in one order: **running → ended →
+showdown**. Only the first arrow goes both ways.
+
+**Game end** is the freeze. Stamped when the host presses **end the game**; in one transaction it
+writes the timestamp and runs every game's `resolve()`, which is what makes the numbers final —
+Herd Mentality, Guess Who and the Triangle Test do not have a score until it runs.
 
 After it, the site is **read-only for teams**: every mutating POST — submit, hint, and any scan
-that would unlock or advance — redirects to the wrap page. Scans are still recorded, so you can
-see who was still hunting at midnight; they just buy nothing.
+that would unlock or advance — is refused and lands the team back on the page it came from. Scans
+are still recorded, so you can see who was still hunting at midnight; they just buy nothing. Teams
+**keep their own dashboard**, tiles and all, with a banner saying why nothing responds.
 
-**Reversible.** Reopening clears the timestamp; resolvers are idempotent, so re-running is free.
+**Reversible, and no confirm.** Reopening clears the timestamp; resolvers are idempotent, so
+ending, reopening and re-ending land on the same numbers.
+
+**The showdown** is the publish, and nothing else: it computes nothing and freezes nothing, both
+of which already happened. It writes `showdown_at` and that is the only thing gating `/showdown`.
+Behind a **confirm page** rather than a typed word — it is irreversible socially rather than
+technically, so what it needs is a sentence in front of it, not a harder gate.
+
+**The announcement has no trigger.** The hosts hold the true board all night and read the top three
+off it whenever they like; the button only publishes.
+
+Once the showdown is up, **the game does not reopen** — `reopenGame()` refuses and the button is
+gone. Publishing final standings for a game that is accepting answers again is the one state this
+split exists to make unreachable.
 
 ### Reset
 
@@ -682,7 +702,7 @@ Team-facing:
 | POST | `/g/:gameId/hint` | reveal next hint, write the negative award | PRG |
 | GET | `/rules` | rules; the hidden hint rule appears after the first reveal | ✓ |
 | GET | `/p/:pageId` | gag and hidden pages | ✓ |
-| GET | `/showdown` | final standings, after game end | ✓ |
+| GET | `/showdown` | final standings, once the **showdown has been started** — not merely once the game has ended | ✓ |
 
 Admin, all behind one cookie gate
 ([ADR-admin-is-a-one-time-secret-url](docs/adr/admin-is-a-one-time-secret-url.md)):
@@ -695,7 +715,9 @@ Admin, all behind one cookie gate
 | POST | `/admin/judge` | verdict + award on one submission; rejecting writes a zero rather than deleting, so re-judging upserts |
 | POST | `/admin/trophy` | hand a trophy over, or take it back (which writes a zero) |
 | POST | `/admin/award` | manual points to a team |
-| POST | `/admin/end` · `/admin/reopen` | the freeze, and its undo |
+| POST | `/admin/end` · `/admin/reopen` | the freeze, and its undo. Reopening is refused once the showdown is up |
+| GET | `/admin/showdown` | the sentence in front of the second press — no typed word, see **Game end, and the showdown** |
+| POST | `/admin/showdown` | publish the results; lands the host on `/showdown`, which is what they read from |
 | POST | `/admin/rescore` | re-run content scoring over existing player data |
 | GET | `/admin/codes` | slug → target inventory with scan counts, for debugging a code someone says is broken |
 | GET | `/admin/reset` | what a reset would clear, and the typed confirmation — see **Reset** |
