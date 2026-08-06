@@ -582,6 +582,61 @@ export function unitRow({ shot: cell = '', label = '', body = '' }) {
 }
 
 /**
+ * One square of the signature card.
+ *
+ * **"Square" and not "cell"**, which is what these classes said until #60. Square is the word the
+ * glossary uses (CONTEXT.md, *Grid, and signature*) and the word the tile itself says out loud --
+ * *"write it in the square"*, *"three in a row"*, *"every square says exactly what it wants"*.
+ * `cell` was a spreadsheet word that arrived with the stylesheet and was never anybody's name for
+ * this. Same correction #51 made to `.prompt`.
+ *
+ * **Signed is derived; a line is declared.** A square is signed exactly when it holds a signature,
+ * so there is no flag to get wrong. Whether it is part of a completed line is not knowable from
+ * the square -- it is a fact about the card's geometry that only the scorer computes -- so that
+ * one is passed in. The two are **exclusive**: a square in a line wears the line and not the
+ * signed green, because a line pays INSTEAD of its squares (#21) and the colour says so.
+ *
+ * The empty signature is a **non-breaking space rather than nothing**, and that is load-bearing:
+ * it holds the line's height, so a card does not jolt upward as squares fill. On a tile a team
+ * reopens twenty times a night, that is the difference between a card and a flicker.
+ *
+ * The `<li>` belongs to the component, like `unitRow()` and unlike `bubble()`: a square only ever
+ * exists inside a card, and a `<div>` is not valid there.
+ */
+export function square({ trait = '', signature = '', line = false }) {
+  const state = line ? ' square--line' : signature ? ' square--signed' : '';
+
+  return `<li class="square${state}">
+      <p class="square__trait">${escape(trait)}</p>
+      <p class="square__signature">${signature ? escape(signature) : '&nbsp;'}</p>
+    </li>`;
+}
+
+/**
+ * The signature card: Sign Here's units laid out as the square its scoring rule assumes.
+ *
+ * **The card is always drawn, in every state.** Locked, fresh and finished all show the same nine
+ * boxes -- what changes is what sits underneath them. This is the tile a team opens most often and
+ * usually to *read* rather than to write ("which one did I still need?"), so the grid can never be
+ * the thing that disappears.
+ *
+ * `cols` rides out as a custom property rather than a class, because the column count comes from
+ * content: `grid: 4` is a declared number, and a card that drew three columns for a 4x4 would put
+ * its lines somewhere the scorer cannot see them. A class per width would have to be written
+ * before anyone declares it.
+ *
+ * **The `<form>` under it stays with the page**, exactly as it does for `unitRow()`. Which route a
+ * signature posts to is `bingoStage`'s business, and render.js renders no form action anywhere
+ * (#51). That is why the kit can show this component completely: the grid takes no form, so
+ * nothing about the card is unreachable from a page with no database behind it.
+ */
+export function card(squares = [], cols = 3) {
+  return `<ul class="card" style="--card-cols: ${Number(cols) || 3}">${squares
+    .map((one) => square(one))
+    .join('')}</ul>`;
+}
+
+/**
  * The window frame, straight off the invite. Anything that wants to feel like a document: the
  * rules, and later the results and the handoff.
  *

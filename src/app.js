@@ -114,6 +114,7 @@ import {
 import { fireWebhook } from './webhooks.js';
 import {
   bubble,
+  card,
   field,
   hero,
   hintModal,
@@ -1015,14 +1016,13 @@ function herdStage(game, mine) {
 }
 
 /**
- * The signature card: nine traits laid out as a square, and one form under it.
+ * Sign Here's stage: the card, and whatever belongs under it in this state.
  *
- * THE CARD IS ALWAYS DRAWN, in every state. A locked card, a finished card and a fresh one all
- * show the same nine squares -- what changes is what sits underneath. This is the tile a team
- * opens most often and usually to read rather than to write ("which one did I still need?"), so
- * the grid can never be the thing that disappears.
+ * The grid itself is `card()` in `src/render.js` (#60) -- including the rule that it is ALWAYS
+ * DRAWN, which is a property of the component and not of any one branch below. What this function
+ * owns is the sentence above it and the form under it, which is where every state actually differs.
  *
- * ONE FORM, TWO FIELDS, rather than nine boxes in nine cells. The physical moment this has to
+ * ONE FORM, TWO FIELDS, rather than nine boxes in nine squares. The physical moment this has to
  * match is standing in front of a pair who have just said "I've broken a bone": what you need to
  * record is which square and whose name, and a 3x3 of tiny inputs on a phone is a worse way to say
  * that than a dropdown of the squares still open. It also makes an attempt a single submission,
@@ -1040,18 +1040,17 @@ function bingoStage(game, team) {
   const labels = unitLabels(game);
   const until = winning.size ? null : lockedUntil(team.id, game);
 
-  const cells = labels
-    .map((label, unit) => {
-      const signature = signed.get(unit);
-      const state = winning.has(unit) ? ' cell--line' : signature ? ' cell--signed' : '';
-      return `<li class="cell${state}">
-          <p class="cell__trait">${escape(label)}</p>
-          <p class="cell__sig">${signature ? escape(signature) : '&nbsp;'}</p>
-        </li>`;
-    })
-    .join('');
-
-  const card = `<ul class="card" style="--card-cols: ${gridSize(game)}">${cells}</ul>`;
+  // The squares are data, not markup: `card()` renders every one of them (#60). Which squares are
+  // green and which are yellow is the only thing this page knows that the design system cannot --
+  // a line is a fact about the scorer's geometry, so it is passed in while `signed` derives itself.
+  const grid = card(
+    labels.map((label, unit) => ({
+      trait: label,
+      signature: signed.get(unit) ?? '',
+      line: winning.has(unit),
+    })),
+    gridSize(game),
+  );
 
   // Only the squares still open, so the dropdown shrinks as the card fills and a signed square
   // can never be overwritten by a mis-tap.
@@ -1061,24 +1060,24 @@ function bingoStage(game, team) {
 
   if (winning.size) {
     return `<p class="statusline">${signed.size} of ${labels.length} signed — line complete</p>
-            ${card}
+            ${grid}
             <p>That is the tile. Nothing more to collect here, and no more names to spend.</p>`;
   }
 
   if (until) {
     return `<p class="statusline">${signed.size} of ${labels.length} signed</p>
-            ${card}
+            ${grid}
             <p class="banner banner--bad">${escape(lockedLine(minutesLeft(until)))}</p>`;
   }
 
   if (!open.length) {
     // Unreachable by arithmetic -- a full card on a square grid always contains a line -- but a
     // grid of 2 would make it reachable, and an empty dropdown is worse than a sentence.
-    return `<p class="statusline">${signed.size} of ${labels.length} signed</p>${card}`;
+    return `<p class="statusline">${signed.size} of ${labels.length} signed</p>${grid}`;
   }
 
   return `<p class="statusline">${signed.size} of ${labels.length} signed</p>
-          ${card}
+          ${grid}
           <form class="stack" method="post" action="/g/${escape(game.id)}/submit">
             ${field({
               label: 'which square?',
@@ -1915,11 +1914,14 @@ function adminGame({ req, res, params }) {
       // content rather than stored with the photo, so rewording a prompt relabels the gallery.
       const prompt = submission.unit === null ? null : unitLabel(game, submission.unit);
 
-      return `<article class="card card--${escape(submission.verdict)}">
+      // `.submission`, not `.card`: the signature card took that word back in #60, and until then
+      // the two rules were merging in the cascade -- this gallery was drawing every box as a
+      // padding-less three-column grid, which is what a collision looks like from the outside.
+      return `<article class="submission submission--${escape(submission.verdict)}">
                 ${media}
-                <p class="card__who">${escape(names.get(submission.team_id) ?? '?')}</p>
+                <p class="submission__who">${escape(names.get(submission.team_id) ?? '?')}</p>
                 ${prompt ? `<p class="statusline">${escape(prompt)}</p>` : ''}
-                ${submission.body ? `<p class="card__body">${escape(submission.body)}</p>` : ''}
+                ${submission.body ? `<p class="submission__body">${escape(submission.body)}</p>` : ''}
                 <p class="statusline">${escape(submission.verdict)} · ${escape(submission.created_at)}</p>
                 ${judging}
               </article>`;

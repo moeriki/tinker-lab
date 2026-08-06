@@ -374,6 +374,43 @@
         </p>
       </section>
 
+      <!-- ========================= SIGNATURE CARD ========================== -->
+      <section class="sect" id="card">
+        <h2 class="sect__h">15. The signature card — Sign Here's 3×3</h2>
+        <p class="sect__note">One tile, open for every team from the first minute of the night, and the only grid on the site. <code>card()</code> and <code>square()</code> in <code>src/render.js</code> — the same calls the tile makes.</p>
+        <p class="sect__note">These classes said <code>.cell</code> until #60. They are <code>.square</code> now, because that is the word the glossary uses and the word the tile says out loud: <em>write it in the square</em>, <em>three in a row</em>. And <code>.card</code> itself was being worn by two unrelated things — this grid and the admin gallery's submission boxes — which is a collision rather than a synonym, and the cascade was quietly merging them.</p>
+
+        <h3 class="sect__sub">Empty — how every team meets it</h3>
+        <p class="sect__note">Nine traits, no names. The signature line is a non-breaking space rather than nothing, so the card does not jolt upward as squares fill — on a tile reopened twenty times a night that is the difference between a card and a flicker.</p>
+        <!--@card squares="has never been to this house before|owns a hat|has fallen asleep on a train, gone past their stop, and had to walk back|can whistle properly|has met somebody famous enough to name|is lying about one of these|has a scar with a good story|drove here|is already regretting this"-->
+        <p class="sect__note">
+          The nine traits above are the kit's, not the game's — the real ones live in
+          <code>content/games/bingo.js</code> and are meant to be overwritten (#21). These are
+          deliberately <strong>wider and narrower than any of them</strong>, so the box is proved
+          against worse than it will get.
+        </p>
+
+        <h3 class="sect__sub">Part-signed — the state it spends the night in</h3>
+        <p class="sect__note">Green is a square somebody signed. <strong>Signed derives itself</strong> from whether there is a name in it, so there is no flag to get wrong; the longest handle in the pool is <code>CROISSANT</code>, and it wraps rather than widening the column.</p>
+        <!--@card squares="has never been to this house before=BADGER|owns a hat|has fallen asleep on a train, gone past their stop, and had to walk back=CROISSANT|can whistle properly|has met somebody famous enough to name=WALRUS|is lying about one of these|has a scar with a good story=PENGUIN|drove here|is already regretting this"-->
+
+        <h3 class="sect__sub">A line — and this is the one nobody can see without eight signatures</h3>
+        <p class="sect__note">Yellow, with the heavier shadow, on <strong>every square of the line</strong> — a card holding two lines shows both rather than picking one. It is passed in rather than derived, because whether a square sits on a line is a fact about the card's geometry that only the scorer computes.</p>
+        <!--@card squares="has never been to this house before=BADGER|owns a hat|has fallen asleep on a train, gone past their stop, and had to walk back=CROISSANT|can whistle properly=WAFFLE|has met somebody famous enough to name=WALRUS|is lying about one of these|has a scar with a good story=PENGUIN|drove here|is already regretting this=TRACTOR" line="0,4,8"-->
+        <p class="sect__note">
+          Yellow means <strong>finished</strong>, not correct — a line pays the whole tile
+          <em>instead of</em> its squares, never on top of them (#8, #21), and the colour change is
+          what says so. There is no wrong answer on a card: there is a line, or there is not yet.
+        </p>
+        <p class="sect__note">
+          Unlike §13 and §14, <strong>nothing is missing from this section</strong>. The grid takes
+          no <code>&lt;form&gt;</code> — the one dropdown and the one name box sit underneath it and
+          belong to the page — so an empty card, a part-signed one and a lit line are the entire
+          component. That is what turned #60 into an extraction rather than another question about
+          where the seam goes.
+        </p>
+      </section>
+
       <footer class="kit-foot">
         <p class="aside">That is the whole kit. If a page needs something that is not on this page, the page is wrong or the kit is incomplete — say which.</p>
         <p class="aside">

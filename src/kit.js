@@ -28,6 +28,7 @@
 
 import {
   bubble,
+  card,
   field,
   hero,
   hintModal,
@@ -176,6 +177,39 @@ const RENDERERS = {
         .join('\n        '),
     }),
 
+  // Sign Here's 3x3. The one component on this page the kit can show COMPLETELY -- every other
+  // stage here is missing the `<form>` its real tile wraps around it, but the card takes no form
+  // at all, so an empty one, a part-signed one and a lit line are the whole component and not a
+  // drawing of it. Which is why #60 turned out to be an extraction rather than a seam question.
+  //
+  // Squares are pipe separated the way `shots` and `win` flatten their lists, and a square may be
+  // `trait=SIGNATURE` where somebody has signed it -- the same `value=label` split `field` uses.
+  // `line` is a comma-separated list of indices, and it is separate BECAUSE it is separate in the
+  // real component: signed derives itself from the signature, a completed line never can.
+  card: (a) => {
+    const lit = new Set(
+      (a.line ?? '')
+        .split(',')
+        .filter(Boolean)
+        .map(Number),
+    );
+
+    return card(
+      (a.squares ?? '')
+        .split('|')
+        .filter(Boolean)
+        .map((one, index) => {
+          const split = one.indexOf('=');
+          return {
+            trait: split === -1 ? one : one.slice(0, split),
+            signature: split === -1 ? '' : one.slice(split + 1),
+            line: lit.has(index),
+          };
+        }),
+      num(a.cols, 3),
+    );
+  },
+
   // `/rules` was the first page to render the window frame, so it moved out of kit.html and into
   // render.js in the same change -- the rule this file's header states. The body is a rules list
   // because that is the only thing wearing the frame so far; `rules` is pipe-separated because a
@@ -240,6 +274,7 @@ const BUILT_NAMES = {
   bubble: 'the speech bubble',
   shoot: 'the camera',
   unitrow: 'the unit rows',
+  card: 'the signature card',
   shot: 'the shots',
   shots: 'the shots',
   win: 'the window frame',

@@ -746,7 +746,30 @@ badges ([#55](https://github.com/moeriki/tinker-lab/issues/55)), so there is not
 > **New design is drawn on the kit first, then built into a page.** A component that appears
 > directly on a page, having never been on `/kit`, is the drift this rule exists to stop.
 
-No **component** the app renders is missing from `/kit` any more. The last one was the `.unit` /
+> **Two unrelated components may never wear one class name**, and this is a stronger rule than it
+> sounds, because the failure is silent and it is not a naming complaint. The signature card and
+> the admin gallery's judging boxes were both `.card`
+> ([#60](https://github.com/moeriki/tinker-lab/issues/60)), and CSS does not pick a winner between
+> two rule blocks — it merges them **per property**, later block winning each one it declares. So
+> the gallery took `display: grid` and `padding: 0` and drew every submission as a padding-less
+> three-column grid, while the card took a `border`, a `box-shadow` and a paper `background` and
+> wore a heavy frame around nine squares that each already had one. **Neither look was designed and
+> both rendered**, which is why nothing looked broken enough to report. The word came from the
+> glossary in the end: a **card** is something a team holds, so the gallery's box became a
+> `.submission`.
+
+Sweeping every rule block in `app.css` for a selector declared twice found **exactly one** genuine
+collision — this one. Every other repeat is a group rule setting shared properties before a
+per-component rule specialises them (`.tile__lock, .tile__flag`, `.starburst, .stamp`,
+`.board th, .board td`), or the reduced-motion guard, and in all of those the two blocks belong to
+the same component. Deliberately **not** landed as a check: there is no test suite and no CI, so it
+would be a file nobody runs that looks like enforcement — [#32](https://github.com/moeriki/tinker-lab/issues/32)'s
+reasoning, unchanged.
+
+No **component** the app renders is missing from `/kit` any more. The last one was the **signature
+card** — `card()` and `square()`, demoed at §15 in all three of its states, and the one component
+the kit can show *completely*, since the grid takes no `<form>` and the dropdown under it belongs
+to the page. Before that it was the `.unit` /
 `.units` row — the list every game that pays **per unit** puts on its tile — which looked like a
 page composition because the scavenger wraps each row in a form. It is not: Guess Who and Herd wrap
 the whole list in one form and the portrait gallery has none, so the row never needed a route.

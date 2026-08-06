@@ -1048,7 +1048,11 @@ code {
   gap: 0.8rem;
 }
 
-.card {
+/* One submission, as the host judges it. Called `.card` until #60, when the signature card took
+   that word back: `card` is the glossary's name for something a TEAM holds -- Sign Here's 3x3,
+   Guess Who's dealt ten -- and this is a submission on an admin surface. Two unrelated things had
+   been wearing one name since #21, and the cascade was quietly merging them. */
+.submission {
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
@@ -1059,23 +1063,23 @@ code {
 }
 
 /* Judged at a glance, across a grid, on a phone, in a dark house. */
-.card--correct { background: linear-gradient(150deg, #7bf07b, #24c024); }
-.card--incorrect { background: var(--c-gray); }
-.card--pending { background: linear-gradient(150deg, var(--c-yellow), var(--c-orange)); }
+.submission--correct { background: linear-gradient(150deg, #7bf07b, #24c024); }
+.submission--incorrect { background: var(--c-gray); }
+.submission--pending { background: linear-gradient(150deg, var(--c-yellow), var(--c-orange)); }
 
-.card .shot {
+.submission .shot {
   width: 100%;
   height: 7rem;
 }
 
-.card__who {
+.submission__who {
   margin: 0;
   font-family: var(--font-shout);
   font-size: 0.85rem;
   text-transform: uppercase;
 }
 
-.card__body {
+.submission__body {
   margin: 0;
   font-family: var(--font-aside);
   font-size: 0.8rem;
@@ -1133,7 +1137,14 @@ code {
 
 /* Sign Here's units, laid out as the square their scoring rule assumes (#21). The column count
    comes from content as `--card-cols`, because `grid` is a declared number and a card that drew
-   three columns for a 4x4 would put its lines somewhere the scorer cannot see them. */
+   three columns for a 4x4 would put its lines somewhere the scorer cannot see them.
+
+   NO FRAME OF ITS OWN. Every square already carries a border, a shadow and paper, so a box around
+   them is a box around a box -- the same reasoning that keeps a plain `.unit` bare (#51). It had
+   one until #60, but nobody chose it: the gallery's `.card` sat higher in this file, so its
+   border, shadow and background landed here for free while its `display: flex` and `padding` were
+   overridden -- and the gallery, in exchange, was drawing every submission as a padding-less
+   three-column grid. Neither look was designed. Both are now. */
 .card {
   display: grid;
   grid-template-columns: repeat(var(--card-cols, 3), 1fr);
@@ -1142,7 +1153,10 @@ code {
   padding: 0;
 }
 
-.cell {
+/* `.square`, not `.cell`: the glossary and the tile's own copy both say square -- "write it in the
+   square", "three in a row" -- and `cell` was a spreadsheet word that arrived with the CSS. Same
+   correction #51 made when `.prompt` turned out to be a word CONTEXT.md had already banned. */
+.square {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -1154,7 +1168,7 @@ code {
   background: var(--c-paper);
 }
 
-.cell__trait {
+.square__trait {
   font-family: var(--font-aside);
   font-size: 0.68rem;
   line-height: 1.15;
@@ -1164,19 +1178,19 @@ code {
 /* The signature. It keeps its line even when empty -- `&nbsp;` in the markup -- so a card does not
    jolt upward as squares fill, which on a tile reopened twenty times a night is the difference
    between a card and a flicker. */
-.cell__sig {
+.square__signature {
   font-family: var(--font-shout);
   font-size: 0.72rem;
   text-transform: uppercase;
   overflow-wrap: anywhere;
 }
 
-.cell--signed { background: var(--c-lime); }
+.square--signed { background: var(--c-lime); }
 
 /* A completed line, and the only comparative-feeling colour on a team-facing page -- which it is
    not: it compares this card against itself. Every cell of every completed line wears it, so a
    card with two lines shows both rather than picking one. */
-.cell--line {
+.square--line {
   background: var(--c-yellow);
   box-shadow: var(--shadow-2);
 }
