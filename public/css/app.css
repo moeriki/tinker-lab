@@ -311,7 +311,7 @@ ol.stack {
 .scorebar__who {
   display: flex;
   flex-direction: column;
-  min-width: 0;
+  contain: inline-size;
 }
 
 .scorebar__label {
@@ -577,7 +577,7 @@ ol.stack {
 
 .win__title {
   flex: 1;
-  min-width: 0;
+  contain: inline-size;
   font-family: Verdana, Tahoma, sans-serif;
   font-weight: 700;
   font-size: 0.8rem;
@@ -1111,7 +1111,7 @@ ol.stack {
   flex-direction: column;
   gap: 0.6rem;
   flex: 1;
-  min-width: 0;
+  contain: inline-size;
 }
 
 .unit__label {
@@ -1196,12 +1196,27 @@ ol.stack {
 /* --------------------------------- board ----------------------------------- */
 /* A dense table, for admin surfaces only. Teams never see one -- the tile grid is the team's
    view of everything. It scrolls sideways inside its own box rather than widening the page,
-   because the host is on a phone too. */
+   because the host is on a phone too.
+
+   `contain: inline-size` is what makes that sentence TRUE, and until it landed the sentence was
+   a description of an intention. `overflow-x: auto` scrolls the table, but the box's own width
+   was still being derived from the table inside it: `/admin/codes` is 2270px of `nowrap`
+   columns, so the layout viewport opened to `.app`'s 42rem max-width and the whole PAGE was laid
+   out at 672px on a 390px phone. Everything past 390 -- four of the seven columns, the last
+   words of the sentence above the table, most of the Print line -- was then clipped away by
+   `body { overflow-x: hidden }`, silently and with no scrollbar to say so.
+
+   It hid from every check we have. `document.documentElement.scrollWidth` equalled `innerWidth`,
+   because the viewport had grown to match rather than the document overflowing, so
+   `scripts/screenshot.js` reported no overflow on the one page that had it. Containment settles
+   the width from the outside, which is the only way an element whose contents are unbounded can
+   promise not to push on its ancestors. */
 
 .board {
   display: block;
   overflow-x: auto;
   width: 100%;
+  contain: inline-size;
   border-collapse: collapse;
   font-family: var(--font-mono);
   font-size: 0.72rem;
