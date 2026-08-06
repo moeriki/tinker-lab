@@ -1,0 +1,27 @@
+Copy this file somewhere writable, replace SHA-GOES-HERE with the short sha you want live, delete
+these first three lines, and send it. Keep it free of dollar signs, backticks and backslashes.
+
+You are being asked to deploy. You may change things on Tower. Please follow the steps exactly and do not improvise a remedy if one of them fails.
+
+Background: bday.moeriki.com is a QR-code party game running on Tower as a single Docker container, built from the public GitHub repo moeriki/tinker-lab. The deployment brief you already have is MM-HANDOFF.md in that repo. The checkout is at /mnt/user/appdata/bday and the compose file is beside it. Nothing about the container has changed since that brief; this is a routine update of the running code.
+
+The commit that should end up live is SHA-GOES-HERE on branch main.
+
+Steps, in this order, from /mnt/user/appdata/bday:
+
+1. Run git pull.
+2. Confirm that git log --oneline -1 now reports SHA-GOES-HERE. If it reports anything else, stop and tell me what it reports instead of continuing.
+3. Read the short sha of HEAD and pass it as the BUILD_COMMIT environment variable to the build, then run docker compose up -d --build. Do not edit the compose file or the env file to do this.
+4. Wait for the container to report healthy.
+
+Then report all of the following, pasting exactly what each command printed:
+
+- git log --oneline -1 and git status --short
+- the tail of the docker compose up output, including any build warnings
+- docker compose ps, showing container name, state and published ports
+- the output of curl -s on http://127.0.0.1:3040/healthz
+- the output of curl -s on https://bday.moeriki.com/healthz
+
+A good result looks like this: both healthz calls return JSON with ok set to true and a build field equal to SHA-GOES-HERE, docker compose ps shows the bday container Up and healthy with port 3040 published on the LAN address, and uptime is small because the container has just restarted.
+
+If any step fails, paste the full error text and stop there. Do not roll back, do not rebuild a second time, and do not restart anything else on the host. Leave it exactly as it is and tell me what happened, and I will decide what to do next.

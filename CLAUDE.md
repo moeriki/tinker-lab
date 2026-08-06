@@ -70,3 +70,19 @@ want of a way to look at it. See `docs/agents/screenshots.md`.
 ### Containers
 
 **This machine runs Podman; there is no `docker` binary.** Use `podman` and `podman-compose` — a container change is verifiable here, so never report one as unproven for want of a runtime. The `docker compose` lines in `MM-HANDOFF.md` are Tower's and stay as they are. See `docs/agents/containers.md`.
+
+### Deploys
+
+**You never SSH to Tower, and you never deploy this site yourself. MM does.** MM is an AI agent
+on Tower with GitHub access; it pulls the public repo, builds the container and reports back. You
+reach it with **one self-contained prompt**:
+
+```sh
+script -q /dev/null hermes -z "$(cat /tmp/deploy.txt)"
+```
+
+`docs/agents/deploy-prompt.txt` is that prompt, ready to fill a sha into. Two traps: it needs a TTY
+(hence `script`), and any `$`, backtick or backslash in the prompt expands **on Tower** before MM
+sees it — so the `BUILD_COMMIT=$(…)` line from `docker-compose.yml` is the one thing you must never
+paste. **Check MM's numbers**: its facts are right and its arithmetic is invented. See
+`docs/agents/deploy.md`.
