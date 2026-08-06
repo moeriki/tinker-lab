@@ -973,11 +973,17 @@ code {
   opacity: 0;
 }
 
+/* The side padding is not decoration. The scavenger wears its prompt as the face of this control,
+   and "the most convincing fake laugh in the house" is 43 characters -- with nothing holding it
+   off the edge it ran the full width and its first and last letters sat ON the 6px dashed border,
+   on the tallest page the site has. Padding makes a long prompt wrap instead of colliding, and
+   `min-height` is a floor rather than a height, so a two-line face grows instead of clipping. */
 .shoot__face {
   display: flex;
   align-items: center;
   justify-content: center;
   min-height: calc(var(--tap) * 1.6);
+  padding: 0.5rem 1rem;
   border: var(--edge-3) dashed var(--c-ink);
   box-shadow: var(--shadow-2);
   background: var(--grad-hot);
