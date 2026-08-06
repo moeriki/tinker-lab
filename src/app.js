@@ -1235,9 +1235,18 @@ function showGame({ req, res, params, url }) {
         ${arrival ? `<p class="banner">${escape(arrival)}</p>` : ''}
         ${submitted ? `<p class="banner${verdictAnimation(moment)}">${escape(submitted)}</p>` : ''}
         ${stage}
-        <ul class="stack stack--tight">
+        ${
+          // Only when there ARE hints. An empty `<ul>` is not nothing: it keeps the browser's
+          // `margin: 1em 0` and picks up a `.stack` gap on either side, so a team that has
+          // revealed none -- which is every team on every tile until they pay, and forever on the
+          // four that declare no hints at all -- got 64px of dead air under the stage. On Teddy
+          // that is the whole gap between the blurb and the close link.
+          hints.length
+            ? `<ul class="stack stack--tight">
           ${hints.map((hint) => `<li>${bubble(hintsFor(game, step)[hint.hint_index])}</li>`).join('')}
-        </ul>
+        </ul>`
+            : ''
+        }
         ${
           remaining > 0 && !gameIsOver()
             ? `<form method="post" action="/g/${escape(game.id)}/hint">
