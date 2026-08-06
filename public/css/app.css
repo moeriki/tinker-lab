@@ -470,6 +470,13 @@ code {
   line-height: 1.3;
 }
 
+/* A hero splits on blank lines because a two-beat hero must not read as one run-on line -- and
+   with `margin: 0` on every paragraph it read as one anyway: Longest yarn's second beat began on a
+   new line with nothing between it and the first, which at 1.3 line-height is indistinguishable
+   from a wrap. Only BETWEEN paragraphs, so the frame keeps the no-outer-margin rule and a
+   one-paragraph hero is untouched. */
+.hero__body + .hero__body { margin-top: 0.7rem; }
+
 /* flavour: words — question, statement, riddle */
 .hero--text { background: var(--grad-tile); }
 
