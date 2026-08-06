@@ -2068,6 +2068,14 @@ const adminRescore = ({ req, res }) => {
  * and finds the row -- which says what it should have done, whether its content exists, and how
  * many teams have already scanned it. A code nobody has ever scanned is lost or badly hidden; a
  * code with scans is fine and the complaint is about something else.
+ *
+ * THE COLUMN ORDER IS THE ANSWER ORDER, and that is not cosmetic. Seven columns of a `nowrap`
+ * table measure 2270px; a phone shows 363 of them and `.board` scrolls the rest away with no
+ * scrollbar at rest and nothing that says it can be dragged. With `scans` sixth, the one number
+ * this page exists to print sat 500px off the right edge, and a host looking at it would have
+ * read the page correctly and concluded there were no scan counts. Slug, then the two verdicts
+ * on it, then the description -- the first five columns fit the screen, and what scrolls away is
+ * the prose you already have on the key sheet in your hand.
  */
 function adminCodes({ req, res }) {
   if (!requireAdmin(req, res)) return undefined;
@@ -2086,12 +2094,12 @@ function adminCodes({ req, res }) {
         <tr>
           <td class="mono">#${String(index + 1).padStart(2, '0')}</td>
           <td class="mono"><a href="/q/${escape(slug)}">${escape(slug)}</a></td>
-          <td>${escape(target.label ?? '')}</td>
+          <td class="mono">${seen ? `${seen.accepted}/${seen.total}` : '&mdash;'}</td>
+          <td>${pending ? '<strong>PENDING</strong>' : 'ready'}</td>
           <td class="mono">${escape(
             target.game ? `${target.game}${target.step ? ` step ${target.step}` : ''}` : target.page,
           )}</td>
-          <td>${pending ? '<strong>PENDING</strong>' : 'ready'}</td>
-          <td class="mono">${seen ? `${seen.accepted}/${seen.total}` : '&mdash;'}</td>
+          <td>${escape(target.label ?? '')}</td>
           <td>${escape(target.where ?? '')}</td>
         </tr>`;
     })
@@ -2107,8 +2115,8 @@ function adminCodes({ req, res }) {
           no scans at all is the one that fell behind the radiator.</p>
         <table class="board">
           <thead>
-            <tr><th>#</th><th>slug</th><th>label</th><th>target</th><th>content</th>
-              <th>scans</th><th>where</th></tr>
+            <tr><th>#</th><th>slug</th><th>scans</th><th>content</th><th>target</th>
+              <th>label</th><th>where</th></tr>
           </thead>
           <tbody>${rows}</tbody>
         </table>
