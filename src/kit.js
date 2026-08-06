@@ -479,6 +479,14 @@ function coverageSentence(html) {
   const missing = [...declared].filter((name) => !shown.has(name) && !excused.has(name)).sort();
   const stale = [...excused].filter((name) => !declared.has(name)).sort();
 
+  // The three numbers partition `declared` exactly, which is the point of printing them together:
+  // drawn + excused + missing can only ever add up to the first figure in the sentence, so a
+  // reader can check the claim rather than take it. `excused` counts only classes that are also
+  // absent, so an exemption somebody stopped needing is counted as drawn and its own line goes
+  // stale, rather than being double-counted into a total that no longer adds up.
+  const drawn = [...declared].filter((name) => shown.has(name)).length;
+  const excusedHere = [...declared].filter((name) => !shown.has(name) && excused.has(name)).length;
+
   const exemptions = Object.entries(OFF_KIT)
     .filter(([name]) => declared.has(name))
     .map(([name, why]) => `<code>.${escape(name)}</code> — ${why}`)
@@ -499,11 +507,13 @@ function coverageSentence(html) {
     : '';
 
   const headline = missing.length
-    ? `<code>app.css</code> declares ${declared.size} classes and this page renders all but
-       <strong>${missing.length}</strong>: ${code(missing)}. Not broken — undocumented. Each one
-       ships, some page wears it, and there is nowhere here to look it up.`
-    : `<code>app.css</code> declares ${declared.size} classes and <strong>every one of them is on
-       this page.</strong>`;
+    ? `<code>app.css</code> declares ${declared.size} classes. This page draws ${drawn}, excuses
+       ${excusedHere} below, and has nowhere to put <strong>${missing.length}</strong>:
+       ${code(missing)}. Not broken — undocumented. Each one ships, some page wears it, and there
+       is nowhere here to look it up.`
+    : `<code>app.css</code> declares ${declared.size} classes. This page draws
+       <strong>${drawn}</strong> and excuses the other ${excusedHere} below, with a reason each —
+       <strong>nothing is undocumented by accident.</strong>`;
 
   return `${headline}${staleLine} Counted on every load by comparing the stylesheet against this
     page's own rendered markup, because the <code>STILL OWED</code> badges above cannot see this:
