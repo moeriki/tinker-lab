@@ -44,6 +44,12 @@ import { escape } from './http.js';
  * first, in HTML, with no script involved. `.modal` is `position: fixed; z-index: 500`, so it
  * paints above `.app` whatever the tree order says. Slot is empty on every page but a hint reveal,
  * so this costs the rest of the site nothing.
+ *
+ * `theme-color` is here for the phones it still works on, and it is NOT what makes this work on an
+ * iPhone. Safari 26 dropped the tag -- it parses it and ignores it -- and takes its bar colours
+ * from CSS instead, which `.shell` in `app.css` explains at the declaration that feeds it. Android
+ * Chrome and iOS below 26 do read the tag, and the party's guests bring whatever they bring, so one
+ * line covering them is worth having as long as nobody mistakes it for the mechanism.
  */
 export function layout({ title, body, bar = '', showClose = false, still = false, modal = '' }) {
   return `<!doctype html>
@@ -51,6 +57,7 @@ export function layout({ title, body, bar = '', showClose = false, still = false
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#000">
   <title>${escape(title)}</title>
   <link rel="stylesheet" href="/css/app.css">
 </head>

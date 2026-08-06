@@ -144,8 +144,26 @@ code {
 
 /* --------------------------------- the page -------------------------------- */
 
+/*
+ * The `background-color` under the gradient is never seen on the page and is not there to be. It
+ * is what iOS Safari reads to tint its OWN bars, and the site is framed top and bottom in black --
+ * `.marquee` above, `.statusbar` below -- so the browser's chrome joining them is the difference
+ * between a frame that runs to the edge of the screen and one that stops at the edge of the web
+ * view.
+ *
+ * Safari 26 dropped `theme-color`; it still parses the tag and no longer uses it. The tint now
+ * comes from CSS, by two different routes. The TOP is sampled from a `fixed` or `sticky` element
+ * near the top of the viewport, which the marquee already is, in this same black. The BOTTOM, and
+ * the overscroll rubber band with it, comes from the background-color of `<body>` -- and a
+ * `background` shorthand carrying only an image resets that to `transparent`, so there was nothing
+ * to sample and Safari fell back to its own default.
+ *
+ * Longhand after the shorthand, deliberately, since the shorthand would blow it away again. Every
+ * pixel of this element is covered by an opaque gradient, so nothing about the page changes.
+ */
 .shell {
   background: var(--grad-party) fixed;
+  background-color: var(--c-ink);
   font-family: var(--font-body);
   font-size: 17px;
   line-height: 1.45;
@@ -308,10 +326,23 @@ ol.stack {
   text-transform: uppercase;
 }
 
+/*
+ * `min-width: 0`, and NOT `contain: inline-size`. 3f84207 swapped the two here while fixing
+ * `/admin/codes`, and they are not interchangeable: this is a flex item with no `flex` shorthand,
+ * so its basis is `auto` and its width comes from its content. Containment makes that content
+ * contribute nothing, the column collapses to almost zero, and `overflow-wrap: anywhere` on the
+ * name below then breaks it at every character -- so the team's own name arrived as `B / A / D /
+ * G / E / R` down the left edge of every team-facing page, with `2 / OF / 8 / OPEN` stacked under
+ * it and most of the bar empty.
+ *
+ * `min-width: 0` is the one that was wanted: it lifts the automatic minimum size so a long name
+ * can shrink past its longest word rather than shoving the score box off the bar, while the
+ * column still sizes itself from what is in it.
+ */
 .scorebar__who {
   display: flex;
   flex-direction: column;
-  contain: inline-size;
+  min-width: 0;
 }
 
 .scorebar__label {
@@ -575,9 +606,12 @@ ol.stack {
 
 .win__icon { font-size: 0.85rem; }
 
+/* `min-width: 0` for the same reason as `.scorebar__who`, and swapped by the same commit. This one
+   never showed the bug, because `flex: 1` gives it a basis of 0 and a grow factor that fills the
+   bar back up -- it was surviving on `flex-grow` rather than on the declaration being right. */
 .win__title {
   flex: 1;
-  contain: inline-size;
+  min-width: 0;
   font-family: Verdana, Tahoma, sans-serif;
   font-weight: 700;
   font-size: 0.8rem;
@@ -1111,7 +1145,7 @@ ol.stack {
   flex-direction: column;
   gap: 0.6rem;
   flex: 1;
-  contain: inline-size;
+  min-width: 0;
 }
 
 .unit__label {
