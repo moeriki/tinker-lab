@@ -56,6 +56,14 @@ function slugFor(gameId) {
   return entry?.[0] ?? null;
 }
 
+/** Every code for a hunt, in step order. Empty while the hunt's content is still pending. */
+function trailFor(gameId) {
+  return Object.entries(codes)
+    .filter(([, code]) => code.game === gameId && !code.pending && code.step)
+    .sort((a, b) => a[1].step - b[1].step)
+    .map(([slug]) => slug);
+}
+
 // --- checks ------------------------------------------------------------------------------------
 
 /**
@@ -178,6 +186,56 @@ const FLOWS = [
   },
 
   {
+    name: 'lights',
+    what: 'walk the lights hunt, be refused out of order, and buy its one shared hint sequence',
+    async run({ page, shoot, check }) {
+      await onboard(page);
+
+      const trail = trailFor('lights');
+      if (trail.length < 2) return check('the lights hunt has a trail to walk', false);
+
+      // THE ONE THING A SCREENSHOT CANNOT TELL YOU. Position is derived from the longest
+      // contiguous run of accepted scans, so jumping to the last card must advance nothing --
+      // and it must say so on a page that names no game and admits nothing.
+      await page.goto(`/q/${trail[trail.length - 1]}`);
+      check('scanning the last card first is refused', (await page.url()).startsWith('/p/too-soon'));
+      const denial = await page.text('.app p');
+      check(`the refusal gives nothing away — "${denial}"`, /move along/i.test(denial ?? ''));
+      await shoot('hunt-too-soon');
+
+      for (const [index, slug] of trail.entries()) {
+        const step = index + 1;
+        await page.goto(`/q/${slug}`);
+
+        const landed = await page.url();
+        check(`step ${step} lands in the hunt`, landed.startsWith('/g/lights'));
+
+        const statusline = await page.text('.statusline');
+        check(
+          `step ${step} reads as reached — "${statusline}"`,
+          statusline === `Step ${step} of ${trail.length} — reached ${step}`,
+        );
+
+        if (step === 1) await shoot('hunt-step-1');
+      }
+
+      await shoot('hunt-complete');
+
+      // One list for the whole trail, not one per step (#18): standing on the LAST step, the
+      // first press must hand over the FIRST hint, which a per-step model could never do.
+      await page.goto(`/g/lights`);
+      if (await page.has('.btn--hint')) {
+        await page.press('.btn--hint');
+        const first = await page.text('.bubble');
+        check(`the hint sequence starts at the beginning — "${first}"`, /something did happen/i.test(first ?? ''));
+        await shoot('hunt-hint');
+      } else {
+        check('the hunt offers a hint to buy', false);
+      }
+    },
+  },
+
+  {
     name: 'answer',
     what: 'submit an answer to a check() game and read the verdict it comes back with',
     async run({ page, shoot, check }) {
@@ -240,8 +298,8 @@ const FLOWS = [
   },
 
   {
-    name: 'hunt',
-    what: 'walk a treasure hunt end to end, banking a step at a time',
+    name: 'riddle',
+    what: 'walk the riddle hunt end to end, banking a step at a time',
     async run({ page, shoot, check }) {
       await onboard(page);
 

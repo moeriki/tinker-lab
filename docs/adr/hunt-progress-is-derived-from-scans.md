@@ -18,7 +18,7 @@ Progression is **strictly sequential**. Scanning step *k* when the team has not 
 
 - unlocks nothing and advances nothing,
 - records the scan with `accepted = 0`,
-- shows the "you're not supposed to be here" page, which does not name the game.
+- shows the "move along" page, which does not name the game and does not admit one exists.
 
 ## Consequences
 

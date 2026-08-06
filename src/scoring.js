@@ -3,7 +3,7 @@
 
 import economy from '../content/economy.js';
 import { all, get, run, transact, setting, setSetting } from './db.js';
-import { getGame, hasHand, hasHarvest, listGames, hintsFor } from './content.js';
+import { getGame, hasHand, hasHarvest, listGames, hintStep, hintsFor } from './content.js';
 import { dealsByUnit, ladderAnswers, memberNames } from './deals.js';
 import { herdByUnit } from './harvest.js';
 import { normalise } from './matching.js';
@@ -127,6 +127,9 @@ export function standingBand(teamId) {
 
 // --- hints ---------------------------------------------------------------------------------
 
+// `step` here is always the value `hintStep` returned, never a raw step number: 0 for a game with
+// one shared sequence, the step itself for a per-step list. Callers must not pass the raw step, or
+// a shared sequence would file each reveal under a different key and re-lock hint 1 on step 2.
 export const revealedHints = (teamId, gameId, step = 0) =>
   all(
     'select * from hint_reveals where team_id = ? and game_id = ? and step = ? order by hint_index',
@@ -145,7 +148,8 @@ const totalReveals = (teamId) =>
  */
 export function revealNextHint(teamId, game, step = 0) {
   const hints = hintsFor(game, step);
-  const seen = revealedHints(teamId, game.id, step);
+  const key = hintStep(game, step);
+  const seen = revealedHints(teamId, game.id, key);
   if (seen.length >= hints.length) return null;
 
   const index = seen.length;
@@ -157,7 +161,7 @@ export function revealNextHint(teamId, game, step = 0) {
       'insert into hint_reveals (team_id, game_id, step, hint_index) values (?, ?, ?, ?)',
       teamId,
       game.id,
-      step,
+      key,
       index,
     );
 
@@ -167,7 +171,7 @@ export function revealNextHint(teamId, game, step = 0) {
         gameId: game.id,
         kind: 'hint',
         points: -cost,
-        reason: `hint ${index + 1}${step ? ` of step ${step}` : ''}`,
+        reason: `hint ${index + 1}${key ? ` of step ${key}` : ''}`,
         sourceId: Number(lastInsertRowid),
       });
     }

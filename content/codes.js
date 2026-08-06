@@ -6,7 +6,7 @@
 // Slugs are opaque random strings, but NOT secret: teams shouting hiding places at each other is
 // the goal. They are minted once and then frozen -- a slug that has been printed never changes,
 // which is what makes a single lost card reprintable on its own
-// (`node scripts/qr-sheet.js --only=k7rbt9`) without regenerating the other eighteen.
+// (`node scripts/qr-sheet.js --only=k7rbt9`) without regenerating the other twenty-one.
 //
 //   'k7f2qx': { game: 'yarn' }              unlock this game and open it
 //   'm3p8zz': { game: 'lights', step: 1 }   a hunt step, 1-based
@@ -23,14 +23,40 @@
 //            a typo. Boot warns instead of failing; `scripts/qr-sheet.js` REFUSES TO PRINT while
 //            any pending flag survives. Delete the flag in the same commit that lands the game.
 //
-// Order matters: the position in this file is the card number (#01..#21) on the printed sheet and
+// Order matters: the position in this file is the card number (#01..#22) on the printed sheet and
 // on the host key. Insert new codes at the end, never in the middle, or every number shifts.
 
 export default {
-  // --- Lights hunt (3 steps) -- #01..#03 --------------------------------------------------------
-  k7rbt9: { game: 'lights', step: 1, label: 'Lights hunt, step 1', where: null, pending: true },
-  nx9ufv: { game: 'lights', step: 2, label: 'Lights hunt, step 2', where: null, pending: true },
-  pknn8v: { game: 'lights', step: 3, label: 'Lights hunt, step 3', where: null, pending: true },
+  // --- Lights hunt (4 steps) -- #01..#03, then #22 ----------------------------------------------
+  // A CHAIN, NOT A SET. Each card sits on the fixture the PREVIOUS card lit up, so these
+  // placements are fixed by the design (#18) and are not part of the free hiding plan. Only card
+  // #01 is a free choice, and it is the only one a team can find without having found another.
+  //
+  // Step 4 was minted after this block was written and sits at the bottom of the file with the
+  // card number that goes with it, for the same reason the riddle hunt's last two steps do:
+  // position in this file IS the card number and #34's test print already fixed them. On the host
+  // key sheet, read #01, #02, #03, then jump to #22.
+  k7rbt9: {
+    game: 'lights',
+    step: 1,
+    label: 'Lights hunt, step 1',
+    where:
+      'FREE PLACEMENT -- the only card in this hunt that is. Anywhere a team can stumble on it ' +
+      'cold, and NOT in the kitchen: the kitchen is where the hunt ends, and a team that starts ' +
+      'there has the last room spoiled. Scanning it turns Liane 5 cyan for five seconds.',
+  },
+  nx9ufv: {
+    game: 'lights',
+    step: 2,
+    label: 'Lights hunt, step 2',
+    where: 'ON LIANE 5 -- the fixture card #01 turns cyan. Fixed by the chain, not a free choice.',
+  },
+  pknn8v: {
+    game: 'lights',
+    step: 3,
+    label: 'Lights hunt, step 3',
+    where: 'ON FUGATO -- the fixture card #02 turns magenta. Fixed by the chain.',
+  },
 
   // --- Riddle hunt (5 steps) -- #04..#06, then #20..#21 -----------------------------------------
   // Five cards, four riddles: each card's hero says where the next one is, and the fifth is the
@@ -127,6 +153,19 @@ export default {
       'Inside the technical cabinet above the toilet, together with whatever the treasure turns ' +
       'out to be. Nothing on the outside of the cabinet may suggest it opens: the whole joke is ' +
       'that everyone has stood underneath it all night without looking up.',
+  },
+
+  // --- Lights hunt, the last step -- #22 --------------------------------------------------------
+  // Appended for the same reason #20..#21 were: position in this file IS the card number and the
+  // test print (#34) already fixed #01..#19. Belongs with #01..#03 on the trail, not on the sheet.
+  '3rmk4d': {
+    game: 'lights',
+    step: 4,
+    label: 'Lights hunt, step 4 (THE END -- goes with #01..#03)',
+    where:
+      'ON THE DOME -- the fixture card #03 turns green. Fixed by the chain. Scanning this one ' +
+      'ends the hunt and rolls Kitchen Blinds 4 for two seconds; there is NOTHING to hide at the ' +
+      'blind, so do not put a card there.',
   },
 
   // Human Bingo and Longest yarn deliberately have no code: both are starter tiles, unlocked for

@@ -297,11 +297,34 @@ export const listStarterGames = () => listGames().filter((game) => game.starter)
 export const stepCount = (game) => (game.kind === 'hunt' ? game.steps.length : 0);
 export const getStep = (game, step) => (game.kind === 'hunt' ? game.steps[step - 1] ?? null : null);
 
-/** Hints for a game, or for one hunt step. `step` is 0 for non-hunt games. */
+/**
+ * Hints for a game, or for one hunt step.
+ *
+ * A HINT BELONGS TO WHATEVER IT IS ABOUT, and the two hunts want opposite things (#18, #27).
+ *
+ * The riddle hunt's hints are about the riddle in front of you, so they are PER STEP: handing a
+ * team stuck on step 1 the nudge for step 3 would be nonsense, and each step's list is its own
+ * sequence. The lights hunt's hints are about the MECHANIC -- that the house is the clue at all --
+ * so there is one list for the whole trail, and once it is spent there is nothing left to sell
+ * wherever the team happens to be standing.
+ *
+ * Declaring hints on the game is what picks the second shape. It is not a style choice: it also
+ * moves the reveal ledger's key (see `hintStep`), because a shared sequence that keyed on the step
+ * would lock hint 1 again on step 2 and charge a team three points for a sentence the site knows
+ * they are already holding. That is a swindle rather than a joke.
+ */
 export function hintsFor(game, step = 0) {
+  if (game.hints) return game.hints;
   if (game.kind === 'hunt') return getStep(game, step)?.hints ?? [];
-  return game.hints ?? [];
+  return [];
 }
+
+/**
+ * Which step the reveal ledger files this hint under -- 0 for one shared sequence, the step itself
+ * for a per-step list. Every read and write of `hint_reveals` goes through this, so the two shapes
+ * cannot disagree about what a team has already bought.
+ */
+export const hintStep = (game, step = 0) => (game.hints ? 0 : step);
 
 /** Every slug bound to a game, ordered by step. Hunts have many; other games have one. */
 export function slugsForGame(gameId) {
@@ -452,6 +475,14 @@ function validate() {
       for (const [index, step] of (game.steps ?? []).entries()) {
         if (typeof step.points !== 'number') {
           problems.push(`hunt "${game.id}" step ${index + 1} declares no points`);
+        }
+        // A hunt picks ONE hint shape: one shared sequence on the game, or a list per step -- see
+        // `hintsFor`. Declaring both is not a merge, it is a silent loss, because `game.hints`
+        // wins and every step-level hint below it becomes content nobody can ever reveal.
+        if (step.hints && game.hints) {
+          problems.push(
+            `hunt "${game.id}" declares hints on the game AND on step ${index + 1}; pick one`,
+          );
         }
       }
       // Every tile is worth the same flat budget, so a perfect score is exactly 100. A hunt is

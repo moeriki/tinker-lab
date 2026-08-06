@@ -36,6 +36,7 @@ import {
   listGames,
   listQuestions,
   questionSlots,
+  hintStep,
   hintsFor,
   slugForPage,
   stepCount,
@@ -1115,7 +1116,7 @@ function showGame({ req, res, params, url }) {
   const requested = Number(url.searchParams.get('step'));
   const step = game.kind === 'hunt' ? Math.min(Math.max(requested || reached, 1), reached) : 0;
 
-  const hints = revealedHints(team.id, game.id, step);
+  const hints = revealedHints(team.id, game.id, hintStep(game, step));
   const remaining = hintsFor(game, step).length - hints.length;
 
   const mine = submissionsFor(team.id, game.id);
@@ -1687,6 +1688,8 @@ async function revealHint({ req, res, params }) {
   if (!game || !isUnlocked(team.id, game.id)) return html(res, notFound(), 404);
 
   const form = await readForm(req);
+  // The step is both the return address and, for a per-step hint list, the ledger key -- which
+  // `hintStep` collapses to 0 for a hunt carrying one shared sequence (#18).
   const step = game.kind === 'hunt' ? Number(form.get('step')) || reachedStep(team.id, game) : 0;
 
   const revealed = revealNextHint(team.id, game, step);

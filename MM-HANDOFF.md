@@ -417,9 +417,26 @@ We send **one** webhook for every hunt scan and put the hunt node's name in the 
 need one automation that branches on `node` rather than one per node. Adding a hunt node then
 costs you a YAML branch and costs us nothing.
 
+**The lights hunt is designed (#18) and these are its four real nodes.** The chain is: a team
+scans a card, ONE fixture changes colour for five seconds, and the next card is taped to whatever
+just changed. The colour is how a team tells its own glow from another team's, so **the colour per
+node matters** — they are not interchangeable.
+
+| `node` | Fixture | Effect | Colour |
+| --- | --- | --- | --- |
+| `liane-5` | Liane 5 | 5s colour, then restore | cyan `#16e0d8` → `rgb(22, 224, 216)` |
+| `fugato` | Fugato | 5s colour, then restore | magenta `#ff17a3` → `rgb(255, 23, 163)` |
+| `dome` | Dome | 5s colour, then restore | green `#4fe04f` → `rgb(79, 224, 79)` |
+| `kitchen-blind` | Kitchen Blinds 4 | 2s move, then back | — (a cover, not a light) |
+
+**We do not have your entity ids for any of these.** Your survey inventoried room *groups*
+(`light.living_room_living_room` and friends) and never covered blinds at all, and the hunt needs
+individual fixtures. Filling in the four `entity_id` values below is yours; nothing on our side
+changes when you do, because the site only ever sends the logical name.
+
 ```yaml
 - id: bday_hunt_lights
-  alias: "Birthday hunt — flash lights"
+  alias: "Birthday hunt — the house reacts"
   description: "Fired by the birthday party site when a team scans a treasure-hunt QR code."
   mode: queued        # several teams may scan within seconds; 'single' would drop them
   max: 25
@@ -432,60 +449,102 @@ costs you a YAML branch and costs us nothing.
   variables:
     team: "{{ trigger.json.get('team', 'unknown') }}"
     node: "{{ trigger.json.get('node', 'unknown') }}"
-    # Which room this hunt node lives in. Extend as the hunt design names more nodes;
-    # the default keeps an unmapped node visible rather than silent.
+    # FILL THESE IN -- the four fixtures the hunt walks, in order.
     lamp: >-
-      {% set rooms = {
-           'hall-mirror': 'light.living_room_living_room',
-           'attic-lamp':  'light.living_room_living_room'
+      {% set fixtures = {
+           'liane-5': 'light.REPLACE_ME_liane_5',
+           'fugato':  'light.REPLACE_ME_fugato',
+           'dome':    'light.REPLACE_ME_dome'
          } %}
-      {{ rooms.get(node, 'light.living_room_living_room') }}
+      {{ fixtures.get(node, '') }}
+    colour: >-
+      {% set colours = {
+           'liane-5': [22, 224, 216],
+           'fugato':  [255, 23, 163],
+           'dome':    [79, 224, 79]
+         } %}
+      {{ colours.get(node, [255, 140, 0]) }}
+    blind: cover.REPLACE_ME_kitchen_blinds_4
   actions:
     - action: logbook.log
       data:
         name: "Birthday hunt"
         message: "Team {{ team }} scanned node {{ node }}"
 
-    # Capture the room exactly as it is, so a light that was already on goes back to
-    # what it was rather than being switched off.
-    - action: scene.create
-      data:
-        scene_id: bday_hunt_restore
-        snapshot_entities:
-          - "{{ lamp }}"
+    - choose:
+        # --- the three light nodes ------------------------------------------------------------
+        - conditions:
+            - condition: template
+              value_template: "{{ lamp != '' }}"
+          sequence:
+            # Capture the fixture exactly as it is, so a lamp that was already on goes back to
+            # what it was rather than being switched off.
+            - action: scene.create
+              data:
+                scene_id: bday_hunt_restore
+                snapshot_entities:
+                  - "{{ lamp }}"
 
-    - repeat:
-        count: 3
-        sequence:
-          - action: light.turn_on
-            target:
-              entity_id: "{{ lamp }}"
-            data:
-              brightness_pct: 100
-              rgb_color: [255, 140, 0]     # one warm "something happened" flash
-          - delay: "00:00:00.4"
-          - action: light.turn_off
-            target:
-              entity_id: "{{ lamp }}"
-          - delay: "00:00:00.4"
+            - action: light.turn_on
+              target:
+                entity_id: "{{ lamp }}"
+              data:
+                brightness_pct: 100
+                rgb_color: "{{ colour }}"
 
-    - action: scene.turn_on
-      target:
-        entity_id: scene.bday_hunt_restore
+            - delay: "00:00:05"
+
+            - action: scene.turn_on
+              target:
+                entity_id: scene.bday_hunt_restore
+
+        # --- the finale: the blind, which must INVERT on its current state --------------------
+        - conditions:
+            - condition: template
+              value_template: "{{ node == 'kitchen-blind' }}"
+          sequence:
+            - choose:
+                # Closed at the time -- open it briefly, then put it back.
+                - conditions:
+                    - condition: state
+                      entity_id: cover.REPLACE_ME_kitchen_blinds_4
+                      state: "closed"
+                  sequence:
+                    - action: cover.open_cover
+                      target: { entity_id: "{{ blind }}" }
+                    - delay: "00:00:02"
+                    - action: cover.close_cover
+                      target: { entity_id: "{{ blind }}" }
+              # Open at the time -- the reverse, so the gesture reads either way.
+              default:
+                - action: cover.close_cover
+                  target: { entity_id: "{{ blind }}" }
+                - delay: "00:00:02"
+                - action: cover.open_cover
+                  target: { entity_id: "{{ blind }}" }
 ```
 
+- **Five seconds, not a blink.** The three light nodes hold their colour for five seconds and then
+  restore. A team is looking at their phone when the scan lands — the browser is mid-redirect —
+  so a half-second flash is a coin flip.
+- **The blind inverts on its state.** The party runs 20:00 to ~01:00 and that blind will be up
+  early and down late, so "roll up for two seconds" is only half the instruction. Closed → open →
+  closed; open → closed → open. Two seconds either way, and deliberately easy to miss.
 - **Snapshot and restore, not turn-off.** `scene.create` with `snapshot_entities` captures the
-  room's current state; `scene.turn_on` at the end puts it back. Turning the light off would be
-  wrong whenever the room light was already on — which, at a party, is most of the time.
+  fixture's current state; `scene.turn_on` at the end puts it back. Turning the light off would be
+  wrong whenever it was already on — which, at a party, is most of the time.
 - `mode: queued` matters — the default `single` silently drops concurrent triggers, and
   simultaneous scans are exactly our case. **You wanted to debounce instead** so that three teams
-  scanning within five seconds don't produce nine back-to-back flash cycles; that's yours to
-  write and the site needs no change for it — the webhook fires on every scan regardless, and the
-  automation decides whether to act. The cheap version is `mode: single` with
-  `max_exceeded: silent`, which drops overlapping scans rather than merging them.
-- **One flash, not per-team colours.** Teams are pairs and there will be ten to fifteen of them,
-  which is well past the point where colour-coding reads as anything but muddy. `team` is still
-  in the payload if you want it for TTS or the logbook.
+  scanning within five seconds don't produce overlapping cycles; that's yours to write and the
+  site needs no change for it. **One caution now that the colours carry meaning**: do not merge
+  scans of *different* nodes into one effect. Two teams on two different steps must see two
+  different fixtures in two different colours, or the clue lies to both of them. Merging repeats
+  of the *same* node is fine.
+- **One colour per node, still no per-team colours.** Your threshold stands — colour-coding by
+  team goes muddy past 5, and there are 10–15 teams. Colour-coding by *step* is a different thing:
+  there are only three, they are far apart in hue, and they tell a team which glow is theirs.
+  `team` is still in the payload for TTS and the logbook.
+- **The Podfather is out.** It's playing music all night, so TTS was dropped from the design.
 - `.get('team', ...)` rather than `.team`: a payload missing a key would otherwise throw, and you
   would never see it, because of the `200 OK` behaviour.
 - **Do not add `GET`** to `allowed_methods`. Link-preview bots and browser prefetch would fire
@@ -493,6 +552,12 @@ costs you a YAML branch and costs us nothing.
 - The UI route works too: Settings → Automations & scenes → Create automation → Add trigger →
   *Webhook*. `local_only` and the allowed methods hide behind the gear menu beside the Webhook ID
   field, and the copy button gives you the fully-qualified URL.
+
+**This automation is the whole game, not a garnish.** The lights hunt has no fallback by design:
+the page carries no directions, the hints name no fixture, and the site cannot tell whether you
+fired — Home Assistant answers `200 OK` to a disabled automation. If this is broken on the night,
+that tile is simply unplayable and no team completes it. Which is why we want a human watching a
+real lamp before the 13th, not a status code.
 
 ### 2b. The lights that are actually in play
 
@@ -509,8 +574,8 @@ reads as instant.
 
 Also available, and the hunt design will give you hooks for both if you want them:
 
-- **The Podfather** (HomePod, living room) — `tts.speak` / `tts.cloud_say`. Announcing *"Team The
-  Ice People found the hall mirror"* is ambient feedback the lights can't give.
+- ~~**The Podfather** (HomePod, living room)~~ — **dropped** (#18). It is playing music all
+  night, which makes it unreliable as a hunt channel.
 - **`notify.mobile_app_moerikiphoneair`** — so the host can watch scan activity without watching
   the lamps.
 
@@ -519,12 +584,12 @@ Also available, and the hunt design will give you hooks for both if you want the
 `POST`, `Content-Type: application/json`, 2-second timeout, no retries, fire-and-forget:
 
 ```json
-{ "team": "The Ice People", "game": "lights", "step": 2, "node": "hall-mirror", "event": "scan" }
+{ "team": "The Ice People", "game": "lights", "step": 2, "node": "fugato", "event": "scan" }
 ```
 
-`node` is the hunt step's logical name from our content files — `hall-mirror`, `attic-lamp`.
-Branch on it. `team` is there so you *can* give each team its own colour; whether that's worth it
-is one of the questions below.
+`node` is the hunt step's logical name from our content files — `liane-5`, `fugato`, `dome`,
+`kitchen-blind`. Branch on it. `team` is there for the logbook; per-team colours were settled as
+*no*, and the colour now belongs to the node instead.
 
 Webhooks re-fire on **every** scan of the same code, deliberately — a hunt step is meant to take
 a few tries, and re-triggering means walking back to the code.
@@ -533,7 +598,7 @@ a few tries, and re-triggering means walking back to the code.
 
 ```bash
 curl -i -X POST -H "Content-Type: application/json" \
-  -d '{"team":"test","node":"hall-mirror","event":"scan"}' \
+  -d '{"team":"test","node":"fugato","event":"scan"}' \
   http://192.168.129.36:8123/api/webhook/<WEBHOOK_ID>
 ```
 
