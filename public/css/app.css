@@ -138,13 +138,21 @@ code {
   font-size: 17px;
   line-height: 1.45;
   color: var(--c-ink);
-  padding-bottom: 3rem;
 }
 
+/*
+ * The bottom breathing room belongs to `.app` and not to `.shell`, because the statusbar is a
+ * child of `.shell` and comes AFTER `.app`. On `.shell` the 3rem landed underneath the foot
+ * strip -- a band of bare gradient below the black bar that reads as the page failing to
+ * finish -- while the content above the strip got no clearance at all: `/g/bingo`'s close button
+ * and the arrival stamp both sat directly on the bar, and the stamp's `rotate(-8deg)` put its
+ * corner over the strip's own words. Here the gap is where it was always meant to be, between
+ * the last thing a page says and the frame around it.
+ */
 .app {
   max-width: 42rem;
   margin: 0 auto;
-  padding: 0 0.85rem;
+  padding: 0 0.85rem 3rem;
 }
 
 /* --------------------------------- marquee --------------------------------- */
