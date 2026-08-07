@@ -67,16 +67,24 @@ Nothing here distrusts a scan, and the other half of that is that the site is on
 inside the house: see
 [ADR-the-house-network-is-the-boundary](docs/adr/the-house-network-is-the-boundary.md).
 
-The roster fixes **19 codes**. Each entry also carries three fields for humans: a `label` (host
+The roster fixes **19 codes**. Each entry also carries four fields for humans: a `label` (host
 key only — never printed on the card, or a gag announces itself), a `where` (its hiding place, or
-`null` while the hiding plan is open), and `pending: true` while the content it points at has not
+`null` while the hiding plan is open), a `spot` (the same place in one line, for the caption above
+each QR on the cutting sheet), and `pending: true` while the content it points at has not
 been authored. A pending code **warns at boot** and shows a placeholder when scanned; an
 *unflagged* dangling target is still a boot error. Printing is gated on the flag being gone.
 
-`node scripts/qr-sheet.js` reads this file and emits one self-contained A4 sheet — six cards per
+`node scripts/qr-sheet.js` reads this file and emits one self-contained A4 sheet — four cards per
 page at error-correction level H, plus a host key sheet that is not for cutting. Slugs are minted
 once and frozen, so `--only=<slug>` reprints a single lost card. See
 [ADR-codes-are-printed-from-the-inventory](docs/adr/codes-are-printed-from-the-inventory.md).
+
+**Both are grouped by game, not by card number.** The two hunts have their last cards numbered at
+the end of the inventory — position in `content/codes.js` is the printed card number and cannot
+be reshuffled — so a numbered sheet scattered the lights across #01–#03 and #22, fifteen rows
+apart. Grouping prints each trail whole. Above every QR, and **outside its black border**, sits a
+caption naming the game and the `spot`: cut on the border and the instruction stays behind on the
+sheet, so the card a guest finds still says nothing about what it does.
 
 A slug the inventory does not contain is a dead end: `/q/<unknown>` renders the `no-such-code`
 page with a 404 and offers no near-miss guess.

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // The printer. Reads content/codes.js and emits ONE self-contained HTML file that prints to A4.
 //
-//   node scripts/qr-sheet.js                      the whole inventory, six cards to a sheet
+//   node scripts/qr-sheet.js                      the whole inventory, four cards to a sheet
 //   node scripts/qr-sheet.js --check              the print-day pre-flight; exits 1 if not ready
 //   node scripts/qr-sheet.js --only=k7rbt9        a reprint of one lost card
 //   node scripts/qr-sheet.js --only=03,07 --repeat=2
@@ -46,7 +46,18 @@ const DEFAULT_BASE = process.env.SITE_BASE_URL ?? 'https://bday.moeriki.com';
 // same symbol at level M dies well before that. A fold is the more likely damage, and a fold that
 // lands anywhere but straight through a finder pattern is a thin line, not a blot.
 
-const CARD = { width: 95, height: 92, perSheet: 6 }; // mm; 2 across x 3 down inside A4 @ 10mm
+// 2 across x 2 down inside A4 @ 10mm margins (190 x 277mm printable). Row height comes from the
+// content, so only the column width is fixed here.
+//
+// FOUR to a sheet since #85, not six. The sticker itself is untouched -- same 87mm width, same
+// 84mm height, same 49.9mm symbol #34 measured with a ruler -- but each cell now carries a caption
+// above it saying which game the card belongs to and where it gets hung. A caption runs to one
+// line or two, so a cell is 91-95mm tall; three rows of that is 273-285mm against 277mm of page,
+// which fits only if every caption happens to be short. Rather than buy a third row by truncating
+// the labels -- the information the caption exists for -- the grid gave up the row. The cost is
+// two more sheets of A4 out of a printer on the morning of the party, which is not a cost.
+const CARD = { width: 95, perSheet: 4 };
+const STICKER_HEIGHT = 84; // mm; what the 6-up cell gave it, held constant on purpose
 const QR_BOX = 62; // mm, quiet zone included
 const LEVEL = 'H';
 
@@ -120,16 +131,43 @@ async function loadInventory(base) {
 
   return Object.entries(codes).map(([slug, target], index) => ({
     number: String(index + 1).padStart(2, '0'),
+    index, // the inventory position, which owns the stripe colour -- see `card()`
+    group: target.game ?? target.page, // what this card belongs WITH on the sheet
     slug,
     url: `${base}/q/${slug}`,
     target: target.game
       ? `game: ${target.game}${target.step ? `, step ${target.step}` : ''}`
       : `page: ${target.page}`,
     label: target.label ?? '(unlabelled)',
+    spot: target.spot ?? null,
     where: target.where,
     pending: Boolean(target.pending),
   }));
 }
+
+/**
+ * Print order, which since #85 is NOT card-number order.
+ *
+ * Both hunts have their tails appended in content/codes.js, because position in that file is the
+ * printed card number and #34's test print already fixed #01..#19. Numbered order therefore
+ * scattered a trail across the sheet: the lights ran #01, #02, #03 and then #22 fifteen rows
+ * later, past the gags. The risk that creates is not mis-sequencing -- every `where` names its
+ * place outright, so a card can be hung without the one before it in hand -- it is hanging #01 to
+ * #03, feeling done with the lights, and never noticing there is a fourth. Then the hunt
+ * dead-ends at the dome and nobody reaches the kitchen.
+ *
+ * So cards come off the printer grouped by their target, first-appearance order, numbers riding
+ * along and no longer consecutive. Both hunts print whole. The card itself is untouched: its
+ * number comes from the inventory, never from where it landed on the page.
+ */
+const byGame = (rows) => {
+  const groups = new Map();
+  for (const row of rows) {
+    if (!groups.has(row.group)) groups.set(row.group, []);
+    groups.get(row.group).push(row);
+  }
+  return [...groups.values()].flat();
+};
 
 const select = (rows, only) => {
   if (!only) return rows;
@@ -250,44 +288,78 @@ const stripe = (colour) =>
   `<rect width="100" height="6" fill="${colour}"/></svg>`;
 
 /**
- * One card. It deliberately says NOTHING about what the code does: the same card front carries a
- * hunt step, a photo tile and the rickroll. A label would spoil the gags, and a gag that is only
- * unlabelled *sometimes* is a label of its own -- the unmarked cards would be the funny ones. The
- * mapping lives on the host key sheet, which is not for cutting.
+ * One card, plus the caption that does not travel with it.
  *
- * What it does carry: the site name, so a card found in a corridor without a phone still says
- * where it came from; the card number, which is the host's index and means nothing to a guest;
- * and the slug in small type, so "code seven is broken" can be looked up in /admin/codes.
+ * THE STICKER deliberately says NOTHING about what the code does: the same card front carries a
+ * hunt step, a photo tile and the rickroll. A label would spoil the gags, and a gag that is only
+ * unlabelled *sometimes* is a label of its own -- the unmarked cards would be the funny ones. What
+ * it does carry: the site name, so a card found in a corridor without a phone still says where it
+ * came from; the card number, which is the host's index and means nothing to a guest; and the slug
+ * in small type, so "code seven is broken" can be looked up in /admin/codes.
+ *
+ * THE CAPTION above it is the hanging instruction -- which game, and where it goes -- and it is
+ * printed OUTSIDE the sticker's black border precisely so that it does not survive the scissors
+ * (#85). Cut on the black border and the card in your hand is exactly the card that was there
+ * before this caption existed; the instruction stays behind on the sheet with the offcut. That is
+ * what lets one artifact do both jobs: the thing you read while taping, and the thing a guest
+ * finds taped up.
+ *
+ * The stripe colour is keyed to the card's INVENTORY position, not to where it landed on the
+ * page. Otherwise reordering the sheet would silently recolour every card, and a reprint
+ * (`--only=k7rbt9`, always print position 0) would come out of the printer a different colour
+ * from the one it is replacing -- which defeats the whole point of the host being able to say
+ * "the pink one".
  */
-function card(row, index, host) {
+function card(row, host) {
   const symbol = encodeQr(row.url, LEVEL);
   return `
   <div class="card">
-    <div class="sticker">
-      ${stripe(STRIPES[index % STRIPES.length])}
-      <div class="band">${escape(host)}</div>
-      <div class="qr">${toSvg(symbol, { quiet: 4 })}</div>
-      <div class="foot">
-        <span class="num">#${row.number}</span>
-        <span class="say">point your camera</span>
-        <span class="slug">${escape(row.slug)}</span>
+    <div class="cut">
+      <div class="caption">
+        <div class="what"><span class="num">#${row.number}</span> ${escape(row.label)}</div>
+        <div class="spot">${row.spot ? escape(row.spot) : 'HIDING PLAN NOT SETTLED &mdash; do not hang yet.'}</div>
+      </div>
+      <div class="sticker">
+        ${stripe(STRIPES[row.index % STRIPES.length])}
+        <div class="band">${escape(host)}</div>
+        <div class="qr">${toSvg(symbol, { quiet: 4 })}</div>
+        <div class="foot">
+          <span class="num">#${row.number}</span>
+          <span class="say">point your camera</span>
+          <span class="slug">${escape(row.slug)}</span>
+        </div>
       </div>
     </div>
   </div>`;
 }
 
+/**
+ * The host key: the same inventory as a table, in the same grouped order as the cards.
+ *
+ * A heading row per game is what turns "is that all of the lights?" from counting into looking.
+ * The old flat run of #01..#22 could be read top to bottom without ever noticing that the lights
+ * had a fourth card down among the gags -- see `byGame` for why the tails sit where they do.
+ */
 function keySheet(rows, base) {
+  let current = null;
   const body = rows
-    .map(
-      (row) => `
+    .map((row) => {
+      const heading =
+        row.group === current
+          ? ''
+          : `<tr class="group"><td colspan="5">${escape(row.group)} &mdash; ${
+              rows.filter((each) => each.group === row.group).length
+            } card(s)</td></tr>`;
+      current = row.group;
+      return `${heading}
       <tr${row.pending ? ' class="pending"' : ''}>
         <td class="num">#${row.number}</td>
         <td class="mono">${escape(row.slug)}</td>
         <td>${escape(row.label)}</td>
         <td class="mono">${escape(row.target)}${row.pending ? ' <b>PENDING</b>' : ''}</td>
         <td>${row.where ? escape(row.where) : '<i>hiding plan not settled</i>'}</td>
-      </tr>`,
-    )
+      </tr>`;
+    })
     .join('');
 
   return `
@@ -295,12 +367,18 @@ function keySheet(rows, base) {
     <h1>HOST KEY &mdash; do not cut, do not hide</h1>
     <p>Every card front is identical on purpose. This is the only place the mapping exists on
       paper. ${escape(rows.length)} codes, base <span class="mono">${escape(base)}</span>.</p>
+    <p><b>Grouped by game, not by number.</b> Both hunts have their last cards numbered at the end
+      of the inventory &mdash; the lights run #01, #02, #03, <b>#22</b>; the riddle runs #04, #05,
+      #06, <b>#20</b>, <b>#21</b> &mdash; so the numbers down this page jump on purpose. Work a
+      block at a time and a trail cannot be left one card short.</p>
     <table>
       <thead><tr><th>#</th><th>slug</th><th>label</th><th>target</th><th>where it goes</th></tr></thead>
       <tbody>${body}</tbody>
     </table>
-    <p class="small">Print at 100% scale (&ldquo;Actual size&rdquo;), A4, margins 10mm. Cut on the
-      dashed lines. Reprint one card with
+    <p class="small">Print at 100% scale (&ldquo;Actual size&rdquo;), A4, margins 10mm.
+      <b>Cut on the black border of each card, not on the dashed line</b> &mdash; the dashed line
+      is a rough cut, and the caption between the two is the hanging instruction, which is not
+      meant to end up taped to a wall. Reprint one card with
       <span class="mono">node scripts/qr-sheet.js --only=&lt;slug&gt;</span>.</p>
   </section>`;
 }
@@ -313,7 +391,7 @@ function document_(rows, options) {
   for (let i = 0; i < cards.length; i += CARD.perSheet) {
     const slice = cards
       .slice(i, i + CARD.perSheet)
-      .map((row, index) => card(row, i + index, host))
+      .map((row) => card(row, host))
       .join('');
     sheets.push(`<section class="sheet">${slice}</section>`);
   }
@@ -333,19 +411,33 @@ ${fontFace('Courier Prime', 'courier-prime-bold.woff2', 700)}
 html, body { margin: 0; padding: 0; background: #fff; color: #000; }
 body { font-family: 'Courier Prime', ui-monospace, monospace; }
 
+/* Rows size to their content and pack to the top of the page. The caption runs to one line or
+   two depending on the label, so a fixed row height would either clip the long ones or leave a
+   band of nothing between the two rows. All the slack collects at the foot of the sheet instead,
+   where it is plainly margin. */
 .sheet {
   display: grid;
   grid-template-columns: ${CARD.width}mm ${CARD.width}mm;
-  grid-auto-rows: ${CARD.height}mm;
+  grid-auto-rows: min-content;
+  align-content: start;
   break-after: page;
 }
 .sheet:last-of-type { break-after: auto; }
 
-/* The cut line. Outline rather than border so it never adds to the grid cell. */
-.card { padding: 4mm; outline: 0.2mm dashed #b0b0b0; outline-offset: -0.1mm; break-inside: avoid; }
+.card { padding: 4mm; break-inside: avoid; }
+
+/* The ROUGH cut: caption plus sticker, the piece you carry to the room. The real cut is the
+   sticker's own black border, which is where the hanging instruction gets left behind. Outline
+   rather than border so it never adds to the box. */
+.cut { outline: 0.2mm dashed #b0b0b0; outline-offset: 1.5mm; }
+
+.caption { padding: 0 0.5mm 3mm; }
+.caption .what { font-size: 3.4mm; font-weight: 700; }
+.caption .what .num { font-family: 'Bungee', Impact, sans-serif; font-size: 3.8mm; }
+.caption .spot { font-size: 3.1mm; line-height: 1.25; }
 
 .sticker {
-  height: 100%;
+  height: ${STICKER_HEIGHT}mm;
   display: flex;
   flex-direction: column;
   border: 1.2mm solid #000;
@@ -385,6 +477,13 @@ body { font-family: 'Courier Prime', ui-monospace, monospace; }
 .key .num { font-family: 'Bungee', Impact, sans-serif; white-space: nowrap; }
 .key .mono { font-size: 3mm; }
 .key tr.pending td { background: #f2e00c; }
+.key tr.group td {
+  font-family: 'Bungee', Impact, sans-serif;
+  font-size: 3.2mm;
+  text-transform: uppercase;
+  background: #000;
+  color: #fff;
+}
 .key .small { margin-top: 3mm; font-size: 2.8mm; }
 </style>
 </head>
@@ -405,7 +504,7 @@ async function main() {
     return 0;
   }
 
-  const rows = await loadInventory(options.base);
+  const rows = byGame(await loadInventory(options.base));
 
   if (options.mint) {
     process.stdout.write(`${mint(options.mint, new Set(rows.map((row) => row.slug))).join('\n')}\n`);
@@ -453,7 +552,8 @@ async function main() {
       `\nWrote ${options.out}\n` +
         `${chosen.length * options.repeat} cards on ${sheets} sheet(s)` +
         `${options.key ? ' plus the host key' : ''}.\n` +
-        'Open it, print A4 at 100% scale, cut on the dashed lines.\n',
+        'Open it, print A4 at 100% scale, then cut on each card\'s BLACK BORDER -- the caption\n' +
+        'above it says where to hang it and is meant to stay behind on the sheet.\n',
     );
   }
   return 0;
