@@ -2122,7 +2122,6 @@ function filteredPhotos({ team, prompt }) {
         label: photo.photo_mime ?? 'file',
         who: photo.team_name,
         what: unitLabel(game, photo.unit) ?? game?.title ?? photo.game_id,
-        said: photo.body ?? '',
         bytes: `/uploads/${photo.photo_path}`,
       };
     });

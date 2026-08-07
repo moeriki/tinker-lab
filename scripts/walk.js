@@ -886,7 +886,11 @@ const FLOWS = [
       // The handle is dealt, so the walk cannot know it -- only that the caption says one.
       const who = String(await page.text('.viewer__who'));
       check(`the caption says whose camera it was (${who})`, who.startsWith('shot by '));
-      check('the sentence is under the photograph', (await page.text('.bubble p')) === SAID);
+      // The quote is NOT here, and that is the decision rather than an omission (#80): the ~65
+      // sentences Portrait collects are the recap's material, and a wall nobody reads captions on
+      // is where they would be spent. Asserting the absence is what stops a later session
+      // "restoring" it as an obvious improvement.
+      check('the sentence stays off the wall, for the recap', !(await page.has('.bubble')));
       check('and there is a way back to the wall', await page.has('.viewer__close'));
       await shoot('shots-viewer');
     },

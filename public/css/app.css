@@ -1786,16 +1786,6 @@ ol.stack {
   color: var(--c-paper);
 }
 
-/* Portrait's sentence, in the site's one shape for a thing somebody said out loud.
-   `.bubble` carries `margin-left: 1.4rem` to make room for its own tail, so centring
-   it in this column lands it visibly right of everything above it — which reads as a
-   bug rather than as a tail. Stretching it and letting the text sit left is how a
-   bubble is drawn everywhere else on the site, and it puts the tail back on the edge
-   it points from. Composition on the container, not a redefinition of the component. */
-.viewer__cap .bubble {
-  align-self: stretch;
-  text-align: left;
-}
 
 .viewer__close {
   position: fixed;

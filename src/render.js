@@ -944,10 +944,13 @@ export function viewer({ panels, back, title = 'Shots' }) {
 /**
  * One panel of the viewer: the photograph, and underneath it who took it and what it answers.
  *
- * `said` is Portrait of a stranger's sentence and is empty on every other photograph -- the
- * scavenger's ten prompts are labels, and a label is `what`. It renders as a `bubble()` for the
- * reason Guess Who renders one: it is a thing somebody said out loud, and this site has exactly
- * one shape for that.
+ * **Whose camera, and what it answers. Nothing else** -- and the thing deliberately NOT here is
+ * Portrait of a stranger's sentence.
+ *
+ * It was here, in a `bubble()`, and it looked good. Dieter took it out: the ~65 things people
+ * actually said tonight are the recap's raw material ([#81]), and spending them on a wall nobody
+ * reads captions on is spending them. `submissions.body` still holds every one of them; this
+ * surface is looking at photographs, and the recap is what turns them back into a moment.
  *
  * **"shot by", and it is not decoration.** The handle alone sat directly above the game's title,
  * and on a portrait that reads as a caption for the FACE -- PLATYPUS, Portrait of a stranger.
@@ -956,7 +959,7 @@ export function viewer({ panels, back, title = 'Shots' }) {
  * would be inventing the one field the tile refuses to store. Two words fix it, and they are true
  * of every photograph on the wall rather than a special case for one game.
  */
-export function viewerPanel({ id, src, href, label = 'file', who, what = '', said = '', eager = false }) {
+export function viewerPanel({ id, src, href, label = 'file', who, what = '', eager = false }) {
   const picture = src
     ? `<img class="viewer__img" src="${escape(src)}" alt=""${eager ? '' : ' loading="lazy"'}>`
     : `<a class="viewer__dl" href="${escape(href)}" download>${escape(label)}<br>tap to open</a>`;
@@ -966,7 +969,6 @@ export function viewerPanel({ id, src, href, label = 'file', who, what = '', sai
       <figcaption class="viewer__cap">
         <span class="viewer__who">shot by ${escape(who)}</span>
         ${what ? `<span class="viewer__what">${escape(what)}</span>` : ''}
-        ${said ? bubble(said) : ''}
       </figcaption>
     </figure>`;
 }
