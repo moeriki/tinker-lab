@@ -5,7 +5,7 @@
 //   node scripts/walk.js standings          -> one flow by name
 //   node scripts/walk.js --out shots
 //   node scripts/walk.js --reduced-motion   -> the frozen marquee, on a real board
-//   node scripts/walk.js --dark             -> the phone set to dark, through all nine fields
+//   node scripts/walk.js --dark             -> the phone set to dark, through the whole door wizard
 //   node scripts/walk.js --list
 //
 // scripts/screenshot.js shoots anything a URL can reach, which stops at the front door: it holds
@@ -99,43 +99,112 @@ function recorder() {
 // --- the walk ------------------------------------------------------------------------------------
 
 /**
- * Through the front door for real: two screens, nine fields, and the dealt name. Used by every
- * flow that needs to be somebody, and walked end to end as a flow of its own.
+ * Through the front door for real: the wizard, one screen at a time (#97). Used by every flow that
+ * needs to be somebody, and walked end to end as a flow of its own.
  *
- * It always starts by dropping the cookie, so a flow that runs after another arrives as a
- * stranger rather than inheriting the last team.
+ * Eight or nine screens depending on how many of you there are -- your name, the captain line and
+ * the second name, the dealt team name, one question per member, the five herd words, then the
+ * house rules one per screen. It always starts by dropping the cookie, so a flow that runs after
+ * another arrives as a stranger rather than inheriting the last team.
+ *
+ * The two-people case is the one that is walked by default, because teams of two is the locked
+ * constraint; `members: ['Solo']` walks the shorter path, and the counter difference between the
+ * two is the thing that would break silently if the wizard ever started lying about its total.
  */
 async function onboard(page, { members = ['Dieter', 'Anna'], shoot = null, check = null } = {}) {
+  const [captain, mate] = members;
+
   await page.clearCookies();
   await page.goto('/');
 
   const atDoor = await page.url();
   check?.('a stranger at / is sent to the front door', atDoor.startsWith('/welcome'));
 
-  const dealt = await page.text('.display');
-  if (shoot) await shoot('welcome');
+  const firstCount = await page.text('.door__count');
+  check?.(`the door opens on step 1 (${firstCount})`, /^step 1 of \d+$/.test(firstCount ?? ''));
+  if (shoot) await shoot('door-name');
 
-  // The reroll. It carries formmethod=get and sits ABOVE the real button, which is exactly the
-  // trap a generic form filler walks into, so it is worth pressing once on purpose.
-  await page.press('form button[formmethod="get"]');
-  const redealt = await page.text('.display');
+  // --- screen 1: your name
+  await page.fillForm({ member: captain });
+  await page.submit();
+
+  check?.('the first name leads to the captain screen', (await page.url()).startsWith('/welcome/mate'));
+  const captainTitle = await page.text('.door__title');
+  check?.('the captain line lands after the name is typed', /captain/i.test(captainTitle ?? ''));
+  if (shoot) await shoot('door-captain');
+
+  // --- screen 2: anyone with you?
+  if (mate) {
+    await page.fillForm({ member: mate });
+    await page.submit();
+  } else {
+    await page.press('form button[name="solo"]');
+  }
+
+  check?.('the second screen leads to the dealt name', (await page.url()).startsWith('/welcome/team'));
+
+  // --- screen 3: the dealt team name, and the reroll
+  const dealt = await page.text('.door__title');
+  await page.press('form button[name="reroll"]');
+  const redealt = await page.text('.door__title');
   check?.('"deal us another" deals another name', Boolean(redealt) && redealt !== dealt);
+  if (shoot) await shoot('door-team');
 
-  await page.fillForm({ member: members });
   await page.submit();
 
   const atQuestions = await page.url();
-  check?.('the door leads to the questions', atQuestions.startsWith('/questions'));
-  if (shoot) await shoot('questions');
+  check?.('the dealt name leads to the questions', atQuestions.startsWith('/questions'));
 
-  await page.fillForm();
-  await page.submit();
+  // --- the question screens: one per member, then the team's five words. The wizard says how many
+  // screens it thinks there are, so walk exactly that many rather than a number written here.
+  const total = Number((await page.text('.door__count'))?.match(/of (\d+)/)?.[1] ?? 0);
+  check?.(
+    `a team of ${members.length} walks ${total} screens`,
+    total === 3 + members.length + 1 + 3,
+  );
+
+  for (let screen = 0; screen < members.length + 1; screen += 1) {
+    if (shoot && screen === 0) await shoot('door-question');
+    if (shoot && screen === members.length) await shoot('door-herd');
+    await page.fillForm();
+    await page.submit();
+  }
+
+  const atRules = await page.url();
+  check?.('the last answer leads to the rules', atRules.startsWith('/questions/rules'));
+  if (shoot) await shoot('door-rules');
+
+  // --- the rules, one per screen, pressed through rather than tapped away
+  let guard = 0;
+  while ((await page.url()).startsWith('/questions/rules')) {
+    if (guard > 10) throw new Error('the rules screens never ended');
+    guard += 1;
+    await page.submit();
+  }
 
   const landed = await page.url();
-  check?.('answering everything opens the gate', landed === '/' || landed.startsWith('/?'));
+  check?.('pressing through the rules opens the gate', landed === '/' || landed.startsWith('/?'));
 
   const name = await page.text('.scorebar__name');
   return { name, landed };
+}
+
+/**
+ * A team that EXISTS and has answered nothing -- the cheap rival, used by any flow that needs
+ * bodies on the board rather than nine answers each.
+ *
+ * It used to be two presses: fill `/welcome`, submit, done. The wizard moved team creation to the
+ * third screen (#97), so it is now the three identity screens and it stops there, which is still
+ * five presses fewer than a whole questionnaire. It leaves the cookie attached, so the caller who
+ * wants to be somebody else afterwards clears it -- exactly as before.
+ */
+async function stopAtTheDoor(page, who) {
+  await page.clearCookies();
+  await page.goto('/welcome');
+  await page.fillForm({ member: who });
+  await page.submit();
+  await page.press('form button[name="solo"]');
+  await page.submit();
 }
 
 // --- flows ---------------------------------------------------------------------------------------
@@ -143,7 +212,7 @@ async function onboard(page, { members = ['Dieter', 'Anna'], shoot = null, check
 const FLOWS = [
   {
     name: 'door',
-    what: 'arrive as a stranger, walk both onboarding screens, land on the board',
+    what: 'arrive as a stranger, walk the onboarding wizard, land on the board',
     async run({ page, shoot, check }) {
       const { name } = await onboard(page, { shoot, check });
 
@@ -151,8 +220,63 @@ const FLOWS = [
       const open = await page.text('.scorebar__open');
       check(`the two starter tiles are open (${open})`, /^2 of \d+ open$/.test(open ?? ''));
       check('a fresh team has no standing colour', !(await page.has('[class*="standing--"]')));
+      check('and the board says what just opened', await page.has('.banner--opened'));
 
       await shoot('board-fresh');
+
+      // A reload is a different request with no `?opened=1` on it, and the box has to go -- it is
+      // a sentence a team reads once. Nothing persists it, so this is checking that nothing
+      // accidentally started to.
+      await page.goto('/');
+      check('and says it once, not on every load', !(await page.has('.banner--opened')));
+    },
+  },
+
+  {
+    name: 'door-solo',
+    what: 'walk the door on your own, and check the counter tells the truth about it',
+    async run({ page, shoot, check }) {
+      // The counter is honest rather than equal (#97): a solo captain walks one screen fewer than a
+      // pair, and the total says so. This is the check that would catch it quietly becoming a fixed
+      // lie -- the pair's total is asserted inside `onboard`, and this is the other half.
+      await onboard(page, { members: ['Solo'], check });
+
+      const open = await page.text('.scorebar__open');
+      check(`a solo captain lands on the same board (${open})`, /^2 of \d+ open$/.test(open ?? ''));
+
+      await shoot('board-solo');
+    },
+  },
+
+  {
+    name: 'door-back',
+    what: 'press "actually, no" and check what you typed came back with you',
+    async run({ page, shoot, check }) {
+      // Back is a GET submission of the screen you are on, so what you typed rides in the query
+      // string rather than being held anywhere. This is the check that it actually comes back --
+      // the failure mode is silent, and it is the whole reason the wizard needs no draft state.
+      await page.clearCookies();
+      await page.goto('/welcome');
+      await page.fillForm({ member: 'Wilhelmina' });
+      await page.submit();
+
+      check('the captain screen is where back is first offered', await page.has('.door__actions .btn--close'));
+      await page.fillForm({ member: 'Bartholomew' });
+
+      // Forward to the dealt name, then straight back. Back is addressed by its `formaction` and
+      // not by `.btn--close`: the dealt-name screen carries TWO quiet buttons -- `deal us another`
+      // sits beside `actually, no` -- and a class selector picks whichever the box lists first,
+      // which is how this check first "passed" while rerolling the team name instead of going back.
+      await page.submit();
+      check('forward reached the dealt name', (await page.url()).startsWith('/welcome/team'));
+      await page.press('button[formaction="/welcome/mate"]');
+
+      const back = await page.url();
+      check('back lands on the captain screen', back.startsWith('/welcome/mate'));
+      check('and the second name came back with it', back.includes('Bartholomew'));
+      check('and so did the first', back.includes('Wilhelmina'));
+
+      await shoot('door-back');
     },
   },
 
@@ -205,7 +329,7 @@ const FLOWS = [
       check('"Okay?" closes it', await page.has('#bored-modal[hidden]'));
 
       await page.tap('#bored');
-      await page.tap('#bored-modal .btn--close');
+      await page.tap('#bored-modal .btn--deny');
       check('"No?" closes it too', await page.has('#bored-modal[hidden]'));
       check('and neither answer went anywhere', (await page.url()) === before);
     },
@@ -503,13 +627,10 @@ const FLOWS = [
     async run({ page, shoot, check }) {
       // Rivals first, so the last cookie standing is ours. A rival only has to EXIST to be on the
       // board -- standings() reads every team -- so they stop at the door rather than walking
-      // both screens, which is three fewer questionnaires per run.
+      // the whole wizard, which is three fewer questionnaires per run.
       const rivals = [];
       for (const who of ['Rival', 'Other', 'Third']) {
-        await page.clearCookies();
-        await page.goto('/welcome');
-        await page.fillForm({ member: [who] });
-        await page.submit();
+        await stopAtTheDoor(page, who);
         rivals.push(who);
       }
       check(`${rivals.length} rival teams are on the board`, rivals.length === 3);
@@ -767,13 +888,10 @@ const FLOWS = [
       await shoot('host-after-end');
 
       // Rivals with real numbers, because a board where every row reads `0` cannot show the one
-      // thing `/league` is for. They stop at the door rather than walking both screens -- a team
+      // thing `/league` is for. They stop at the door rather than walking the whole wizard -- a team
       // only has to EXIST to be on the board -- which is the standings flow's trick.
       for (const who of ['Rival', 'Other']) {
-        await page.clearCookies();
-        await page.goto('/welcome');
-        await page.fillForm({ member: [who] });
-        await page.submit();
+        await stopAtTheDoor(page, who);
       }
 
       await page.goto(`/admin/key/${ADMIN_SECRET}`);

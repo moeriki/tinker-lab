@@ -307,9 +307,9 @@
       <!-- ============================= WINDOW ============================== -->
       <section class="sect" id="window">
         <h2 class="sect__h">8. The window frame</h2>
-        <p class="sect__note">Straight off the invite. Used for anything that wants to feel like a document: the rules, the results, the handoff. <code>/rules</code> was the first page to build one, so it lives in <code>render.js</code> now — this is the real frame, shown in its rule-4 state.</p>
+        <p class="sect__note">Straight off the invite. Used for anything that wants to feel like a document: the rules, the results, the handoff. <code>/rules</code> was the first page to build one, so it lives in <code>render.js</code> now — this is the real frame, shown in the state a team reaches only after buying a hint.</p>
 
-        <!--@win title="the_rules.txt" status="4 rule(s) · 2 of them enforced" rules="Have fun. This is not a suggestion.|Be nice. Even to the people you are about to lie to.|Stay out of the bedroom. There is nothing in there. That is why it is a rule.|Hints cost you 3 points. This rule was always here."-->
+        <!--@win title="the_rules.txt" status="5 rule(s) · 2 of them enforced" rules="Have fun. This is not a suggestion.|Be nice. Even to the people you are about to lie to.|Stay out of the bedroom. There is nothing in there. That is why it is a rule.|Open the drawers. Open the cupboards. Close them again.|Hints cost you 3 points. This rule was always here."-->
       </section>
 
       <!-- ============================= BUTTONS ============================= -->
@@ -706,6 +706,46 @@
           <code>src/scoring.js</code> already argues exactly this for the bands. Two teams on the
           same score both wear the same place, and the next row skips.
         </p>
+      </section>
+
+      <!-- ============================== DOOR ================================ -->
+      <section class="sect" id="door">
+        <h2 class="sect__h">19. The door — one question at a time</h2>
+        <p class="sect__note">Onboarding is a wizard (#97). Eight or nine screens depending on how many of you there are, each one a title, at most a couple of fields, and a way on. It wears the alert box's <em>look</em> and is not one: no scrim, nothing fixed, nothing to dismiss — which is why its buttons are allowed their own words where a real modal's two answers are only ever <code>No?</code> and <code>Okay?</code> (§12).</p>
+
+        <h3 class="sect__sub">The two shapes it ships in</h3>
+        <p class="sect__note">Screen one has no back and no alternative press; every screen after it has a back, and several have an alternative. Both are drawn here on purpose — a component demoed only in its loaded shape is how <code>&lt;a class="btn"&gt;</code> shipped as a raw blue link across the whole site (#66).</p>
+
+        <!--@door step="1" of="9" title="What's your name?" intro="One phone per team. Whoever is holding it is carrying the team all night." field="Your name" forward="noted"-->
+
+        <!--@door step="2" of="9" title="You're the captain now." intro="Anyone with you?" field="Their name" back="#door" extra="on my own" forward="carry on"-->
+
+        <p class="sect__note">
+          <strong>The counter is honest, not equal.</strong> A solo captain walks eight screens and
+          a pair walks nine, and the counter says so rather than showing everyone a fixed N. Before
+          the second name is settled it assumes a pair, because teams of two is the locked
+          constraint — so the only team that ever sees the total change is the one it changed for.
+        </p>
+        <p class="sect__note">
+          <strong>Back is a GET submission, not a link.</strong> Every screen is one form; back
+          carries <code>formmethod="get"</code> and <code>formnovalidate</code> and re-submits the
+          screen you are looking at to the one behind it, so what you typed travels with you in the
+          query string and is still there coming forward. Same mechanism as the reroll and the
+          ladder's skip. No client JS, and no server-side draft of a team that does not exist yet.
+        </p>
+        <p class="sect__note">
+          <strong>The forward word changes every screen</strong> — <code>noted</code>,
+          <code>carry on</code>, <code>now what</code>, <code>one more</code>, <code>good
+          enough</code>, <code>that's that</code>, <code>Okay?</code> — and <code>one more</code>
+          only appears when a second member's screen actually follows. They all land shouted,
+          because <code>.btn--primary</code> is <code>text-transform: uppercase</code> site-wide and
+          the door does not get to opt out of that (§9).
+        </p>
+
+        <h3 class="sect__sub">And what it lands on</h3>
+        <p class="sect__note">The wizard's last press does not go to a screen. A team who scanned a code on the way in lands on that game; everybody else lands on the board wearing this, which is the same banner as §5's bad one in a third mood.</p>
+
+        <!--@opened tiles="2"-->
       </section>
 
       <footer class="kit-foot">

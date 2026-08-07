@@ -112,7 +112,7 @@ node scripts/walk.js                    # every flow, shot as it goes
 node scripts/walk.js standings          # one flow by name
 node scripts/walk.js --list             # what the flows are
 node scripts/walk.js --reduced-motion   # the frozen marquee, on a real board
-node scripts/walk.js --dark             # the phone in dark mode, through all nine fields
+node scripts/walk.js --dark             # the phone in dark mode, through the whole door wizard
 node scripts/walk.js --out shots
 ```
 

@@ -786,7 +786,7 @@ asks per slot and never totals. Answering a rung **deletes** the member's answer
 have skipped past, so a member holds exactly one and no abandoned answer is ever dealt as a card.
 
 Skipping re-submits the form as a **GET**, so nothing typed is lost and no client JS comes near
-onboarding — the same trick the team name's reroll uses on screen one. See
+onboarding — the same trick the team name's reroll and the wizard's back button use. See
 [ADR-a-question-may-be-a-ladder](docs/adr/a-question-may-be-a-ladder.md).
 
 > A **rung** is one question of a ladder. A **slot** is one answer owed. Not "optional question" —
@@ -844,10 +844,14 @@ Team-facing:
 | --- | --- | --- | --- |
 | GET | `/q/:slug` | **the front door** — resolve a code, apply its effect, redirect | mutating, see [ADR-qr-entry-mutates-on-get](docs/adr/qr-entry-mutates-on-get.md) |
 | GET | `/` | dashboard: header, score, tile grid | ✓ |
-| GET | `/welcome` | onboarding, screen 1: a dealt team name + member names. Reroll re-submits this form as a GET | ✓ |
-| POST | `/welcome` | create team + members, set cookie → `/questions` | PRG |
-| GET | `/questions` | onboarding, screen 2: the questionnaire, and **the gate** — every team-facing route bounces here until it is answered | ✓ |
-| POST | `/questions` | save profile answers; incomplete returns here, complete applies the held code (deferred) or lands on `/` | PRG |
+| GET | `/welcome` | **the door**, screen 1: your name. Screens 1–2 write nothing, so they are GET forms and the names ride in the query string | ✓ |
+| GET | `/welcome/mate` | door screen 2: *you're the captain now* — the second name, or `on my own` | ✓ |
+| GET | `/welcome/team` | door screen 3: the dealt team name. Reroll re-submits this form as a GET | ✓ |
+| POST | `/welcome` | create team + members, set cookie → `/questions`. The door's first press that mutates anything | PRG |
+| GET | `/questions` | door screen 4a, and **the gate** — every team-facing route bounces here until the questionnaire is answered | ✓ |
+| GET | `/questions/:at` | the remaining question screens, one subject each. Renders even for a complete team, which is what lets the rules screens have a back button | ✓ |
+| POST | `/questions[/:at]` | save this screen's answers; blanks return here, otherwise the next screen, then the rules | PRG |
+| GET | `/questions/rules/:n` | the door's last screens: the house rules, one per screen, pressed through rather than tapped away. The last one goes to bare `/questions` to finish | ✓ |
 | GET | `/g/:gameId` | game page; `?step=n` for hunts, clamped to reached; `?just=` is the moment, `?hint=` the reveal notice | ✓ |
 | POST | `/g/:gameId/submit` | upsert (`answer`) / insert (`tally`); multipart for photos → back to `/g/:gameId` | PRG |
 | POST | `/g/:gameId/hint` | reveal next hint, write the negative award | PRG |
@@ -920,8 +924,8 @@ with nine onboarding fields and nineteen slugs tapped out of `/admin/codes`
   `board` is dev-only because `/` demands a team and a host on the night is never one; `recap` and
   `shots` show whatever the clock says, because a dev build has no night to be partway through, and
   both routes let a dev build through the gate that bounces production;
-- a **menu bar on `/welcome` and `/questions`**, the two pages that carry none on the night — so
-  the front door still says which build it is, and so the walk back in from a logout is a tap;
+- a **menu bar on every screen of the door**, which carries none on the night — so the front door
+  still says which build it is, and so the walk back in from a logout is a tap;
 - a **logout**, which is a dev affordance and not a change of heart — this site still has no
   sign-out, no rejoin and no recovery (see **Team**). It and its way back are one toggle at the
   foot of `/admin/controls`, below the dangerous end and not inside it: nothing there destroys

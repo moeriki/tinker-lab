@@ -76,6 +76,12 @@ import { escape } from './http.js';
  * Chrome and iOS below 26 do read the tag, and the party's guests bring whatever they bring, so one
  * line covering them is worth having as long as nobody mistakes it for the mechanism.
  */
+/**
+ * `heading: false` suppresses the `<h1>` and hands the body responsibility for emitting one. Only
+ * `doorStep()` passes it (#97): the wizard's title belongs inside its box, in the box's own display
+ * face, and an `<h1>` above the box repeating it would be the title twice. The body still has to
+ * carry a real `<h1>` -- this is a relocation, not a removal, and every door screen has one.
+ */
 export function layout({
   title,
   body,
@@ -86,6 +92,7 @@ export function layout({
   modal = '',
   refresh = 0,
   live = 0,
+  heading = true,
 }) {
   const foot = `${nav}${still ? '' : statusbar()}`;
 
@@ -105,7 +112,7 @@ export function layout({
   <div class="app${still ? '' : ' anim-page'}">
     <div class="stack">
       ${bar}
-      <h1 class="shout">${escape(title)}</h1>
+      ${heading ? `<h1 class="shout">${escape(title)}</h1>` : ''}
       ${body}
       ${showClose ? '<a class="btn btn--close" href="/">close</a>' : ''}
     </div>
@@ -431,19 +438,23 @@ export const MODAL_NO = 'No?';
  * carries it on *both*, since there both answers close it and do nothing else. `denyAttrs` was
  * added for that second caller -- until one existed there was nothing to hang on a deny.
  *
- * The deny reuses `.btn--close`, the site's quiet paper-and-mono "leave this alone" button, rather
- * than earning a class of its own that no page had ever rendered.
+ * The deny wears **`.btn--deny`** (#97). It used to borrow `.btn--close`, and that was wrong in a
+ * way only visible with the two of them side by side: `.btn--close` is the site's quiet
+ * paper-and-mono "leave this alone" button, so the two halves of one question were set in two
+ * different voices -- mono against shout, lowercase against uppercase. A deny is not a close; it is
+ * the other answer. `.btn--deny` agrees with the confirm on family, transform and tracking and
+ * disagrees only on fill and width.
  *
- * On layout, note that `.modal__actions .btn { flex: 1 1 auto }` **out-specifies**
- * `.btn--primary { flex: 1 1 100% }` (0,2,0 beats 0,1,0), so inside a modal the confirm does NOT
- * take a row of its own the way it does everywhere else -- the buttons share one row and wrap only
- * when they stop fitting. Two fit at 390px. Three has never been drawn, because no modal has
- * wanted an aside and a deny at once.
+ * On layout, `.modal__actions .btn--primary { flex: 1 1 100% }` now restores what
+ * `.modal__actions .btn { flex: 1 1 auto }` had been out-specifying (0,2,0 beat 0,1,0): the confirm
+ * takes a row of its own the way a primary does on every other surface, with the deny and any aside
+ * on the row above it. Before that line the two answers came out exactly the same width, so `No?`
+ * was as big a tap target as `Okay?` and hierarchy rested on fill colour alone.
  *
- * And the pair is not case-matched on screen: `.btn--primary` is `text-transform: uppercase`
- * site-wide while `.btn--close` is `none`, so the words land as `No?` and `OKAY?`. That is the
- * primary button being itself, not this modal deciding something -- a modal opting out of it would
- * be exactly the page-level design decision `/kit` exists to prevent.
+ * The pair still lands on screen as `NO?` and `OKAY?`, both shouted. That is `.btn--primary` being
+ * itself site-wide, not this modal deciding something -- a modal opting out of it would be exactly
+ * the page-level design decision `/kit` exists to prevent. Changing it is one line in `app.css` and
+ * it changes every primary button on the site, which is the correct blast radius for that decision.
  */
 export function modalActions({
   aside = '',
@@ -454,7 +465,7 @@ export function modalActions({
 }) {
   return `<div class="modal__actions">
         ${aside}
-        ${denyHref ? `<a class="btn btn--close" href="${escape(denyHref)}"${attrsHtml(denyAttrs)}>${MODAL_NO}</a>` : ''}
+        ${denyHref ? `<a class="btn btn--deny" href="${escape(denyHref)}"${attrsHtml(denyAttrs)}>${MODAL_NO}</a>` : ''}
         <a class="btn btn--primary" href="${escape(confirmHref)}"${attrsHtml(confirmAttrs)}>${MODAL_YES}</a>
       </div>`;
 }
@@ -1093,6 +1104,90 @@ export function card(squares = [], cols = 3) {
 export const rulesList = (rules = []) =>
   `<ol class="rules">${rules.map((rule) => `<li>${escape(rule)}</li>`).join('')}</ol>`;
 
+/**
+ * One screen of the onboarding wizard (#97) -- the door, taken one question at a time.
+ *
+ * It wears the **look** of the house alert box and is deliberately not one: no `.modal` overlay, no
+ * `role`, nothing fixed, nothing to dismiss. It is a page with a form in it that happens to be
+ * drawn as a box, which is what the ticket asked for in those words. That distinction is load
+ * bearing in one place -- the nav words. `No?` and `Okay?` are reserved for a real modal's two
+ * answers (#90); these are page buttons, which is what lets the wizard have its own six forward
+ * words and `actually, no` for back.
+ *
+ * **Everything is a `<button>` in one `<form>`, and back carries `formmethod="get"`.** That is the
+ * same trick the team-name reroll and the ladder's skip already use, and it is why the wizard needs
+ * no client JS and no server-side draft: pressing back re-submits the screen you are looking at as
+ * a GET to the previous screen, so whatever you had typed travels with you in the query string and
+ * is still there when you come forward again. `formnovalidate` is what lets that happen with a
+ * required field still empty.
+ *
+ * **The counter is honest rather than equal**, which was the third of the ticket's open questions.
+ * A solo captain genuinely walks one screen fewer than a pair, so either two teams standing beside
+ * each other see different totals or N is a fixed lie. Different totals, then -- nobody compares
+ * counters in a hallway, and a pair reaching "8 of 8" with a screen still to go is the kind of
+ * small dishonesty that makes people distrust the rest of the page. Before the second name is
+ * settled the total assumes a pair, because teams of two are the locked constraint and the solo
+ * case is the exception; a solo sees the total tick down by one when they skip, which is the moment
+ * it becomes knowable.
+ *
+ * `back` is optional -- screen one has nothing behind it but the front door.
+ *
+ * `extra` is a screen's own alternative press -- `on my own`, `deal us another`, `ask me something
+ * else` -- and it renders INSIDE the action row, ahead of back. It sat above the row for one draft
+ * and a screenshot settled it: a full-width plain button between the field and the nav read as
+ * loud as the forward, so a solo captain met two equal-looking ways on. In the row it is one of the
+ * quiet choices, and the only full-width thing on the screen is the way forward.
+ */
+export function doorStep({
+  step,
+  of,
+  title,
+  intro = '',
+  body = '',
+  action,
+  method = 'get',
+  back = '',
+  backWord = 'actually, no',
+  forward,
+  extra = '',
+}) {
+  return `<form class="door stack" method="${escape(method)}" action="${escape(action)}">
+    <p class="door__count">step ${Number(step)} of ${Number(of)}</p>
+    <h1 class="door__title">${escape(title)}</h1>
+    ${intro ? `<p class="door__intro">${escape(intro)}</p>` : ''}
+    ${body}
+    <div class="door__actions">
+      ${extra}
+      ${
+        back
+          ? `<button class="btn btn--close" formmethod="get" formaction="${escape(back)}"
+                     formnovalidate>${escape(backWord)}</button>`
+          : ''
+      }
+      <button class="btn btn--primary">${escape(forward)}</button>
+    </div>
+  </form>`;
+}
+
+/**
+ * The box that tells a team what onboarding just opened for them (#97).
+ *
+ * This is the wizard's step 6, and it is **not a screen** -- that was the ticket's fourth open
+ * question. A team who scanned a code on the way in has one held in a cookie, and finishing the
+ * door spends it and lands them on that game; a screen announcing the unlock would sit between them
+ * and the thing they walked across the room for. So the announcement rides on the page they were
+ * always going to land on, and costs a tap fewer than it did as a screen.
+ *
+ * It only ever renders on the dashboard. A team that arrives on a game page instead has been handed
+ * something better than an announcement, which is the whole argument above.
+ */
+export function openedBox({ tiles = 0 }) {
+  const count = Number(tiles);
+  const opened = count === 1 ? 'One game is open' : `${escape(String(count))} games are open`;
+
+  return `<p class="banner banner--opened">You're in. ${opened}. The rest are on bits of paper around this house.</p>`;
+}
+
 export function win({ title = '', body = '', status = '', closeHref = '/' }) {
   return `<div class="win">
     <div class="win__bar">
@@ -1135,8 +1230,18 @@ export function stub({ title, owner, does, data = null, still = false, extra = '
   });
 }
 
+/**
+ * The 404. It used to read "there is no rule 4 either" -- a lie the site told until a team bought a
+ * hint and made it true, since the hint rule arrived on `/rules` as the fourth item.
+ *
+ * #97 added a visible fourth rule and that line would have become honest on every page load, which
+ * is the one thing it could not survive. Dieter's call was that he never got the gag and does not
+ * care about it, so it is gone rather than renumbered to chase the hint rule down the list -- a
+ * joke that has to be renumbered every time a rule is written is a maintenance cost nobody agreed
+ * to pay. What replaces it keeps the register and counts nothing.
+ */
 export const notFound = () =>
   layout({
     title: '404',
-    body: '<p>there is no rule 4 either</p>',
+    body: '<p>nothing here. you were not sent here by a QR code, so you typed this yourself.</p>',
   });

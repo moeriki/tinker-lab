@@ -125,6 +125,7 @@ import {
   boredModal,
   bubble,
   card,
+  doorStep,
   field,
   hero,
   hintModal,
@@ -132,6 +133,7 @@ import {
   league,
   navbar,
   notFound,
+  openedBox,
   rulesList,
   scorebar,
   shoot,
@@ -426,55 +428,207 @@ async function handleScan({ req, res, params }) {
 const MEMBER_NAME_MAX = 24;
 
 /**
- * Screen one: who you are. Nine fields is the whole door, and this screen is two of them --
- * because the team name is dealt rather than typed.
+ * THE DOOR IS A WIZARD (#97). It used to be two forms carrying nine fields between them, met by
+ * twenty-five people in a hallway with their coats on -- the single biggest friction point of the
+ * night by #9's own reckoning. Same nine fields, one or two at a time, each on a screen with a
+ * title and a step counter, drawn as the house alert box.
  *
- * The team name is DEALT rather than typed (#9). It is the team's display name and also the
- * handle a stranger types into a Human Bingo square, so dealing it buys uniqueness, kills the
- * duplicate-name error that would otherwise live on the first screen of the night, and hands
- * every team something better than they would have typed with their coat still on.
+ * The spine, and the forward word each screen carries:
  *
- * Reroll costs no client JS and loses nothing already typed: the button carries `formmethod=get`,
- * so it re-submits this same form as a GET back to this same page. The word they were looking at
- * arrives as `?word=`, gets excluded from the next deal so the name visibly changes, and their
- * half-typed member names come back with them. `formnovalidate` is what lets that happen before
- * the first name has been filled in.
+ *   1  what's your name?                     noted
+ *   2  you're the captain now. anyone else?  carry on
+ *   3  TEAM BADGER                           now what
+ *   4a their Guess Who question              one more   (good enough, if solo)
+ *   4b the second member's                   good enough
+ *   4c the five herd words, as a team        that's that
+ *   5  the rules, one per screen             Okay?
+ *
+ * Step 6 of the spine -- "what you've unlocked" -- is deliberately NOT a screen. See `openedBox()`.
+ *
+ * **Screens 1 and 2 write nothing and are GET forms.** No team row exists until screen 3's press,
+ * so there is nothing to persist and nothing to PRG: each screen submits itself to the next as a
+ * GET and the names ride in the query string. This is the same mechanism the reroll and the
+ * ladder's skip have always used, it needs no client JS and no server-side draft, and it means the
+ * back button, a refresh and a re-share of the URL all do the obvious thing. Screen 3 is the first
+ * press that mutates anything, so screen 3 is the one that POSTs.
+ *
+ * **Onboarding is still a gate** (#9). Partial completion is not a state: `onboardingComplete()`
+ * still means the team exists and owes no answers, and every route past the door still bounces to
+ * `/questions` until it does.
+ */
+
+/** The names typed so far, in order, with blanks dropped. The wizard's whole state before screen 3. */
+const carriedNames = (url) =>
+  url.searchParams
+    .getAll('member')
+    .map((value) => String(value).slice(0, MEMBER_NAME_MAX).trim())
+    .filter(Boolean);
+
+/** Re-emits the carried names as hidden fields, so a later screen's form still carries them. */
+const carryNames = (names) =>
+  names.map((name) => `<input type="hidden" name="member" value="${escape(name)}">`).join('');
+
+/** The rules the door shows, in page order. The subset is content's to choose (#97). */
+const doorRules = () => rulesCopy.rules.filter((rule) => rule.onboarding);
+
+/**
+ * How many screens this team walks, given how many people are on it.
+ *
+ * Three identity screens, one per member, one for the herd words, one per door rule. A pair walks
+ * one more than a solo captain and the counter says so -- see `doorStep()` for why that is the
+ * honest answer rather than a fixed N.
+ */
+const doorTotal = (memberCount) => 3 + Math.max(1, memberCount) + 1 + doorRules().length;
+
+/**
+ * Screen one: your name, and nothing else on the page.
+ *
+ * It asks for *your* name rather than the team's, because the team's is dealt (#9) and because the
+ * first thing a wizard asks should be the thing the person is most certain about.
  */
 function showWelcome({ req, res, url }) {
   const existing = currentTeam(req);
   if (existing) return redirect(res, onboardingComplete(existing.id) ? '/' : '/questions');
 
-  const offered = dealTeamName(url.searchParams.get('word'));
-  const typed = url.searchParams.getAll('member');
-
-  const nameField = (index, label, required) =>
-    field({
-      label,
-      name: 'member',
-      value: typed[index] ?? '',
-      attrs: { maxlength: MEMBER_NAME_MAX, autocomplete: 'off', required },
-    });
+  const [first = ''] = carriedNames(url);
 
   return html(
     res,
     layout({
-      title: 'Right. Who are you?',
+      title: "Right. Who are you?",
       nav: devNav(req),
+      heading: false,
       body: `
-        <p>Two of you, one phone. Whoever is holding it is carrying the team all night — so pick
-          the one with battery left.</p>
-        <form class="stack" method="post" action="/welcome">
-          <input type="hidden" name="word" value="${escape(offered)}">
-          <p class="display">TEAM ${escape(offered)}</p>
-          <button class="btn" formmethod="get" formaction="/welcome" formnovalidate>
-            no, deal us another
-          </button>
-          ${nameField(0, 'Who is holding the phone?', true)}
-          ${nameField(1, 'And who else? (leave empty if you are on your own)', false)}
-          <button class="btn btn--primary">that's us</button>
-        </form>
+        ${doorStep({
+          step: 1,
+          of: doorTotal(2),
+          title: "What's your name?",
+          intro: 'One phone per team. Whoever is holding it is carrying the team all night.',
+          action: '/welcome/mate',
+          method: 'get',
+          forward: 'noted',
+          body: field({
+            label: 'Your name',
+            name: 'member',
+            value: first,
+            attrs: { maxlength: MEMBER_NAME_MAX, autocomplete: 'off', required: true },
+          }),
+        })}
         ${stamp(chrome.stamp)}
       `,
+    }),
+  );
+}
+
+/**
+ * Screen two, and the one #91 was really about: **"You're the captain now."**
+ *
+ * The line titles this screen rather than screen one, so it arrives *after* the name has been
+ * typed. That makes it a consequence of what they just did rather than an instruction about what
+ * they are about to do, which was #91's whole question.
+ *
+ * The second name is optional and the way past it is a real button rather than an empty field --
+ * `on my own` submits this form to the next screen with the field left out, so a solo captain never
+ * has to work out that blank means solo.
+ */
+function showMate({ req, res, url }) {
+  const existing = currentTeam(req);
+  if (existing) return redirect(res, onboardingComplete(existing.id) ? '/' : '/questions');
+
+  const names = carriedNames(url);
+  if (!names.length) return redirect(res, '/welcome');
+
+  const [first, second = ''] = names;
+
+  return html(
+    res,
+    layout({
+      title: "You're the captain now",
+      nav: devNav(req),
+      heading: false,
+      body: doorStep({
+        step: 2,
+        of: doorTotal(2),
+        title: "You're the captain now.",
+        intro: 'Anyone with you?',
+        action: '/welcome/team',
+        method: 'get',
+        back: '/welcome',
+        forward: 'carry on',
+        body: `
+          <input type="hidden" name="member" value="${escape(first)}">
+          ${field({
+            label: 'Their name',
+            name: 'member',
+            value: second,
+            attrs: { maxlength: MEMBER_NAME_MAX, autocomplete: 'off', required: true },
+          })}
+        `,
+        // Submits this same form as a GET to the next screen carrying only the captain's name, so
+        // the optional field can stay `required` for everyone who does have somebody with them.
+        extra: `<button class="btn btn--close" formmethod="get" formaction="/welcome/team" formnovalidate
+                        name="solo" value="1">on my own</button>`,
+      }),
+    }),
+  );
+}
+
+/**
+ * Screen three: the dealt team name.
+ *
+ * The name is DEALT rather than typed (#9). It is the team's display name and also the handle a
+ * stranger types into a Human Bingo square, so dealing it buys uniqueness, kills the duplicate-name
+ * error that would otherwise live on the first screen of the night, and hands every team something
+ * better than they would have typed with their coat still on.
+ *
+ * **It moved to after both names** (#97). The reroll now arrives on a pair who have just introduced
+ * themselves rather than on a stranger who has typed nothing.
+ *
+ * Reroll costs no client JS and loses nothing: the button carries `formmethod=get`, so it
+ * re-submits this same form as a GET back to this same page. The word they were looking at arrives
+ * as `?word=`, gets excluded from the next deal so the name visibly changes, and the carried names
+ * come back with it.
+ */
+function showTeamName({ req, res, url }) {
+  const existing = currentTeam(req);
+  if (existing) return redirect(res, onboardingComplete(existing.id) ? '/' : '/questions');
+
+  // `solo` is the second screen's "on my own" button. It is only ever present on that press, which
+  // is what stops a captain who typed a second name and then went back being read as solo.
+  const solo = url.searchParams.get('solo') === '1';
+  const names = carriedNames(url).slice(0, solo ? 1 : 2);
+  if (!names.length) return redirect(res, '/welcome');
+
+  const offered = dealTeamName(url.searchParams.get('word'));
+
+  return html(
+    res,
+    layout({
+      title: `TEAM ${offered}`,
+      nav: devNav(req),
+      heading: false,
+      body: doorStep({
+        step: 3,
+        of: doorTotal(names.length),
+        title: `TEAM ${offered}`,
+        intro:
+          names.length > 1
+            ? 'That is you two, all night. It is also what strangers will write down about you.'
+            : 'That is you, all night. It is also what strangers will write down about you.',
+        action: '/welcome',
+        method: 'post',
+        back: '/welcome/mate',
+        forward: 'now what',
+        body: `
+          <input type="hidden" name="word" value="${escape(offered)}">
+          ${carryNames(names)}
+        `,
+        // Named, because this screen carries two `formmethod=get` buttons -- this one and the
+        // wizard's back -- and "the first GET button in the form" is the kind of selector that
+        // silently starts pressing the other one the day somebody reorders the box.
+        extra: `<button class="btn btn--close" formmethod="get" formaction="/welcome/team" formnovalidate
+                        name="reroll" value="1">deal us another</button>`,
+      }),
     }),
   );
 }
@@ -490,8 +644,15 @@ async function createTeamFromForm({ req, res }) {
   const offered = form.get('word');
   const name = isDealtName(offered) ? offered : dealTeamName();
 
-  const memberNames = form.getAll('member').map((value) => String(value).slice(0, MEMBER_NAME_MAX));
-  if (!memberNames.some((value) => value.trim())) return redirect(res, '/welcome');
+  // Blanks are dropped here rather than stored, because the wizard's solo path carries one name and
+  // its pair path carries two -- an empty second member would otherwise become a real row that
+  // every member-scoped question then asks a screen about (#97).
+  const memberNames = form
+    .getAll('member')
+    .map((value) => String(value).slice(0, MEMBER_NAME_MAX).trim())
+    .filter(Boolean);
+
+  if (!memberNames.length) return redirect(res, '/welcome');
 
   const team = createTeam({ name, memberNames });
   attachTeam(res, team);
@@ -505,10 +666,31 @@ const QUESTION_PROBLEMS = {
 };
 
 /**
- * Screen two: the questionnaire, which is a gate rather than a form (#9). Every answer here is
- * consumed by a game somebody else plays hours from now -- one answer per member becomes a Guess
- * Who card, and the five one-word answers are the corpus Herd Mentality scores against. A team
- * that skips does not merely skip their own tile; they put a hole in everyone's.
+ * The screens of the door that ask questions, in order: one per member, then one for the whole
+ * team's herd words. `at` indexes into this.
+ *
+ * The per-member split is what carries the handover between two people standing at a door with one
+ * phone, and it carries it *without the site ever instructing anyone to pass the phone* -- a screen
+ * titled with somebody's name is a clearer hand-off than a sentence telling them to hand over.
+ */
+function questionScreens(team) {
+  const members = membersOf(team.id);
+  const slots = questionSlots();
+  const memberSlots = slots.filter((slot) => slot.scope === 'member');
+  const teamSlots = slots.filter((slot) => slot.scope !== 'member');
+
+  const screens = members.map((member) => ({ member, slots: memberSlots }));
+  if (teamSlots.length) screens.push({ member: null, slots: teamSlots });
+
+  return screens;
+}
+
+/**
+ * The questionnaire, which is a gate rather than a form (#9), now walked **one subject per screen**
+ * (#97). Every answer here is consumed by a game somebody else plays hours from now -- one answer
+ * per member becomes a Guess Who card, and the five one-word answers are the corpus Herd Mentality
+ * scores against. A team that skips does not merely skip their own tile; they put a hole in
+ * everyone's.
  *
  * One slot may be a LADDER (#22): several interchangeable questions of which a member answers one,
  * with "ask me something else" walking down them. Rung 1 asks what you wanted to be when you were
@@ -516,14 +698,36 @@ const QUESTION_PROBLEMS = {
  * type into a required field, and the alternatives were a worse question or a hole in the deck.
  *
  * Skipping re-submits the whole form as a GET, so nothing typed is lost and no client JS comes
- * anywhere near onboarding -- the same trick the team name's reroll uses on screen one.
+ * anywhere near onboarding -- the same trick the team name's reroll uses.
+ *
+ * **The screen index is in the PATH, not the query string** -- `/questions/1`, not `/questions?at=1`.
+ * That is forced by the wizard's own mechanism rather than chosen: a GET form serialises its own
+ * fields into the query string and throws away whatever the `formaction` had there, so a screen
+ * index living in the query cannot survive the two buttons -- back and skip -- that are GET
+ * submissions of the screen they are on. In the path it survives both, and nothing has to carry a
+ * hidden field whose value two controls would then disagree about.
+ *
+ * **`/questions/:at` renders that screen even for a team already through the gate**, which is what
+ * lets the first rules screen have a back button: without it, pressing back from the rules would
+ * land on a complete `/questions`, spend the held code and fire a hunt step's webhook from inside
+ * the wizard. Bare `/questions` -- which is where every gate bounce lands -- keeps the old
+ * behaviour exactly.
  */
-function showQuestions({ req, res, url }) {
+function showQuestions({ req, res, url, params = {} }) {
   const team = requireTeam(req, res);
   if (!team) return undefined;
-  if (onboardingComplete(team.id)) return redirect(res, afterOnboarding(req, res, team));
 
-  const members = membersOf(team.id);
+  const at = params.at;
+  if (at === undefined && onboardingComplete(team.id)) {
+    return redirect(res, afterOnboarding(req, res, team));
+  }
+
+  const screens = questionScreens(team);
+  const screenIndex = Math.min(
+    Math.max(Number.parseInt(at ?? '0', 10) || 0, 0),
+    screens.length - 1,
+  );
+  const screen = screens[screenIndex];
   const answered = new Map(
     all('select member_id, question_id, value from profile_answers where team_id = ?', team.id).map(
       (row) => [`${row.question_id}:${row.member_id ?? ''}`, row.value],
@@ -552,19 +756,23 @@ function showQuestions({ req, res, url }) {
     return Math.min(index, slot.rungs.length - 1);
   };
 
-  const fields = questionSlots()
-    .flatMap((slot) =>
-      (slot.scope === 'member' ? members : [null]).map((member) => ({ slot, member })),
-    )
-    .map(({ slot, member }) => {
+  // A screen's ladder skips, which belong in the action row rather than under their field -- see
+  // `doorStep()`'s `extra`. Collected on the way past because they are decided per slot and
+  // rendered per screen; today no screen has more than one, and a screen that grows a second will
+  // put both in the row without anything here changing.
+  const skips = [];
+
+  const fields = screen.slots
+    .map((slot) => {
+      const member = screen.member;
       const index = rungFor(slot, member);
       const question = slot.rungs[index];
       const key = `${question.id}:${member?.id ?? ''}`;
       const subject = `${slot.id}:${member?.id ?? ''}`;
 
-      // The member's name goes in the question, not in brackets after it: "what did ANNA want to
-      // be" is a question, "what did you want to be (Anna)" is a form field.
-      const label = member ? `${member.name}: ${question.label}` : question.label;
+      // On a member's own screen the name is already the title, so repeating it in every label
+      // would be the name twice. On the team screen there is no name to repeat.
+      const label = question.label;
 
       const control = field({
         label,
@@ -590,39 +798,84 @@ function showQuestions({ req, res, url }) {
       // No skip under the last rung. Everyone contributes exactly one answer, which is what lets
       // this stay a gate with nothing to represent an opt-out -- and it is why the last rung is a
       // possession rather than a memory: everybody owns something useless.
-      const skip =
-        index < slot.rungs.length - 1
-          ? `<button class="btn" formmethod="get" formaction="/questions" formnovalidate
-                     name="skip" value="${escape(subject)}">ask me something else</button>`
-          : '';
+      if (index < slot.rungs.length - 1) {
+        skips.push(
+          `<button class="btn btn--close" formmethod="get"
+                   formaction="${escape(questionPath(screenIndex))}" formnovalidate
+                   name="skip" value="${escape(subject)}">ask me something else</button>`,
+        );
+      }
 
-      return `${control}${carry}${skip}`;
+      return `${control}${carry}`;
     })
     .join('');
 
   const problem = QUESTION_PROBLEMS[url.searchParams.get('problem')];
+  const memberCount = membersOf(team.id).length;
+
+  // The spine's forward words. `one more` is conditional and only appears when a second member's
+  // screen actually follows -- a solo captain gets `good enough` on their own screen instead, which
+  // is the difference between a wizard that knows how many of you there are and one that does not.
+  const isLast = screenIndex === screens.length - 1;
+  const nextIsMember = !isLast && screens[screenIndex + 1].member;
+  const forward = isLast ? "that's that" : nextIsMember ? 'one more' : 'good enough';
+
+  const title = screen.member ? screen.member.name : 'Now the two of you together';
+  const intro = screen.member
+    ? 'One question. The honest answer is the funny one, and somebody will be guessing it later.'
+    : 'Five words. Not sentences — words. Other teams will be trying to guess what you put.';
 
   return html(
     res,
     layout({
-      title: 'Two seconds each',
+      title: screen.member ? `${screen.member.name}'s question` : 'Five words',
       nav: devNav(req),
-      body: `
-        ${problem ? `<p class="banner banner--bad">${escape(problem)}</p>` : ''}
-        <p>Answer these and you are in. Don't think about them — every single one is a game
-          somebody plays later tonight, and the honest answer is the funny one.</p>
-        <form class="stack" method="post" action="/questions">
+      heading: false,
+      body: doorStep({
+        // Three identity screens are behind them by the time any of this renders.
+        step: 3 + screenIndex + 1,
+        of: doorTotal(memberCount),
+        title,
+        intro,
+        action: questionPath(screenIndex),
+        method: 'post',
+        // Nothing to go back to from the first question screen: the team row exists by now, so
+        // `/welcome/team` would only bounce them straight back here. Changing a name after the fact
+        // is #9's deliberately-unbuilt recovery story, not a button on this screen.
+        back: screenIndex > 0 ? questionPath(screenIndex - 1) : '',
+        forward,
+        extra: skips.join(''),
+        body: `
+          ${problem ? `<p class="banner banner--bad">${escape(problem)}</p>` : ''}
           ${fields}
-          <button class="btn btn--primary">let us in</button>
-        </form>
-      `,
+        `,
+      }),
     }),
   );
 }
 
-async function saveQuestions({ req, res }) {
+/** `/questions` for the first screen, `/questions/N` after it. Bare keeps the documented gate URL. */
+const questionPath = (index) => (index > 0 ? `/questions/${index}` : '/questions');
+
+/**
+ * Save one screen's answers and move to the next one.
+ *
+ * The old version saved all nine fields at once and either finished or came back with `?problem=`.
+ * A wizard cannot do that: `onboardingComplete()` is false for every screen but the last, so the
+ * blank-check has to ask about *this screen's* fields rather than about the whole questionnaire.
+ * It asks by counting -- every field on a door screen is `required`, so a screen that arrives with
+ * fewer values than it has questions was submitted by something that skipped the browser's own
+ * validation, and it goes straight back with the banner.
+ */
+async function saveQuestions({ req, res, params = {} }) {
   const team = requireTeam(req, res);
   if (!team) return undefined;
+
+  const screens = questionScreens(team);
+  const screenIndex = Math.min(
+    Math.max(Number.parseInt(params.at ?? '0', 10) || 0, 0),
+    screens.length - 1,
+  );
 
   const form = await readForm(req);
 
@@ -674,9 +927,84 @@ async function saveQuestions({ req, res }) {
 
   // Everything typed is kept either way, so coming back costs them only the blanks. `required`
   // already asked; this is the same question asked by someone who cannot be talked out of it.
+  const wanted = screens[screenIndex].slots.length;
+  const given = [...form.entries()].filter(([key]) => getQuestion(key.split(':')[0])).length;
+  if (given < wanted) {
+    return redirect(res, `${questionPath(screenIndex)}?problem=blank`);
+  }
+
+  // The next question screen, or the rules if this was the last of them. The rules are where the
+  // door ends now, and `afterOnboarding` is not called until their last press -- see `showDoorRule`.
+  if (screenIndex < screens.length - 1) {
+    return redirect(res, questionPath(screenIndex + 1));
+  }
+
+  // Belt and braces: a team that reaches the end of the screens still owing an answer -- because a
+  // member row was added between two screens, say -- goes back to the start of the questions rather
+  // than through a gate they have not passed.
   if (!onboardingComplete(team.id)) return redirect(res, '/questions?problem=blank');
 
-  return redirect(res, afterOnboarding(req, res, team));
+  return redirect(res, '/questions/rules/1');
+}
+
+/**
+ * The rules, one per screen, at the end of the door (#92, #97).
+ *
+ * `/rules` is a page a team reaches only by choosing to, and nothing on the way in ever mentioned
+ * it -- so a team that never tapped it never saw the hosts' actual asks. Onboarding is the one
+ * moment every team passes through exactly once.
+ *
+ * **It is a gate, not a shrug**, which was the second of the ticket's open questions. Onboarding is
+ * a gate by design and these are screens inside it, so they are pressed through rather than tapped
+ * away. There is no skip: a skip link on a rules screen is a rules screen nobody reads, which is
+ * the exact complaint #92 was filed about.
+ *
+ * **The hint rule is never here.** `/rules` reveals it only after a team has bought a hint, and the
+ * door is where every team stands at minute zero -- precisely where that reveal is most fragile
+ * (MISSION.md). These screens render `doorRules()`, which is the flagged subset of the visible
+ * rules and cannot reach the hint rule at all.
+ *
+ * The last press is the one that finishes onboarding: it goes to bare `/questions`, which for a
+ * complete team is the documented mutating GET that spends the held code and lands them on the game
+ * they scanned -- or on their board, wearing `openedBox()`.
+ */
+function showDoorRule({ req, res, params }) {
+  const team = requireTeam(req, res);
+  if (!team) return undefined;
+
+  const rules = doorRules();
+  const number = Math.min(Math.max(Number.parseInt(params.n ?? '1', 10) || 1, 1), rules.length);
+  const rule = rules[number - 1];
+
+  const screens = questionScreens(team);
+  const memberCount = membersOf(team.id).length;
+  const isLast = number === rules.length;
+
+  return html(
+    res,
+    layout({
+      title: 'House rules',
+      nav: devNav(req),
+      heading: false,
+      body: doorStep({
+        step: 3 + screens.length + number,
+        of: doorTotal(memberCount),
+        // The same title on every rules screen, and deliberately NOT "Rule N." -- the door shows a
+        // subset, so its third screen is `/rules`' fourth rule and numbering here would put two
+        // different numbers on one rule. That is precisely the drift `content/rules.js` keeps the
+        // subset as a flag to prevent, and it would have shipped: the first draft numbered these
+        // 1, 2, 3 against a page that numbers the same three 1, 3, 4.
+        title: 'House rules.',
+        intro: rule.text,
+        action: isLast ? '/questions' : `/questions/rules/${number + 1}`,
+        method: 'get',
+        back: number > 1 ? `/questions/rules/${number - 1}` : questionPath(screens.length - 1),
+        // The house `Okay?`, which the spine asked for by name. It is legal here because these are
+        // page buttons rather than a modal's two answers -- see `doorStep()`.
+        forward: 'Okay?',
+      }),
+    }),
+  );
 }
 
 /**
@@ -688,8 +1016,13 @@ async function saveQuestions({ req, res }) {
  * anything has no pending slug and simply lands on their board.
  */
 function afterOnboarding(req, res, team) {
+  // What the dashboard needs to know to draw `openedBox()`. Only the no-pending-code path carries
+  // it: a team who scanned their way in lands on that game instead, and the game IS the
+  // announcement -- which is the whole reason the wizard's step 6 stopped being a screen (#97).
+  const board = '/?opened=1';
+
   const pending = parseCookies(req)[PENDING_COOKIE];
-  if (!pending) return '/';
+  if (!pending) return board;
 
   // The second and last way a GET reaches `applyCode`: `GET /questions` by a team already through
   // the gate. A HEAD gets the same 303 without spending the held code -- the slug stays in the
@@ -698,10 +1031,12 @@ function afterOnboarding(req, res, team) {
 
   clearCookie(res, PENDING_COOKIE);
 
+  // A slug that no longer resolves, or one still flagged pending, buys them nothing -- so they land
+  // on the board and get the box, exactly like a team who typed the address instead of scanning.
   const target = getCode(pending);
-  if (!target || isPending(pending)) return '/';
+  if (!target || isPending(pending)) return board;
 
-  return applyCode({ team, slug: pending, target, deferred: true }) ?? '/';
+  return applyCode({ team, slug: pending, target, deferred: true }) ?? board;
 }
 
 // --- the menu bar -----------------------------------------------------------------------------
@@ -782,9 +1117,14 @@ const devNav = (req) => (IS_DEV ? navFor(req) : '');
  * has stopped, which is the suggestion working rather than failing. A gate here would also be a
  * branch the next dashboard ticket inherits without knowing why.
  */
-function showDashboard({ req, res }) {
+function showDashboard({ req, res, url }) {
   const team = requireOnboardedTeam(req, res);
   if (!team) return undefined;
+
+  // The wizard's last press lands here wearing `?opened=1` -- see `openedBox()`. It is a query
+  // param and nothing else: no row, no cookie, no state. Reloading loses the box, which is correct
+  // for a sentence a team reads once, and sharing the URL cannot show it to anybody twice.
+  const justArrived = url.searchParams.get('opened') === '1';
 
   // The five tile designs the style kit ships: locked, unlocked, correct, wrong, unknown.
   const tiles = listGames().map((game) => {
@@ -869,6 +1209,7 @@ function showDashboard({ req, res }) {
       modal: boredModal(),
       body: `
         ${endNotice()}
+        ${justArrived ? openedBox({ tiles: tiles.filter((entry) => entry.unlocked).length }) : ''}
         ${standing({ band: standingBand(team.id), text: standingsMessage(team.id) })}
         <div class="tiles">${grid}</div>
         <a class="btn" href="/rules">the rules</a>
@@ -1870,25 +2211,32 @@ async function revealHint({ req, res, params }) {
 }
 
 /**
- * The rules. Copy lives in `content/rules.js`; this function owns exactly one thing the copy
- * cannot -- whether rule 4 is on the page yet.
+ * The rules -- ALL of them (#97). Copy lives in `content/rules.js`; this function owns exactly one
+ * thing the copy cannot: whether the hint rule is on the page yet.
  *
- * Rule 4 is appended to the same list, with no marker of any kind. That is deliberate: MISSION.md
- * asks for a rule that "should only appear once they actually stumbled upon it", and announcing
- * the arrival would undo the stumble. It also makes the 404 page's "there is no rule 4 either"
- * retroactively false, which is free and worth having.
+ * The hint rule is appended to the same list, with no marker of any kind. That is deliberate:
+ * MISSION.md asks for a rule that "should only appear once they actually stumbled upon it", and
+ * announcing the arrival would undo the stumble.
+ *
+ * This page is also the far end of onboarding's rules screens: every rule the door shows is one of
+ * `rulesCopy.rules`, so a team who taps `the rules` later finds the same words plus the ones the
+ * door left out. The hint rule is the only thing here that the door never shows.
  */
 function showRules({ req, res }) {
   const team = currentTeam(req);
 
   // Where the hint modal's "What?" button lands, so it has to actually answer the question.
   const discovered = team && hasDiscoveredHintCost(team.id);
-  const rules = discovered ? [...rulesCopy.rules, rulesCopy.hintRule(hintCost())] : rulesCopy.rules;
+  const rules = [
+    ...rulesCopy.rules.map((rule) => rule.text),
+    ...(discovered ? [rulesCopy.hintRule(hintCost())] : []),
+  ];
 
-  // The statusline is the kit's gag slot, and it is the one place the page acknowledges rule 4 --
-  // by counting it, and never by mentioning it. Rule 3 is the only enforced rule until a hint has
-  // been bought; after that rule 4 is enforced too, and rather more literally, since it is the
-  // only rule on the page the ledger can execute.
+  // The statusline is the kit's gag slot, and it is the one place the page acknowledges the hint
+  // rule -- by counting it, and never by mentioning it. The bedroom is the enforced one, by two
+  // hosts rather than by any code; the hint rule joins it once bought, and rather more literally,
+  // since it is the only rule on this page the ledger can execute. The drawers rule is permission
+  // and enforces nothing, so the count does not move when it lands.
   const status = `${rules.length} rule(s) · ${discovered ? 2 : 1} of them enforced`;
 
   return html(
@@ -3259,9 +3607,17 @@ const routes = [
 
   route('GET', '/', showDashboard),
   route('GET', '/welcome', showWelcome),
+  route('GET', '/welcome/mate', showMate),
+  route('GET', '/welcome/team', showTeamName),
   route('POST', '/welcome', createTeamFromForm),
+  // Three segments, so `/questions/:at` -- which matches exactly one -- cannot swallow it. Listed
+  // first anyway, because the ordering is the thing a reader checks and it should not depend on
+  // counting slashes.
+  route('GET', '/questions/rules/:n', showDoorRule),
   route('GET', '/questions', showQuestions),
+  route('GET', '/questions/:at', showQuestions),
   route('POST', '/questions', saveQuestions),
+  route('POST', '/questions/:at', saveQuestions),
   route('GET', '/g/:gameId', showGame),
   route('POST', '/g/:gameId/submit', submitToGame),
   route('POST', '/g/:gameId/hint', revealHint),

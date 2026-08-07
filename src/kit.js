@@ -36,10 +36,12 @@ import {
   boredModal,
   bubble,
   card,
+  doorStep,
   field,
   hero,
   hintModal,
   league,
+  openedBox,
   rulesList,
   scorebar,
   marquee,
@@ -175,6 +177,37 @@ const RENDERERS = {
   // arguments -- a kit that could pass its own list would be demoing a list the site never ships.
   boredbutton: () => boredButton(),
   boredmodal: () => boredModal(),
+
+  /**
+   * A screen of the onboarding wizard (#97), drawn in **both** the shapes it ships in.
+   *
+   * `back` and `extra` are what vary between the eight or nine screens a team walks -- screen one
+   * has neither, the captain screen has both, the rules screens have back and no extra. Demoing
+   * only the loaded shape is exactly the failure #66 caught, where `/kit` drew every `.btn` on a
+   * `<button>` and `<a class="btn">` shipped as a raw blue link site-wide. So the marker takes the
+   * two optional slots and the section below passes them on one demo and omits them on the other.
+   *
+   * The field inside it is a real `field()` call rather than typed markup here, for the reason this
+   * whole file exists: a component's markup lives in one place.
+   */
+  door: (a) =>
+    doorStep({
+      step: num(a.step, 2),
+      of: num(a.of, 9),
+      title: a.title ?? "You're the captain now.",
+      intro: a.intro ?? 'Anyone with you?',
+      action: '#door',
+      method: 'get',
+      back: a.back ?? '',
+      forward: a.forward ?? 'carry on',
+      body: a.field ? fieldFrom({ label: a.field, name: 'k-door' }) : '',
+      extra: a.extra
+        ? `<button class="btn btn--close" type="button">${escape(a.extra)}</button>`
+        : '',
+    }),
+
+  /** The one banner a team meets once, on the board, straight out of the door (#97). */
+  opened: (a) => openedBox({ tiles: num(a.tiles, 2) }),
 
   // A marker attribute cannot contain a `"` -- ATTR reads up to the closing one -- so the kit's
   // line wears curly quotes. That is the only thing about it this extraction changed.
@@ -396,6 +429,8 @@ const BUILT_NAMES = {
   shot: 'the shots',
   shots: 'the shots',
   win: 'the window frame',
+  door: 'the door wizard',
+  opened: 'the door wizard',
   marquee: 'the marquee',
   statusbar: 'the status bar',
   navbar: 'the menu bar',

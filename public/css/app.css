@@ -768,6 +768,23 @@ ol.stack {
   text-transform: none;
 }
 
+/* A modal ANSWER that is not a confirm -- the `No?` of the pair (#90, #97).
+   It exists because the deny used to borrow `.btn--close`, and `.btn--close` is the site's quiet
+   paper-and-mono "leave this alone" button: it disagreed with the confirm beside it on font family
+   and on letter case at once, so the two halves of one question were set in two different voices.
+   A deny is not a close. It is the other answer, and it should look like it was written by whoever
+   wrote the confirm.
+   It therefore agrees with `.btn--primary` on family, transform and tracking, and disagrees ONLY on
+   fill and on width -- which is exactly the hierarchy the pair is meant to carry. Note this leaves
+   both answers uppercase: the shout is `.btn--primary` being itself site-wide, and a modal opting
+   out of it is the page-level decision `/kit` exists to prevent. */
+.btn--deny {
+  background: var(--c-paper);
+  font-family: var(--font-shout);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
 .btn--what {
   background: var(--c-magenta);
   color: var(--c-paper);
@@ -922,8 +939,14 @@ ol.stack {
   text-shadow: 3px 3px 0 var(--c-ink);
 }
 
+/* The gap above the actions is the ACTIONS' margin, not the body's bottom margin (#97). It used to
+   be `margin: 0.7rem 0 1.1rem` here, and a box with no body -- the bored box has a title and
+   nothing else -- rendered no `.modal__body` element at all, so the 1.1rem went with it and the
+   title's `3px 3px` shadow layer landed on the top border of `No?`. Spacing that only exists when
+   an optional element is present is spacing that is missing exactly when the box is at its
+   simplest. */
 .modal__body {
-  margin: 0.7rem 0 1.1rem;
+  margin: 0.7rem 0 0;
   font-size: 1.2rem;
 }
 
@@ -931,9 +954,79 @@ ol.stack {
   display: flex;
   gap: 0.6rem;
   flex-wrap: wrap;
+  margin-top: 1.1rem;
 }
 
+/* The size the two answers share. Both of them: `.btn--primary`'s 1.05rem loses to this, which is
+   deliberate and is why hierarchy inside a box is carried by the row split below and by fill. */
 .modal__actions .btn { flex: 1 1 auto; font-size: 0.85rem; }
+
+/* The confirm takes a row of its own, the way a primary button does on every other surface (#97).
+   `.modal__actions .btn { flex: 1 1 auto }` is 0,2,0 and was out-specifying `.btn--primary`'s
+   0,1,0, so the two answers came out exactly the same width and `No?` was as big a tap target as
+   `Okay?` -- hierarchy carried by fill colour alone, on the one control in the house people press
+   without reading. This line restores the site-wide shape rather than inventing a modal-only one.
+
+   The deny needs the second line, and a screenshot is what said so: with only the rule above, the
+   deny wrapped onto a row of its own and its inherited `flex-grow: 1` then stretched it across the
+   whole box. Two full-width buttons stacked is the same defect standing up -- so it keeps its
+   content width and the confirm is the only thing in the box that spans it. */
+.modal__actions .btn--primary { flex: 1 1 100%; }
+.modal__actions .btn--deny { flex: 0 1 auto; }
+
+/* ---------------------------------- door ----------------------------------- */
+
+/* The onboarding wizard's screen (#97). It wears the alert box's LOOK -- same paper, same heavy
+   edge, same shadow -- and is a form in the page rather than a modal: nothing fixed, no scrim,
+   nothing to dismiss. The distinction is in `doorStep()`'s comment and it matters for the words on
+   the buttons, not for the pixels.
+
+   No `modal-pop` here. The box is the whole page, `anim-page` is already animating the transition
+   between screens, and a box that springs on every one of eight or nine steps stops reading as
+   arrival and starts reading as a tic. */
+.door {
+  background: var(--c-paper);
+  border: var(--edge-3) solid var(--c-ink);
+  box-shadow: var(--shadow-3);
+  padding: 1.2rem 1rem;
+}
+
+/* Honest, not equal -- a solo captain sees a smaller total than a pair. Mono and quiet, because it
+   is the one thing on the screen nobody came to read. */
+.door__count {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  text-transform: lowercase;
+  color: #6b6b6b;
+}
+
+/* The `.modal__title` treatment, on an `<h1>` -- `layout({ heading: false })` is what keeps the
+   page from carrying a second one above the box. */
+.door__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+  line-height: 1.05;
+  color: var(--c-magenta);
+  text-shadow: 3px 3px 0 var(--c-ink);
+}
+
+.door__intro { margin: 0; }
+
+/* Back and forward. Unlike a modal's two answers these are deliberately UNEQUAL on every axis at
+   once -- the forward takes its own full row and its own fill, the back is the site's quiet
+   paper-and-mono button at content width. That is the opposite call from `.modal__actions`, and for
+   the opposite reason: there the two are answers to one question and had to agree, here one of them
+   is the way on and the other is the way back. */
+.door__actions {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin-top: 0.2rem;
+}
+
+.door__actions .btn--primary { flex: 1 1 100%; }
 
 /* ------------------------------ decoration --------------------------------- */
 /* Load-bearing. Do not remove. */
@@ -1150,6 +1243,13 @@ ol.stack {
 .banner--bad {
   background: var(--c-red);
   color: var(--c-paper);
+}
+
+/* The one a team meets once, on the dashboard, the second they are through the door (#97). Yellow
+   rather than red for the obvious reason, and it is the same box as the other two -- a third mood,
+   not a third component. */
+.banner--opened {
+  background: var(--c-yellow);
 }
 
 /*
