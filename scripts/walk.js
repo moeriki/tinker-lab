@@ -1256,7 +1256,12 @@ const FLOWS = [
       check('and closes its form for good', !(await page.has('form select')));
 
       // --- Longest yarn -------------------------------------------------------------------------
+      // Shot BEFORE the claim goes in, because the untouched tile is the thing #100 argued about:
+      // one box asking for centimetres, and no sentence anywhere on it about how to get one. That
+      // silence is deliberate, so it is worth a picture -- a helpful line added here later would
+      // show up as a diff in this shot rather than as nobody noticing.
       await page.goto('/g/yarn');
+      await shoot('yarn-fresh');
       await page.fillForm({ body: '184' });
       await page.submit();
       check('a length is accepted', (await page.url()).startsWith('/g/yarn'));
