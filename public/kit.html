@@ -375,6 +375,12 @@
         <p class="sect__note">The pair is <strong>not case-matched on screen</strong>, and that is not a defect to fix here: <code>.btn--primary</code> is <code>text-transform: uppercase</code> site-wide and <code>.btn--close</code> is <code>none</code>, so the words land as <code>No?</code> and <code>OKAY?</code>. That is the primary button being itself. A modal opting out of it would be the page-level design decision this page exists to prevent. Note too that <code>.modal__actions .btn</code> out-specifies <code>.btn--primary</code>'s <code>flex: 1 1 100%</code>, so inside a modal the confirm shares a row instead of taking one.</p>
         <p class="sect__note">Below is the two-answer shape, from <code>askModal()</code>. No page ships one yet — the first will be the delete-team confirm (#87) — and it is demoed here <em>before</em> that, so <code>No?</code> reaches a page as a button somebody has looked at. A component demoed only in the shape that already worked is how <code>&lt;a class="btn"&gt;</code> rendered as a raw blue link site-wide.</p>
         <button class="btn btn--hint" type="button" data-open-modal="ask-modal">Open the asking one</button>
+
+        <h3 class="sect__sub">Nothing to do — <code>I'm bored</code></h3>
+        <p class="sect__note">The dashboard's escape hatch (#95), and the <strong>first real consumer of the two words</strong>: both of its answers close the box and do nothing else. No points, no record, no route. The site suggests something and has no follow-through — that is the joke, and it is why the deny finally had something to hang on it (<code>denyAttrs</code> on <code>modalActions()</code> exists for this caller).</p>
+        <p class="sect__note">It is a <strong>slot machine</strong>. The sample changes per <em>press</em>, not per page load, and never repeats the one already on screen — press twice and get the same word and it reads as broken rather than dry. The button below is the real one and it really works here: <code>app.js</code> wires it, not <code>kit.js</code>, because nothing about it needs a team or a database. The eighteen words live in <code>content/chrome.js</code> where the copy pass can find them.</p>
+        <p class="sect__note">It is the <strong>first modal on the site rendered shut</strong> — the hint box arrives open because what it announces has already happened; this one announces nothing until asked. And the button ships <code>hidden</code>, revealed by <code>app.js</code>: a resampling box is JavaScript by definition, and rather than hand a blocked phone a control that does nothing (#14 — nothing load-bearing), it is handed no control. <strong>Block scripts and this slot is empty</strong>, exactly as a dashboard's would be. The box has no body text, only the suggestion in the title face: a sentence underneath would be the site explaining its own joke.</p>
+        <!--@boredbutton-->
       </section>
 
       <!-- ============================= NONSENSE ============================ -->
@@ -703,9 +709,16 @@
     <!--@hintmodal notice="paid" cost="3"-->
 
     <!-- The asking shape, from askModal(). Two boxes on this page at once is the point: `No?` is
-         only worth demoing beside a real `Okay?`, and one #hint-modal cannot be both. app.js
-         closes #hint-modal and only that, so kit.js closes this one. -->
+         only worth demoing beside a real `Okay?`, and one #hint-modal cannot be both. Its buttons
+         carry no data-close-modal — a real caller decides what its answers do — so kit.js is what
+         closes this one. (app.js closes any box whose button asks to be closed, by name no
+         longer; it just has nothing to bind to here.) -->
     <!--@askmodal-->
+
+    <!-- The bored box, from boredModal(). The only modal here the server already renders shut, so
+         kit.js's hide-on-arrival is a no-op for it and the §11 button opens it for real via
+         app.js -- the same code path the dashboard runs. -->
+    <!--@boredmodal-->
 
     <!-- Both as modules, exactly as layout() loads app.js. As classic scripts they shared one
          global lexical scope and both declare a top-level `const modal`, so kit.js — the second

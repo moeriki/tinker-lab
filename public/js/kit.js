@@ -2,19 +2,25 @@
 // they fire once on load and are never re-armed. Same for the modal: a real page
 // arrives with it already open, so opening one is a thing only the kit needs.
 
-// Every `.modal` on this page, not just the hint one. §11 now demos the two-answer shape as
-// well — `No?` beside `Okay?` — because no page renders a deny yet (#90), and a pair of words
-// that has never been drawn is exactly the kind of thing that ships wrong. A button says which
-// box it opens with `data-open-modal="<id>"`; a bare `data-open-modal` still means the hint one.
+// Every `.modal` on this page, not just the hint one. §11 demos the two-answer shape as well —
+// `No?` beside `Okay?` — because no page renders a deny yet (#90), and a pair of words that has
+// never been drawn is exactly the kind of thing that ships wrong. A button says which box it
+// opens with `data-open-modal="<id>"`; a bare `data-open-modal` still means the hint one.
+//
+// The bored box (#95) is the exception to all of this and is deliberately left alone below: it
+// ships shut, and its button and its answers are wired by app.js exactly as they are on a
+// dashboard. It is the one demo here that is not being puppeted.
 for (const box of document.querySelectorAll('.modal')) {
-  // Both boxes here are the REAL ones, injected from render.js (see src/kit.js), and the server
-  // renders them already open because on a game page the thing being announced has already
-  // happened. This page is the one place that wants them shut on arrival.
+  // These are the REAL boxes, injected from render.js (see src/kit.js). The hint one is rendered
+  // already open, because on a game page the thing it announces has already happened, and this
+  // page is the one place that wants it shut on arrival. The others are shut already.
   box.hidden = true;
 
-  // app.js binds every `[data-close-modal]` on the page but only ever hides `#hint-modal`, so a
-  // second box has to close itself. Leaving that to app.js would hide the wrong modal.
-  if (box.id === 'hint-modal') continue;
+  // app.js closes whichever box a `[data-close-modal]` button is IN, so anything carrying that
+  // attribute is already handled and binding it twice here would only fight it. What is left for
+  // this loop is the askModal demo, whose answers carry nothing — a real caller decides what its
+  // answers do, and the kit has nothing for them to do.
+  if (box.id === 'hint-modal' || box.id === 'bored-modal') continue;
 
   const close = (event) => {
     event.preventDefault();

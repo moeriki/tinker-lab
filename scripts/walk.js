@@ -157,6 +157,61 @@ const FLOWS = [
   },
 
   {
+    name: 'bored',
+    what: 'press "I\'m bored" and watch the site suggest things and do nothing about them',
+    async run({ page, shoot, check }) {
+      await onboard(page);
+
+      // The button ships `hidden` and app.js reveals it (#95), so this pair of checks is the
+      // whole no-JS decision stated twice: the markup withholds it, the script hands it over.
+      // A browser with scripts blocked is left with the first line true and the second false,
+      // which is a team that never sees a button rather than one that presses a dead one.
+      check('the board carries a bored button', await page.has('#bored'));
+      check('and a script is what reveals it', await page.has('#bored:not([hidden])'));
+      check('it is not a nineteenth tile', !(await page.has('.tiles #bored')));
+      check('the box is shut until asked', await page.has('#bored-modal[hidden]'));
+
+      // Where it sits is half of what this ticket had to settle, and the foot of the board is the
+      // one part of this page nothing else in the walk photographs.
+      await page.scrollTo(99999);
+      await shoot('board-foot');
+      await page.scrollTo(0);
+
+      await page.tap('#bored');
+      const first = await page.text('#bored-modal .modal__title');
+      check(`pressing it opens the box on a suggestion — "${first}"`, Boolean(first));
+      check('the box is open', await page.has('#bored-modal:not([hidden])'));
+      check('the house words are under it', (await page.text('.modal__actions')) === 'No? Okay?');
+      await shoot('bored');
+
+      // A slot machine. Ten pulls is enough to catch a sampler that is really a constant, and
+      // every consecutive pair is checked rather than only the first -- "never the same one twice
+      // running" is a property of the whole sequence, and a bug that repeats on pull seven is
+      // exactly the one a single press would miss.
+      const pulls = [first];
+      for (let pull = 0; pull < 9; pull += 1) {
+        await page.tap('#bored');
+        pulls.push(await page.text('#bored-modal .modal__title'));
+      }
+
+      const repeated = pulls.filter((one, at) => at > 0 && one === pulls[at - 1]);
+      check(`ten pulls never repeat back to back`, repeated.length === 0);
+      check(`and are not one word ten times (${new Set(pulls).size} distinct)`, new Set(pulls).size > 1);
+
+      // Both answers close it and do nothing else -- no points, no record, no route. The URL is
+      // the part worth pinning: a suggestion that navigated would make this a menu.
+      const before = await page.url();
+      await page.tap('#bored-modal .btn--primary');
+      check('"Okay?" closes it', await page.has('#bored-modal[hidden]'));
+
+      await page.tap('#bored');
+      await page.tap('#bored-modal .btn--close');
+      check('"No?" closes it too', await page.has('#bored-modal[hidden]'));
+      check('and neither answer went anywhere', (await page.url()) === before);
+    },
+  },
+
+  {
     name: 'scan',
     what: 'scan a code and land inside the game it unlocks',
     async run({ page, shoot, check }) {

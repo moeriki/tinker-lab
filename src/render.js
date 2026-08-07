@@ -407,6 +407,11 @@ export const MODAL_NO = 'No?';
  * `aside` is the third slot and is neither answer -- the hint modal's "What?" is a link to the
  * rules, not a refusal -- so it keeps its own words and sits outside the pair.
  *
+ * Both answers take an attrs bag, because "what the button does" is the caller's and "what the
+ * button says" is not. The hint modal's confirm carries `data-close-modal`; the bored box (#95)
+ * carries it on *both*, since there both answers close it and do nothing else. `denyAttrs` was
+ * added for that second caller -- until one existed there was nothing to hang on a deny.
+ *
  * The deny reuses `.btn--close`, the site's quiet paper-and-mono "leave this alone" button, rather
  * than earning a class of its own that no page had ever rendered.
  *
@@ -421,10 +426,16 @@ export const MODAL_NO = 'No?';
  * primary button being itself, not this modal deciding something -- a modal opting out of it would
  * be exactly the page-level design decision `/kit` exists to prevent.
  */
-export function modalActions({ aside = '', denyHref, confirmHref, confirmAttrs = {} }) {
+export function modalActions({
+  aside = '',
+  denyHref,
+  denyAttrs = {},
+  confirmHref,
+  confirmAttrs = {},
+}) {
   return `<div class="modal__actions">
         ${aside}
-        ${denyHref ? `<a class="btn btn--close" href="${escape(denyHref)}">${MODAL_NO}</a>` : ''}
+        ${denyHref ? `<a class="btn btn--close" href="${escape(denyHref)}"${attrsHtml(denyAttrs)}>${MODAL_NO}</a>` : ''}
         <a class="btn btn--primary" href="${escape(confirmHref)}"${attrsHtml(confirmAttrs)}>${MODAL_YES}</a>
       </div>`;
 }
@@ -453,8 +464,10 @@ export function askModal({ id = 'ask-modal', title, body, denyHref, confirmHref 
 }
 
 /**
- * The hint modal: the one modal the site has, and the only thing `/js/app.js` binds beyond
- * spending a param.
+ * The hint modal: the first of the site's two boxes (`boredModal()` is the other, #95), and the
+ * reason `/js/app.js` binds anything at all beyond spending a param. It is also the only one of
+ * the two that works with that file blocked -- it is rendered open and its buttons are links,
+ * where the bored box is script from end to end and withholds its own button without one.
  *
  * It **announces a reveal that has already happened** -- the row is written, the negative award
  * is in the ledger, the hint is in the list behind the box. So the server renders it already
@@ -492,6 +505,75 @@ export function hintModal({ notice, cost, backHref }) {
       ${modalActions({
         aside: '<a class="btn btn--what" href="/rules">What?</a>',
         confirmHref: backHref,
+        confirmAttrs: { 'data-close-modal': true },
+      })}
+    </div>
+  </div>`;
+}
+
+/**
+ * The **I'm bored** button, at the foot of the dashboard (#95). It opens `boredModal()` and does
+ * nothing else -- no form, no href, no route.
+ *
+ * It ships **`hidden`, and `/js/app.js` is what reveals it.** That is the answer to the one thing
+ * about this feature that could have gone wrong quietly: a resampling box is JavaScript by
+ * definition, and #14 says nothing on this site may be load-bearing. So a phone with JS blocked
+ * must not be handed a button that does nothing when pressed -- it is handed no button. It loses a
+ * joke and no points, which is the correct trade for decoration, and it never sees a dead control.
+ * The alternative -- render it and have it degrade to a link -- was rejected because every honest
+ * destination for that link is a page the team is already on.
+ *
+ * It is a `<button>` with no form around it, which on this site is unusual enough to say out loud:
+ * every other press a guest makes is a POST or a link. This one is the exception because it is the
+ * only control on the site that changes nothing anywhere.
+ *
+ * **It is not a nineteenth tile.** It sits outside `.tiles` as a plain `.btn` in the stack, below
+ * the grid, next to `the rules`.
+ */
+export function boredButton(face = chrome.boredFace) {
+  return `<button class="btn" type="button" id="bored" hidden>${escape(face)}</button>`;
+}
+
+/**
+ * The box behind that button: one suggestion, and two ways to say nothing back.
+ *
+ * **The first modal on this site that is rendered shut.** The hint box arrives open because by the
+ * time it exists the hint has been revealed and charged -- it announces something that already
+ * happened. This one announces nothing until asked, so `hidden` is its resting state and the
+ * button is what lifts it.
+ *
+ * The suggestion is the `modal__title`, not the body, and the box has no body at all. It is one
+ * word in the big display face with two buttons under it: the site shouts a thing at you and
+ * offers you two ways to dismiss it. A sentence of explanation underneath would be the site
+ * justifying the joke.
+ *
+ * **Both answers close it**, which is why both carry `data-close-modal` -- this is the site's
+ * first caller with a deny that does anything, and what it does is nothing. Their words come from
+ * `modalActions()`, so `No?` and `Okay?` are not this box's to pick (#90). The hrefs are the
+ * dashboard: a press is `preventDefault`ed by `/js/app.js`, and the fallback if it ever were not
+ * is the page you are already on.
+ *
+ * The whole list rides on the box as `data-bored` rather than being fetched, because resampling
+ * per press with no page load is the point (a slot machine that needs a round trip is a slot
+ * machine that stalls), and eighteen short strings are cheaper than the request that would fetch
+ * one. `attrsHtml` escapes it on the way out.
+ *
+ * The one drawn into the markup is **sampled**, not `list[0]`, and that is not decoration. The
+ * press picks from the list minus whatever is currently on screen -- so a fixed first entry would
+ * be the one suggestion no team could ever get on its first press. Sampling makes the exclusion
+ * land somewhere different every page load, which is to say nowhere.
+ */
+export function boredModal({ suggestions = chrome.bored } = {}) {
+  const list = suggestions.length ? suggestions : [''];
+  const [first = ''] = sample(list, 1);
+
+  return `<div class="modal" id="bored-modal" hidden${attrsHtml({ 'data-bored': JSON.stringify(list) })}>
+    <div class="modal__box">
+      <p class="modal__title">${escape(first)}</p>
+      ${modalActions({
+        denyHref: '/',
+        denyAttrs: { 'data-close-modal': true },
+        confirmHref: '/',
         confirmAttrs: { 'data-close-modal': true },
       })}
     </div>

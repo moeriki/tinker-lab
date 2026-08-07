@@ -532,12 +532,27 @@ still dismisses it, because both its buttons are ordinary links.
 **This site does no focus management** — no trap, no move-in, no restore, nowhere, and that is
 settled rather than outstanding ([ADR-document-order-instead-of-focus-management](docs/adr/document-order-instead-of-focus-management.md), #31).
 
-The hint modal is the only modal there is, and it is not a conventional dialog: it arrives on a
-**full page load**, so nothing was focused to take focus from and the button that triggered it is
-in a document that no longer exists. What a trap would have been for is done in HTML instead —
-`layout()` renders the modal slot **first in `<body>`**, ahead of `.app`, so the box you see first
-reads first and tabs first. Before that it was last, and a hint reveal put six tab stops behind a
-dim backdrop in front of the thing you were looking at.
+The hint modal is not a conventional dialog: it arrives on a **full page load**, so nothing was
+focused to take focus from and the button that triggered it is in a document that no longer exists.
+What a trap would have been for is done in HTML instead — `layout()` renders the modal slot **first
+in `<body>`**, ahead of `.app`, so the box you see first reads first and tabs first. Before that it
+was last, and a hint reveal put six tab stops behind a dim backdrop in front of the thing you were
+looking at.
+
+There is a **second modal** since #95 — the **bored box**, behind the dashboard's *I'm bored*
+button — and it is the one place that reasoning does not reach, which is said here rather than
+left to be discovered. It is opened by **script**, not by a page load, so unlike the hint box there
+*is* a triggering element still in the document. Nothing moves focus into it and nothing restores
+focus on close, exactly as everywhere else; and because the modal slot is first in `<body>` while
+the button that opens it is near the end, **its two answers sit behind the button in tab order**. A
+keyboard user who opens it tabs forward into the page rather than into the box.
+
+That is left as it is, and the reason is not that nobody thought of it. The box is decoration —
+**both of its answers close it and do nothing else**, so reaching neither costs nothing — `Escape`
+and the backdrop close it, and this site is mobile-only by decision, which makes tab order a
+question about a device it is not built for. Buying the site's first exception to *no focus
+management anywhere* for a joke box would be the worse trade. Nobody has checked it with a screen
+reader, and per the map nobody is going to.
 
 It carries **no ARIA role**. `role="alertdialog"` was asserted until #31 and was untrue in every
 clause — nothing focuses the box, nothing behind it is inert, nothing waits for it, and a role

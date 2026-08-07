@@ -32,6 +32,8 @@ import { join } from 'node:path';
 import {
   askModal,
   blurb,
+  boredButton,
+  boredModal,
   bubble,
   card,
   field,
@@ -161,6 +163,17 @@ const RENDERERS = {
       denyHref: a.deny ?? '#modal',
       confirmHref: a.href ?? '#modal',
     }),
+
+  // The bored box and its button, both REAL and both wired by `app.js` rather than by `kit.js` --
+  // this is the one demo on the page that actually works the way the dashboard works, because
+  // nothing about it needs a team or a database. Press it here and it resamples here.
+  //
+  // Which makes it the only place the `hidden`-until-JS trick can be seen at all: the button
+  // arrives hidden and app.js reveals it, so a kit loaded with scripts blocked shows an empty slot
+  // exactly as a dashboard would. Its words come from `content/chrome.js`, so this takes no
+  // arguments -- a kit that could pass its own list would be demoing a list the site never ships.
+  boredbutton: () => boredButton(),
+  boredmodal: () => boredModal(),
 
   // A marker attribute cannot contain a `"` -- ATTR reads up to the closing one -- so the kit's
   // line wears curly quotes. That is the only thing about it this extraction changed.

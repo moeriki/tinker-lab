@@ -325,6 +325,34 @@ function makePage(cdp, { base, outDir, overflow, width }) {
       ),
 
     /**
+     * Press something that goes NOWHERE, and wait for the paint instead of a page load.
+     *
+     * Every other press on this site is a link or a POST, which is why `press()` above waits for
+     * `Page.loadEventFired` and why this did not exist until #95: the "I'm bored" button is the
+     * first control a guest can press that navigates nothing. Run through `press()` it would sit
+     * there for the full sixty seconds and then throw "the page never finished loading" -- a real
+     * failure message about an imaginary problem.
+     *
+     * The wait is two animation frames, which is one more than it looks: the first fires after the
+     * click's handlers have run, the second after the style and layout they caused have been
+     * committed. One frame is enough for `textContent` and not for anything that reads geometry.
+     */
+    tap: async (selector) => {
+      await evaluate(`
+        const el = document.querySelector(${JSON.stringify(selector)});
+        if (!el) throw new Error('nothing matches ' + ${JSON.stringify(selector)});
+        el.click();
+        return true;
+      `);
+
+      await cdp.send('Runtime.evaluate', {
+        expression:
+          'new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(() => done(true))))',
+        awaitPromise: true,
+      });
+    },
+
+    /**
      * Put a real file into a real <input type=file>. This is the one thing a page cannot be
      * talked into from JS -- the value of a file input is not settable -- and it is the only
      * reason this driver touches the DOM domain at all.

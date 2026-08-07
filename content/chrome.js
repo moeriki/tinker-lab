@@ -136,6 +136,58 @@ export const starburst = {
 export const stamp = 'DO NOT LOSE THIS PHONE';
 
 /**
+ * What the site says to a team with nothing to do (#95). One of these is drawn into the box behind
+ * the dashboard's **I'm bored** button, and both of the box's answers close it and do nothing else
+ * -- no points, no record, no route. The site makes a suggestion and has no follow-through; that
+ * is the whole joke, and it is the reason this list is chrome rather than a game. It says the same
+ * thing to every team, never mentions a score or a rank, and nothing depends on having read it.
+ *
+ * It is a **slot machine**: the sample changes per *press*, not per page load, because teams will
+ * pull it all night to see what else is in there. `/js/app.js` resamples from the list on every
+ * press and never draws the one already on screen -- with eighteen entries an immediate repeat is
+ * the one outcome that reads as broken rather than dry.
+ *
+ * **The balance across three registers is deliberate and should survive any later edit.** Eight
+ * party games a room of twenty-five could actually start, five genuinely useful, five gags. A list
+ * that drifts all-gag stops being occasionally worth pressing; one that drifts all-useful stops
+ * being funny. Cut down from a batch of fifty by Dieter, 7 Aug.
+ *
+ * Two entries carry a note. **"Read the rules?"** is the only one pointing at a real page on this
+ * site, and it is a pull-through, not navigation: if it ever gains an actual link it stops being a
+ * suggestion and this box becomes a menu, which it is not. **"Queue a song?"** is the one place an
+ * agent smoothed Dieter's own wording -- his note said *queue song* -- and the copy pass can put
+ * it back.
+ */
+export const bored = [
+  // party games -- things a room of twenty-five could actually start
+  'Limbo?',
+  'Beer pong?',
+  'Macarena?',
+  'Hide and seek?',
+  'Whistle competition?',
+  'Staring contest?',
+  'Conga line?',
+  'Human pyramid?',
+
+  // useful -- the ones that make pressing it occasionally worth something
+  'Drink?',
+  'Queue a song?',
+  'Read the rules?',
+  'Check the ice?',
+  'Compliment a stranger?',
+
+  // gags -- nothing to do, or nothing you would do
+  'Flirt?',
+  'Fight club?',
+  'Sulk?',
+  'Complain?',
+  'Cheat?',
+];
+
+/** The words on the button that opens it. */
+export const boredFace = "I'm bored";
+
+/**
  * The menu bar's words (#76, [ADR-the-menu-bar-is-pinned-to-the-bottom]).
  *
  * The one part of the site's chrome that is **not** decoration: these are links, they differ per

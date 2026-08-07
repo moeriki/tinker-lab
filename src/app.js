@@ -119,6 +119,8 @@ import { resetGame, whatWouldBeCleared } from './reset.js';
 import { fireWebhook } from './webhooks.js';
 import {
   blurb,
+  boredButton,
+  boredModal,
   bubble,
   card,
   field,
@@ -739,6 +741,23 @@ const devNav = (req) => (IS_DEV ? navFor(req) : '');
 
 // --- dashboard, games, rules ------------------------------------------------------------------
 
+/**
+ * The board, and the **I'm bored** button under it (#95).
+ *
+ * That button is on this page in **all three states of the night**, and the absence of a gate is
+ * the decision, not an oversight. The ticket asked whether it should exist before onboarding is
+ * finished or after the showdown starts. The first half is answered by the line below:
+ * `requireOnboardedTeam` means there is no board to put it on until the door questions are done,
+ * so "before onboarding" is not a state this button can be in.
+ *
+ * The second half is a judgement. It stays through the freeze, because the freeze is the most
+ * bored anyone is all night -- `endNotice()` says "nothing on this board will answer you now", and
+ * this is the one control on the page that was never going to answer you anyway, so it is the only
+ * thing that survives that sentence honestly. And it stays after the end, sat below the results
+ * banner and `the rules`, where a team that presses it gets `Conga line?` at a party whose scoring
+ * has stopped, which is the suggestion working rather than failing. A gate here would also be a
+ * branch the next dashboard ticket inherits without knowing why.
+ */
 function showDashboard({ req, res }) {
   const team = requireOnboardedTeam(req, res);
   if (!team) return undefined;
@@ -819,11 +838,17 @@ function showDashboard({ req, res }) {
       title: 'Your board',
       bar: teamBar(team),
       nav: navFor(req, '/'),
+
+      // The bored box (#95) rides the modal slot for the reason the hint box does -- outside
+      // `.app`, ahead of it -- and is the first thing this site renders there shut. See
+      // `boredModal()`.
+      modal: boredModal(),
       body: `
         ${endNotice()}
         ${standing({ band: standingBand(team.id), text: standingsMessage(team.id) })}
         <div class="tiles">${grid}</div>
         <a class="btn" href="/rules">the rules</a>
+        ${boredButton()}
       `,
     }),
   );
