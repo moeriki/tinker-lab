@@ -120,9 +120,12 @@ export function layout({
  * crawl this list at a sixth of a readable speed. Dividing by 7 lands near 70px/s at this font
  * size, and unlike a constant it cannot go stale when someone edits the list.
  *
- * It sits **outside `.app`** for the reason the modal does (#30): `anim-page` animates a
- * `transform`, and a transformed ancestor becomes the containing block for `position: sticky`
- * inside it, which would peg this to the page instead of to the viewport.
+ * It sits **outside `.app`**, and since #88 that is a plain layout fact rather than a positioning
+ * one: `.app` is capped at 42rem with side padding, so a strip inside it would stop short of both
+ * edges instead of running the full width of the phone. It used to be out here because it was
+ * `position: sticky` and `anim-page` animates a `transform`, which would have made `.app` its
+ * containing block and pegged it to the page rather than the viewport. That hazard left with the
+ * stickiness; the modal is still out here for exactly that reason (#30), because it is `fixed`.
  */
 export function marquee(items = chrome.marquee) {
   const line = `★ ${items.join(' ★ ')} ★`;
@@ -162,11 +165,13 @@ export function statusbar(items = sample(chrome.status, chrome.STATUS_SLOTS)) {
  * opens the database -- so `navFor()` in `app.js` picks the items and this draws them. Same seam
  * as `bar`, for the same reason.
  *
- * **Bottom rather than top, and that is the whole design.** The top of a guest page already holds
- * a sticky marquee and a scorebar, and nothing may go above the marquee: Safari 26 samples the
- * topmost sticky element to tint the phone's own status bar, which is what makes the frame run to
- * the edge of the screen (#72). The bottom was empty on every host surface -- `still: true` drops
- * the small print too -- and it is where a thumb already is at one in the morning.
+ * **Bottom rather than top, and that is still the whole design.** The top of a guest page already
+ * holds the marquee and a scorebar; the bottom was empty on every host surface -- `still: true`
+ * drops the small print too -- and it is where a thumb already is at one in the morning. One of
+ * the original arguments has since expired: the top was also spoken for because Safari 26 sampled
+ * the topmost sticky element to tint the phone's own status bar (#72), and #88 unstuck the marquee,
+ * so nothing up there is load-bearing any more. The remaining reasons carried the decision on
+ * their own, which is why this bar did not move.
  *
  * **`aria-current` and a lime block on the page you are standing on.** Five flat words in a loud
  * room are five identical words; the block is the only thing that says which one you already

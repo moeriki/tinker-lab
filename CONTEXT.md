@@ -1065,10 +1065,18 @@ three modifiers. Nothing was retired, which was a live option and not a defeat.
 
 ## Chrome
 
-The two strips that frame every team-facing page and belong to no page: the **marquee** stuck to
-the top, and the **status bar** along the foot. Both are branding rather than features — they say
+The two strips that frame every team-facing page and belong to no page: the **marquee** across the
+top, and the **status bar** along the foot. Both are branding rather than features — they say
 the same thing to every team, never mention a score, a rank or another team, and no page depends on
 having read them, which is what makes them `aria-hidden` decoration rather than content.
+
+> **The marquee scrolls away with the page** ([#88](https://github.com/moeriki/tinker-lab/issues/88)).
+> It was `position: sticky` until then and rode the top of the viewport on every scrolling page.
+> Unsticking it took the last sticky rule off the site, and with it the black tint Safari 26 was
+> sampling for the phone's own top bar — so the frame is now black along the bottom and the
+> browser's own colour along the top, on purpose. The **status bar and menu bar stay pinned**:
+> being reachable without scrolling is the menu bar's whole reason
+> ([ADR](docs/adr/the-menu-bar-is-pinned-to-the-bottom.md)).
 
 Their words live in `content/chrome.js`, and `layout()` is the only caller — the one place in
 `src/render.js` that reaches into `content/`, because a frame has no page to be handed its words by.

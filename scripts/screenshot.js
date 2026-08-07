@@ -6,7 +6,7 @@
 //   node scripts/screenshot.js --reduced-motion /
 //   node scripts/screenshot.js --dark /welcome      -> the phone set to dark, not the site
 //   node scripts/screenshot.js --full /kit           -> the whole page, not just the fold
-//   node scripts/screenshot.js --scroll 600 /        -> the fold 600px down, where sticky is pinned
+//   node scripts/screenshot.js --scroll 600 /        -> the fold 600px down, the page mid-scroll
 //   node scripts/screenshot.js --base https://bday.moeriki.com /   -> the real deploy
 //   node scripts/screenshot.js --out shots /         -> somewhere you choose
 //   node scripts/screenshot.js --admin /admin        -> as the host, not as a stranger
@@ -51,10 +51,10 @@ let reducedMotion = false;
 let dark = false;
 let full = false;
 let admin = false;
-// How far down the page to scroll before shooting. Zero is the fold, and the fold is the one place
-// a STICKY thing is still sitting where it started -- so at zero the marquee is indistinguishable
-// from an ordinary strip at the top, and `--full` renders from the top too. Neither shows the thing
-// worth looking at: the marquee pinned over content that has scrolled under it.
+// How far down the page to scroll before shooting. Since #88 unstuck the marquee there is nothing
+// `position: sticky` left on this site, so a default shot no longer hides anything the way it hid
+// a pinned marquee. What it still cannot show is the page in its scrolled state: the pinned foot
+// over content that has run under it, and the marquee correctly GONE rather than merely untested.
 let scroll = 0;
 
 for (let i = 0; i < argv.length; i += 1) {
@@ -103,7 +103,7 @@ const { overflow } = await withBrowser(
 if (full) {
   console.log(
     '\nnote: --full renders past the fold, which shows the whole page but misplaces anything\n' +
-      'sticky. Trust a default shot for the marquee and the scorebar.',
+      'pinned. Trust a default shot for the foot -- the menu bar and the small print.',
   );
 }
 

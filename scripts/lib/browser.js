@@ -368,10 +368,10 @@ function makePage(cdp, { base, outDir, overflow, width }) {
     },
 
     /**
-     * Move down the page before looking. The fold is the one place a STICKY thing is still
-     * sitting where it started, so at zero the marquee is indistinguishable from an ordinary
-     * strip at the top -- and `--full` renders from the top too. Neither shows the thing worth
-     * looking at: the marquee pinned over content that has scrolled under it.
+     * Move down the page before looking. Nothing on this site is `position: sticky` since #88, so
+     * this is no longer how you catch a pinned strip sitting over scrolled content -- it is how
+     * you see the page in its scrolled state at all: the fixed foot with content run under it,
+     * and the marquee gone from the top rather than merely assumed gone.
      */
     async scrollTo(y) {
       if (!y) return;

@@ -161,6 +161,33 @@ an admin URL from memory.
 **Width was not spent.** The night's widest bar is still the host's five words and still 23
 characters. The sixth word exists only on a build no guest loads.
 
+## Amendment: nothing may go above the marquee — because nothing is up there (#88)
+
+**Date:** 2026-08-07 · **Ticket:** [The marquee rides the top of the screen, and it is meant to
+scroll away](https://github.com/moeriki/tinker-lab/issues/88)
+
+This ADR's Context rests on two facts about the frame. **The second one has expired.** "Nothing may
+go above the marquee" was true because Safari 26 samples the topmost `sticky` element to tint the
+phone's own status bar, and the marquee was sticky. Dieter wanted the strip to leave with the page,
+so it is an ordinary block now — and with it went the last `position: sticky` rule on the site.
+
+**The decision does not move, and that is the point of recording this.** The bottom placement was
+carried by the other reasons on their own: a guest's page top already holds the marquee and a
+scorebar, the bottom was empty on every host surface, and it is where a thumb is at one in the
+morning. An argument expiring is only interesting if it was load-bearing, and this one was not.
+
+**What did change is the frame itself.** The top of the screen is no longer black — Safari draws
+its own colour there, because nothing is pinned for it to sample. Looked at on Dieter's iPhone
+before this landed: it is fine. So the frame is asymmetric on purpose now, black along the bottom
+from `<body>`'s `background-color` and the browser's own along the top, and the foot stays pinned
+because being reachable without scrolling is this ADR's whole decision.
+
+**"Top, directly under the marquee" stays rejected**, and for a sharper reason than before. It
+scrolls away unless it is also sticky — and a sticky bar up there would now be the only pinned
+thing at the top of the page, so it would inherit Safari's sampling and have to be the right colour
+for a job it was never meant to do, on top of eating the screen the Alternatives section already
+counted.
+
 **What it cost the style kit.** `/kit` draws this bar in flow inside a padded section, which offers
 about 327px against a phone's 390px. The six-word bar is 381px of min-content, so it did not
 overflow — Chrome widened the *layout viewport* until it fit and rendered the whole page at 445px,

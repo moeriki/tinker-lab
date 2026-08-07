@@ -131,8 +131,9 @@ html {
  * A column, so the status bar can be pushed to the foot of the SCREEN on a page too short to fill
  * it. Without this the strip sits wherever the content happens to stop and the gradient carries on
  * below it -- on `/q/<unknown>` and the gag pages that was most of the lower half of the phone,
- * which reads as the page having bled past its own footer. The marquee is `position: sticky` and
- * the hint modal is `position: fixed`; neither cares that its parent became a flex container.
+ * which reads as the page having bled past its own footer. The marquee is an ordinary block in
+ * this column, and the hint modal and the pinned foot are `position: fixed`; none of the three
+ * cares that its parent became a flex container.
  */
 body {
   margin: 0;
@@ -169,17 +170,22 @@ code {
 
 /*
  * The `background-color` under the gradient is never seen on the page and is not there to be. It
- * is what iOS Safari reads to tint its OWN bars, and the site is framed top and bottom in black --
- * `.marquee` above, `.statusbar` below -- so the browser's chrome joining them is the difference
- * between a frame that runs to the edge of the screen and one that stops at the edge of the web
- * view.
- *
- * Safari 26 dropped `theme-color`; it still parses the tag and no longer uses it. The tint now
- * comes from CSS, by two different routes. The TOP is sampled from a `fixed` or `sticky` element
- * near the top of the viewport, which the marquee already is, in this same black. The BOTTOM, and
- * the overscroll rubber band with it, comes from the background-color of `<body>` -- and a
- * `background` shorthand carrying only an image resets that to `transparent`, so there was nothing
+ * is what iOS Safari reads to tint its OWN bar along the BOTTOM, and the overscroll rubber band
+ * with it -- so the browser's chrome continuing the black `.statusbar` is the difference between a
+ * frame that runs to the edge of the screen and one that stops at the edge of the web view. A
+ * `background` shorthand carrying only an image resets this to `transparent`, so there was nothing
  * to sample and Safari fell back to its own default.
+ *
+ * Safari 26 dropped `theme-color`; it still parses the tag and no longer uses it, which is why the
+ * bottom is a CSS declaration rather than a `<meta>`.
+ *
+ * **The TOP is deliberately not paid for.** Safari samples it from a `fixed` or `sticky` element
+ * near the top of the viewport, and until #88 the marquee was sticky and did that job in this same
+ * black. Dieter wanted the strip to leave with the page, so it is an ordinary block now and
+ * nothing on this site is sticky at all. Looked at on his iPhone, unstuck: Safari handles the bare
+ * top perfectly well. So the frame is asymmetric on purpose -- black along the bottom, the
+ * browser's own colour along the top -- and a future edit that wants the top black again needs a
+ * `fixed` element up there, not a change here.
  *
  * Longhand after the shorthand, deliberately, since the shorthand would blow it away again. Every
  * pixel of this element is covered by an opaque gradient, so nothing about the page changes.
@@ -211,9 +217,6 @@ code {
 /* --------------------------------- marquee --------------------------------- */
 
 .marquee {
-  position: sticky;
-  top: 0;
-  z-index: 50;
   overflow: hidden;
   background: var(--c-ink);
   border-bottom: var(--edge-2) solid var(--c-ink);

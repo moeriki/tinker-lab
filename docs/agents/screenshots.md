@@ -62,14 +62,15 @@ Two consequences worth knowing:
 - **It measures overflow for you.** Every shot compares `document.documentElement.scrollWidth`
   against `innerWidth` and complains if the page is wider than its viewport. On a mobile-only site
   that is a real defect, and this is the one moment it can be seen.
-- **`--full` misplaces sticky things.** Rendering past the fold shows the whole page but puts
-  anything `position: sticky` where it would sit at the top, not where a scrolling guest sees it.
-- **So use `--scroll <px>` for anything sticky.** A default shot is taken at the top of the page,
-  which is the one place a sticky thing is still sitting where it started — so at zero the marquee
-  is indistinguishable from an ordinary strip, and `--full` renders from the top too. Neither shows
-  the marquee *pinned over content that has scrolled under it*, which is the only view in which it
-  can be judged. `--scroll 9999` clamps to the bottom, which is how you check the status bar is the
-  last thing on the page.
+- **`--full` misplaces pinned things.** Rendering past the fold shows the whole page but puts
+  anything `position: fixed` — the menu bar and the small print in `.foot` — where it would sit at
+  the top of the render, not where a scrolling guest sees it.
+- **So use `--scroll <px>` to see the page mid-scroll.** Nothing on this site is `position: sticky`
+  any more: #88 unstuck the marquee, which was the last of it, so the strip now leaves with the
+  page like everything else. A default shot is still taken at the very top, which is the one place
+  the marquee is on screen at all — so `--scroll` is how you confirm it has *gone* rather than
+  assume it, and how you see the fixed foot with content run under it. `--scroll 9999` clamps to
+  the bottom, which is how you check the status bar is the last thing on the page.
 
 ## `--dark` shoots the phone, not the site
 
