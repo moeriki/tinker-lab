@@ -15,12 +15,12 @@ export default {
   // number and nothing later in the night can work one out.
   points: 10,
 
-  // A picture, not words -- the one tile where the hero IS the object. Shot on the table rather
-  // than in the lockbox, because the box had not been bought yet (#44); the alt describes what is
-  // actually in the frame, so a team holding him can tell it is the same bear. If the box arrives
-  // in time and he is reshot on it, this line moves with the picture. Until a file lands at this
-  // path boot warns and the page shows the style kit's placeholder frame rather than a broken
-  // image.
+  // A picture, not words -- the one tile where the hero IS the object. Shot on the table (#44),
+  // and it stays there: #86 proposed reshooting him on the lockbox and was closed out of scope,
+  // because the thing the hero has to identify is the bear, not the box. The alt describes what
+  // is actually in the frame, so a team holding him can tell it is the same bear. Until a file
+  // lands at this path boot warns and the page shows the style kit's placeholder frame rather
+  // than a broken image.
   hero: {
     asset: '/img/teddy.jpg',
     alt: 'Teddy: a small grey knitted bear in a braided pastel collar, sitting on a table',
