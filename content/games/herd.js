@@ -67,7 +67,7 @@ export default {
    *
    * A team's OWN harvest answer stays in the corpus they are scored against. Thinking like the herd
    * and being the herd are the same thing, and taking their word back out would mean there was no
-   * longer one herd answer per question for the showdown to read out.
+   * longer one herd answer per question for the league to read out.
    *
    * `sourceId` is the UNIT, not the submission, which is what caps the tile at ten with no counting
    * anywhere: `awards` is unique on (team, game, kind, source_id), so a prediction edited five times

@@ -8,6 +8,7 @@
 //   node scripts/screenshot.js --scroll 600 /        -> the fold 600px down, where sticky is pinned
 //   node scripts/screenshot.js --base https://bday.moeriki.com /   -> the real deploy
 //   node scripts/screenshot.js --out shots /         -> somewhere you choose
+//   node scripts/screenshot.js --admin /admin        -> as the host, not as a stranger
 //
 // Agents kept writing "not seen by eye" about pages they had just built. The cause was never the
 // site: no Claude Chrome extension had been paired to this account, so every session that asked
@@ -18,11 +19,19 @@
 // The boot, the Chrome and the DevTools client live in scripts/lib/browser.js, which this shares
 // with scripts/walk.js. Everything below is this script's own job: a list of routes, shot cold.
 //
-// WHAT IT CANNOT DO: become a team. It sets no cookie and submits no form, so the database it
-// shoots is always empty and `/` is the arrival page rather than a board. That is not a gap any
-// more -- it is the division of labour. `node scripts/walk.js` walks the door, the scans and the
-// submissions and shoots the pages behind them.
+// WHAT IT CANNOT DO: become a team. It submits no form, so the database it shoots is always empty
+// and `/` is the arrival page rather than a board. That is not a gap any more -- it is the
+// division of labour. `node scripts/walk.js` walks the door, the scans and the submissions and
+// shoots the pages behind them.
+//
+// `--admin` is the one cookie it will set, and it exists because without it the eleven admin
+// routes were unreachable to every pair of eyes in this repository: they 404 to a stranger, so a
+// cold shot of `/admin` returned the 404 page and an agent could read that as the page. Half of
+// this site is a working tool one person uses on one night (#66 put it outside `/kit`'s contract
+// entirely), which makes it the half most in need of somebody looking at it. It visits
+// `/admin/key/<secret>` first, exactly as a host does.
 
+import { ADMIN_SECRET } from '../src/config.js';
 import { nameFor, reportOverflow, PHONE, withBrowser } from './lib/browser.js';
 
 // --- arguments ------------------------------------------------------------------------------
@@ -36,6 +45,7 @@ let height = PHONE.height;
 let scale = PHONE.scale;
 let reducedMotion = false;
 let full = false;
+let admin = false;
 // How far down the page to scroll before shooting. Zero is the fold, and the fold is the one place
 // a STICKY thing is still sitting where it started -- so at zero the marquee is indistinguishable
 // from an ordinary strip at the top, and `--full` renders from the top too. Neither shows the thing
@@ -46,6 +56,7 @@ for (let i = 0; i < argv.length; i += 1) {
   const arg = argv[i];
   if (arg === '--reduced-motion') reducedMotion = true;
   else if (arg === '--full') full = true;
+  else if (arg === '--admin') admin = true;
   else if (arg === '--base') base = argv[(i += 1)];
   else if (arg === '--out') out = argv[(i += 1)];
   else if (arg === '--width') width = Number(argv[(i += 1)]);
@@ -67,6 +78,10 @@ const problems = [];
 const { overflow } = await withBrowser(
   { base, out, reducedMotion, width, height, scale },
   async ({ page }) => {
+    // The host's own way in, and the only state this script ever puts itself into. It is a GET
+    // that sets a cookie and redirects, so one visit covers every admin route in the list.
+    if (admin) await page.goto(`/admin/key/${ADMIN_SECRET}`);
+
     for (const route of routes) {
       try {
         await page.goto(route);

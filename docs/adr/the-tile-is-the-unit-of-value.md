@@ -47,7 +47,7 @@ there the walking **is** the mechanic, and the scan is the play.
 **Scores may go negative, and nothing clamps them.** Hints are the only debit. Getting under zero
 takes real bad luck — buy hints, score nothing — so it is rare and shallow, worst realistic case
 about −5. `score = SUM(awards)` stays literally true, with no special case in the tile, the
-header or the showdown, which is the whole point of
+header or the league, which is the whole point of
 [ADR-points-are-a-ledger](points-are-a-ledger.md).
 
 **Three standing bands, and only the first is a rank.** *Podium* is a score at or above third
@@ -56,7 +56,7 @@ Band 2 is proximity rather than a slice of the field because rank alone lies abo
 third has 60, a team on 59 is close whether they are fourth or eleventh. **No comparative number
 is ever shown** — not a rank, not another team's score, not the distance to the podium. The vague
 message is the entire signal a team gets all night; the host has the true board at `/admin`, and
-the showdown is where the reveal happens.
+`/league` is where the reveal happens.
 
 ## Consequences
 
@@ -92,7 +92,7 @@ at midnight. A premium would compound an advantage they have rather than pay for
 `MISSION.md` and quoted in the modal copy. The scale was the free variable; the 3 was not.
 
 **Flooring the displayed score at zero.** Kinder to a stuck team, and it breaks `score =
-SUM(awards)` in three places at once — the tile, the header and the showdown can then disagree
+SUM(awards)` in three places at once — the tile, the header and the league can then disagree
 with each other.
 
 **Never charging a hint below zero.** Inverts the joke: doing badly would make hints free, and

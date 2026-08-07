@@ -13,7 +13,7 @@
 // The find-order line is the only comparative number the site shows all night, against a
 // constraint locked in #8 that says it shows none. Deliberate, and narrow enough to be safe: it
 // ranks who walked furthest into a cupboard, not who is winning, and this page awards nothing. It
-// cannot leak the standings the showdown exists to reveal.
+// cannot leak the standings the league exists to reveal.
 //
 // COPY OWNERSHIP: the note is Dieter's, not an agent's. This is a draft in his shape, and the
 // map's "copy pass in the host's voice" is where it gets replaced. It does not name an age --

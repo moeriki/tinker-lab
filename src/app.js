@@ -97,20 +97,20 @@ import {
   allSubmissionsFor,
   award,
   awardHuntProgress,
-  endGame,
-  gameIsOver,
+  freezeGame,
+  gameIsFrozen,
   gameScore,
   hasDiscoveredHintCost,
   hintCost,
-  reopenGame,
+  unfreezeGame,
   rescore,
   revealNextHint,
   revealedHints,
-  showdownHasStarted,
+  gameHasEnded,
   standingBand,
   standings,
   standingsMessage,
-  startShowdown,
+  endGame,
   submissionsFor,
   teamScore,
 } from './scoring.js';
@@ -169,6 +169,16 @@ const MIME = {
   '.avif': 'image/avif',
 };
 
+/**
+ * How often the two host readouts redraw themselves (#79). Thirty seconds: long enough not to
+ * read as a flicker on a phone lying on a counter, short enough that "3 codes nobody has found"
+ * is still true when the host looks up.
+ *
+ * It applies to `/admin` and to `/league` for a host, and to nothing else on the site. Both are
+ * pure readouts -- no form, no typing -- which is the rule that lets them refresh at all.
+ */
+const ADMIN_REFRESH_SECONDS = 30;
+
 /** A team, or a bounce to the door. Used by the onboarding routes themselves. */
 const requireTeam = (req, res) => {
   const team = currentTeam(req);
@@ -206,31 +216,31 @@ const teamBar = (team) => {
 };
 
 /**
- * After game end the site is read-only for teams. One guard, one place.
+ * After the freeze the site is read-only for teams. One guard, one place.
  *
- * It sends them BACK rather than onward to the showdown, which is the whole of #77 in one line:
- * game end is the freeze and the showdown is a separate press that may still be an hour away, so
- * a stale submit at 00:20 must not publish a results page nobody has released yet. `backTo` is
- * the page they were already on, per ADR-the-page-you-are-on-is-the-stage -- nobody is routed to
- * the dashboard to be told something, and `endNotice()` is on both pages to do the telling.
+ * It sends them BACK rather than onward to `/league`, which is the whole of #77 in one line: the
+ * freeze is not the end, and the end is a separate press that may still be an hour away, so a
+ * stale submit at 00:20 must not publish a results page nobody has released yet. `backTo` is the
+ * page they were already on, per ADR-the-page-you-are-on-is-the-stage -- nobody is routed to the
+ * dashboard to be told something, and `endNotice()` is on both pages to do the telling.
  */
-const blockedByGameEnd = (res, backTo = '/') => {
-  if (!gameIsOver()) return false;
+const blockedByFreeze = (res, backTo = '/') => {
+  if (!gameIsFrozen()) return false;
   redirect(res, backTo);
   return true;
 };
 
 /**
  * What the night is doing, said on the team's own pages. Three states, and the middle one is the
- * reason this exists: between game end and the showdown a team keeps the board they spent five
- * hours on, every control on it dead, and nothing else on the page would say why.
+ * reason this exists: between the freeze and the end a team keeps the board they spent five hours
+ * on, every control on it dead, and nothing else on the page would say why.
  *
- * The line after the showdown is also the only thing on this site that points a guest at
- * `/showdown` -- the menu bar (#76) is where that link properly belongs, and this is what stops
- * the results being a page with no way in until it lands.
+ * The line after the end is also the only thing on this site that points a guest at `/league` --
+ * the menu bar (#76) is where that link properly belongs, and this is what stops the results
+ * being a page with no way in until it lands.
  */
 const endNotice = () => {
-  if (showdownHasStarted()) {
+  if (gameHasEnded()) {
     // The way on is a `.btn` and not a link inside the sentence. Written the other way first, and
     // it rendered as a raw purple underlined link: `app.css` styles anchors only as `.btn`,
     // because until this banner nothing on the guest side had ever put a link inside prose. The
@@ -238,9 +248,9 @@ const endNotice = () => {
     // button-shaped thing.
     return `<p class="banner"><strong>That's the night.</strong> The scores are final and the
         table is up.</p>
-      <a class="btn btn--primary" href="/showdown">see where you came</a>`;
+      <a class="btn btn--primary" href="/league">see where you came</a>`;
   }
-  if (gameIsOver()) {
+  if (gameIsFrozen()) {
     return `<p class="banner"><strong>Pens down.</strong> Nothing on this board will answer you
       now. The hosts are adding it all up, which should worry some of you more than others.</p>`;
   }
@@ -277,9 +287,9 @@ const noSuchCode = (res) => {
 function applyCode({ team, slug, target, deferred = false }) {
   // The scan is still recorded, so who was still hunting at midnight stays visible -- it just
   // buys nothing. They land on their own board, where `endNotice()` says which of the two endings
-  // the night is in; before #77 this went straight to `/showdown`, which published the results to
+  // the night is in; before #77 this went straight to `/league`, which published the results to
   // anybody who scanned a code in the gap.
-  if (gameIsOver()) {
+  if (gameIsFrozen()) {
     recordScan(team.id, slug, false);
     return '/';
   }
@@ -672,22 +682,23 @@ function afterOnboarding(req, res, team) {
  * can find them and where `/kit` reads them from too.
  *
  * Server-rendered on every page load and nothing else: no counts, no badges, nothing that could be
- * stale by the time it is read. A count on `court` was the obvious candidate and lost, because
- * this site polls nowhere but `/admin`.
+ * stale by the time it is read. A count on `court` was the obvious candidate and lost, and it
+ * still loses now that two pages refresh themselves (#79): the bar is on every page including the
+ * eleven that do not, so a number in it would be stale on nine of them.
  *
  * **A host is never a team.** Settled while resolving #76: one host runs the admin and does not
  * play, the other plays and is an ordinary guest. So the two bars never appear on one device and
  * no word has to mean two pages at once.
  *
- * **The reveal is the showdown, not the freeze** (#77), which is why this reads
- * `showdownHasStarted()` and not `gameIsOver()`. The gap between them is the hour in which the
+ * **The reveal is the end, not the freeze** (#77), which is why this reads
+ * `gameHasEnded()` and not `gameIsFrozen()`. The gap between them is the hour in which the
  * hosts finish the queue, and a guest whose bar had already sprouted `league` during it would be
  * one tap from an ending nobody has read out yet.
  */
 function navFor(req, here) {
   const items = chrome.menuFor({
     admin: isAdmin(req),
-    showdown: showdownHasStarted(),
+    ended: gameHasEnded(),
   });
 
   return navbar(items.map((item) => ({ ...item, here: item.href === here })));
@@ -893,7 +904,7 @@ function shootForm(game, { unit = null, face, primary = true, body = null }) {
             ${unit === null ? '' : `<input type="hidden" name="unit" value="${Number(unit)}">`}
             ${shoot({ face })}
             ${body ?? ''}
-            <button class="btn ${primary ? 'btn--primary' : ''}" ${gameIsOver() ? 'disabled' : ''}>send</button>
+            <button class="btn ${primary ? 'btn--primary' : ''}" ${gameIsFrozen() ? 'disabled' : ''}>send</button>
           </form>`;
 }
 
@@ -1035,7 +1046,7 @@ function cardStage(game, team, mine) {
   return `<p class="statusline">${named} of ${hand.length} named</p>
           <form class="stack" method="post" action="/g/${escape(game.id)}/submit">
             <ul class="units">${rows}</ul>
-            <button class="btn btn--primary" ${gameIsOver() ? 'disabled' : ''}>Save my guesses</button>
+            <button class="btn btn--primary" ${gameIsFrozen() ? 'disabled' : ''}>Save my guesses</button>
           </form>`;
 }
 
@@ -1087,7 +1098,7 @@ function herdStage(game, mine) {
   return `<p class="statusline">${answered} of ${questions.length} predicted</p>
           <form class="stack" method="post" action="/g/${escape(game.id)}/submit">
             <ul class="units">${rows}</ul>
-            <button class="btn btn--primary" ${gameIsOver() ? 'disabled' : ''}>Save my answers</button>
+            <button class="btn btn--primary" ${gameIsFrozen() ? 'disabled' : ''}>Save my answers</button>
           </form>`;
 }
 
@@ -1172,7 +1183,7 @@ function bingoStage(game, team) {
                 autocapitalize: 'characters',
               },
             })}
-            <button class="btn btn--primary" ${gameIsOver() ? 'disabled' : ''}>Sign it</button>
+            <button class="btn btn--primary" ${gameIsFrozen() ? 'disabled' : ''}>Sign it</button>
           </form>`;
 }
 
@@ -1292,7 +1303,7 @@ function showGame({ req, res, params, url }) {
                       ${game.form?.inputmode ? `inputmode="${escape(game.form.inputmode)}"` : ''}
                       value="${escape(draft || (game.kind === 'tally' ? '' : mine.at(-1)?.body ?? ''))}">`
                }
-               <button class="btn btn--primary" ${gameIsOver() ? 'disabled' : ''}>Submit</button>
+               <button class="btn btn--primary" ${gameIsFrozen() ? 'disabled' : ''}>Submit</button>
              </form>`;
   }
 
@@ -1324,7 +1335,7 @@ function showGame({ req, res, params, url }) {
             : ''
         }
         ${
-          remaining > 0 && !gameIsOver()
+          remaining > 0 && !gameIsFrozen()
             ? `<form method="post" action="/g/${escape(game.id)}/hint">
                  <input type="hidden" name="step" value="${step}">
                  <button class="btn btn--hint">Hint</button>
@@ -1554,7 +1565,7 @@ async function savePredictions({ req, res, team, game }) {
 async function submitToGame({ req, res, params }) {
   const team = requireOnboardedTeam(req, res);
   if (!team) return undefined;
-  if (blockedByGameEnd(res, `/g/${encodeURIComponent(params.gameId)}`)) return undefined;
+  if (blockedByFreeze(res, `/g/${encodeURIComponent(params.gameId)}`)) return undefined;
 
   const game = getGame(params.gameId);
   if (!game || !isUnlocked(team.id, game.id)) return html(res, notFound(), 404);
@@ -1757,7 +1768,7 @@ async function submitToGame({ req, res, params }) {
 async function revealHint({ req, res, params }) {
   const team = requireOnboardedTeam(req, res);
   if (!team) return undefined;
-  if (blockedByGameEnd(res, `/g/${encodeURIComponent(params.gameId)}`)) return undefined;
+  if (blockedByFreeze(res, `/g/${encodeURIComponent(params.gameId)}`)) return undefined;
 
   const game = getGame(params.gameId);
   if (!game || !isUnlocked(team.id, game.id)) return html(res, notFound(), 404);
@@ -1851,33 +1862,47 @@ function showPage({ req, res, params }) {
 }
 
 /**
- * Gated for a GUEST on the showdown having been STARTED, not on the game having ended -- the gap
- * between those two is the hour in which the hosts finish the queue and read the top three off
- * their own board, and this page existing during it would hand the room the ending early (#77).
+ * Gated for a GUEST on the night having ENDED, not on it having been frozen -- the gap between
+ * those two is the hour in which the hosts finish the queue, hand out the last points and read
+ * the top three off this page, and it existing for guests during that would hand the room the
+ * ending early (#77).
  *
  * **The admin cookie reaches it at any time** (#76). #8's rule that nothing comparative is ever
  * shown all night is a rule about guests; the person running the night is the one it was written
  * to protect, and they have to be able to read the rankings whenever they want -- including during
  * exactly that gap, which is when they are reading the top three off something.
+ *
+ * **This is the only board on the site now** (#79). `/admin` used to print one too, and printing
+ * it twice meant the host's phone could show two different orderings a few seconds apart. So the
+ * board moved here whole, and for a HOST this became a page that refreshes: it holds no form,
+ * nothing to press and nothing to lose, which is what makes it safe to leave open on a counter
+ * for five hours.
+ *
+ * A guest gets neither the refresh nor `still`. #78's rule that hosts and guests read the same
+ * results page is about what it SAYS, and that is identical; what differs is that a guest opens
+ * this once, at the end, and should get the arrival animation the rest of the site gave them --
+ * while a host who is watching it does not want it re-animating every thirty seconds.
  */
-function showShowdown({ req, res }) {
-  if (!showdownHasStarted() && !isAdmin(req)) return redirect(res, '/');
+function showLeague({ req, res }) {
+  if (!gameHasEnded() && !isAdmin(req)) return redirect(res, '/');
 
   return html(
     res,
     stub({
-      title: 'The showdown',
-      nav: navFor(req, '/showdown'),
-      owner: 'Admin dashboard and results showdown',
+      title: 'The league',
+      nav: navFor(req, '/league'),
+      owner: '/league is a stub, and nothing on the site can reach it',
       does: 'Final standings, winner badge and reveal animation.',
       data: standings(),
+      still: isAdmin(req),
+      refresh: isAdmin(req) ? ADMIN_REFRESH_SECONDS : 0,
     }),
   );
 }
 
 /**
  * The two surfaces the menu bar named before anybody built them (#76). Both are reachable only
- * after the reveal, and both bounce to `/` before it for `/showdown`'s reason: a link that lands
+ * after the reveal, and both bounce to `/` before it for `/league`'s reason: a link that lands
  * on an empty page is worse than a link that is not in the bar yet, and the bar does not offer
  * these until the game is over either way.
  *
@@ -1885,11 +1910,11 @@ function showShowdown({ req, res }) {
  * rule is that a route a later ticket owns renders an honest stub naming it, so that is what
  * these are -- the words `recap` and `shots` are settled, the pages behind them are not.
  *
- * Both gate on the showdown having been STARTED rather than on the game having ended, which is
- * `/showdown`'s own line (#77) and for its reason: the freeze is not the reveal.
+ * Both gate on the night having ENDED rather than merely being frozen, which is
+ * `/league`'s own line (#77) and for its reason: the freeze is not the reveal.
  */
 function showRecap({ req, res }) {
-  if (!showdownHasStarted()) return redirect(res, '/');
+  if (!gameHasEnded()) return redirect(res, '/');
 
   return html(
     res,
@@ -1903,7 +1928,7 @@ function showRecap({ req, res }) {
 }
 
 function showShots({ req, res }) {
-  if (!showdownHasStarted()) return redirect(res, '/');
+  if (!gameHasEnded()) return redirect(res, '/');
 
   return html(
     res,
@@ -1933,79 +1958,264 @@ function adminKey({ res, params }) {
   return redirect(res, '/admin');
 }
 
+/** How far into the night we are, counted from the first team through the door. */
+function nightSoFar() {
+  const first = get("select min(created_at) as at from teams where created_at is not null").at;
+  if (!first) return null;
+  const minutes = Math.max(0, Math.round((Date.now() - Date.parse(`${first}Z`)) / 60000));
+  const hours = Math.floor(minutes / 60);
+  return hours ? `${hours}h${String(minutes % 60).padStart(2, '0')} in` : `${minutes} min in`;
+}
+
 /**
- * The night's two endings, as whatever the state allows next and nothing else. The host at 01:00
- * is holding a drink and reading a phone in a loud room, so the page never shows both presses at
- * once and never shows a press that would be refused.
+ * Codes no team has ever scanned. THE number on this page, and the only one that sends the host
+ * to a room rather than to a thought (#79): at 23:00 a code nobody has found is behind a radiator
+ * or under a coat, and the fix is to walk over and move it.
  *
- * Ending is a bare button because it is a toggle and reopening costs nothing. The showdown is a
- * LINK to a confirm page rather than a button, which is the whole of its guard: it is
- * irreversible socially rather than technically, so what it needs is a sentence in front of it,
- * not a harder gate. A typed word on the RESET pattern was considered and rejected in #11 -- a
- * spelling test in front of the climax, at 01:00, with a room watching.
+ * A fraction was the obvious shape and it was the wrong one -- `18 / 21` is a thing you nod at.
+ * The count of what is missing is a thing you act on, and it is absent from the page entirely
+ * once it reaches zero.
+ *
+ * The COUNT and not the slugs, which was the first version and looked fine reasoning about the
+ * night and terrible on screen: before anyone has scanned anything this is all 22 of them, which
+ * drew a five-line block of random syllables at the top of the page and squeezed its own heading
+ * into six words on six lines. A slug says nothing anyway -- `k7rbt9` is not a place. `where` is
+ * the field that sends you to a room, and it is on `/admin/codes`, which is what this row is a
+ * door to.
  */
-const endControls = () => {
-  if (showdownHasStarted()) {
-    return `<p class="banner"><strong>The showdown is up.</strong> The game does not reopen from
-      here.</p>
-      <a class="btn" href="/showdown">the results</a>`;
-  }
-  if (gameIsOver()) {
-    return `<p class="banner"><strong>The game is frozen and the numbers are final.</strong>
-        Nothing has been published yet.</p>
-      <a class="btn btn--primary" href="/admin/showdown">start the showdown</a>
-      <form method="post" action="/admin/reopen">
-        <button class="btn">reopen the game</button>
-      </form>`;
-  }
-  return `<form method="post" action="/admin/end">
-      <button class="btn btn--primary">end the game</button>
-    </form>`;
+const unfoundCodes = () => {
+  const found = new Set(all('select distinct slug from scans').map((row) => row.slug));
+  return listCodes().filter(([slug]) => !found.has(slug));
 };
 
+/**
+ * Submissions sitting on a verdict a human owes. Only `manual` games can hold one: a `trust`
+ * submission is already paid, and `check`/`resolve` games write their own verdicts.
+ *
+ * Today this is ALWAYS ZERO -- nothing in the roster declares `manual`, which is #83's finding
+ * and the reason the queue is empty all night until it flips the two photo tiles over. Counting
+ * it honestly now means the number is right on the day #83 lands rather than a week later.
+ */
+const awaitingVerdict = () =>
+  listGames()
+    .filter((game) => judgingMode(game) === 'manual')
+    .reduce(
+      (total, game) =>
+        total +
+        get(
+          "select count(*) as count from submissions where game_id = ? and verdict = 'pending'",
+          game.id,
+        ).count,
+      0,
+    );
+
+/** One row of HQ: a label, a fact, and somewhere to go. */
+const hqRow = (href, label, note) =>
+  `<a class="hq-row" href="${href}"><span>${label}</span><span class="mono">${note}</span></a>`;
+
+/**
+ * HQ. A dashboard and nothing else (#79) -- no board, no forms, no judging, no lost-team
+ * detection.
+ *
+ * **No board.** It used to print every team and score as JSON in a `<pre>`, and the board now
+ * lives once, at `/league`, which the host reaches from the menu bar at any hour. Two boards on
+ * one phone can disagree for thirty seconds at a time, and the host asked for one.
+ *
+ * **No forms**, which is what buys the refresh. A page that reloads itself every thirty seconds
+ * cannot hold a text field -- it would eat a half-typed award reason at exactly the moment it was
+ * being typed -- so every control that needs typing is behind `/admin/controls`, and what is left
+ * here is a readout.
+ *
+ * **No "teams who look lost".** #11 asked for one and #79 cut it: an idle timer would flag half
+ * the room at midnight, because forty minutes of silence is two people drinking and talking, and
+ * a section that cries wolf is a section nobody reads. The host reads the board and thinks.
+ *
+ * **`waiting on you` is absent when there is nothing waiting**, which is most of the night. A
+ * heading over an empty list is the thing #36 called a lie with no rows under it.
+ */
 function adminBoard({ req, res }) {
   if (!requireAdmin(req, res)) return undefined;
 
-  const board = standings().map((team) => ({
-    ...team,
-    hunts: listGames()
-      .filter((game) => game.kind === 'hunt')
-      .map((game) => `${game.id}:${reachedStep(team.id, game)}/${stepCount(game)}`),
-    unjudged: get(
-      "select count(*) as count from submissions where team_id = ? and verdict = 'pending'",
-      team.id,
-    ).count,
-  }));
+  const teams = get('select count(*) as count from teams').count;
+  const elapsed = nightSoFar();
+  const unfound = unfoundCodes();
+  const waiting = awaitingVerdict();
 
-  // Every surface behind /admin/game/:id, one link each. Two real pages live there -- the photo
-  // gallery (#10) and the trophy panel (#36) -- and until now NOTHING linked to either, so the
-  // only way to judge a photograph or hand Teddy over was to type the game id into the address
-  // bar of a phone at 23:00. That is #36's note against #11, and it is a broken link rather than
-  // a design decision, so it is fixed here rather than waited on.
-  //
-  // A hunt is left out on purpose. It can never hold a submission, so its gallery would be the
-  // empty grid under "You judge these" that #36 called a lie with no rows under it.
+  const teddy = listGames().find((game) => game.kind === 'trophy');
+  const teddyHolders = teddy
+    ? get(
+        "select count(*) as count from awards where game_id = ? and kind = 'trophy' and points > 0",
+        teddy.id,
+      ).count
+    : 0;
+
+  // Both of these are jobs, so both vanish when there is no job. Teddy stays visible once handed
+  // over -- who is holding it is a fact worth a glance, and it is one row.
+  const jobs = [
+    waiting ? hqRow('/admin/court', 'court', `${waiting} waiting`) : '',
+    teddy
+      ? hqRow(
+          `/admin/game/${escape(teddy.id)}`,
+          escape(teddy.title),
+          teddyHolders ? `${teddyHolders} holding it` : 'nobody holding it',
+        )
+      : '',
+  ]
+    .filter(Boolean)
+    .join('');
+
+  // Every game with a surface behind /admin/game/:id, as small text rather than as buttons.
+  // Six of these will show a team a read-only list all night: they score themselves, and the
+  // page is for "I answered that and it did not save" (#79). Dressing them as eight jobs is what
+  // the old row of identical buttons did. Teddy is left out -- it is up in `jobs` already.
   const galleries = listGames()
     .filter((game) => takesForm(game) || game.kind === 'trophy')
-    .map(
-      (game) =>
-        `<a class="btn" href="/admin/game/${escape(game.id)}">${escape(game.title)}</a>`,
-    )
-    .join('');
+    .filter((game) => game.kind !== 'trophy')
+    .map((game) => `<a href="/admin/game/${escape(game.id)}">${escape(game.title)}</a>`)
+    .join(' &middot; ');
+
+  return html(
+    res,
+    layout({
+      title: 'HQ',
+      nav: navFor(req, '/admin'),
+      still: true, // it refreshes; a page that re-animates every thirty seconds cannot be read
+      refresh: ADMIN_REFRESH_SECONDS,
+      body: `
+        <p class="mono">${teams} team${teams === 1 ? '' : 's'}${elapsed ? ` &middot; ${elapsed}` : ''}</p>
+
+        ${
+          unfound.length
+            ? hqRow(
+                '/admin/codes',
+                '<strong>codes nobody has found</strong>',
+                String(unfound.length),
+              )
+            : ''
+        }
+
+        ${jobs ? `<h2 class="hq-heading">waiting on you</h2>${jobs}` : ''}
+
+        <a class="btn" href="/admin/controls">controls</a>
+
+        <p class="hq-galleries">look at a game's submissions:<br>${galleries}</p>
+      `,
+    }),
+  );
+}
+
+/**
+ * Everything with a consequence, on one page, off the menu bar (#79).
+ *
+ * It exists because HQ refreshes and therefore may not hold a form. That is the mechanical
+ * reason; the useful one is that these are the five things you press twice a night and never by
+ * accident, and keeping them off the page you glance at ten times an hour keeps your thumb away
+ * from them.
+ *
+ * The night's two presses are shown as whatever the state allows next and NOTHING else -- never
+ * both at once, never one that would be refused. The host at 01:00 is holding a drink and reading
+ * a phone in a loud room.
+ *
+ * **No typed words anywhere** (#79). The reset's `RESET` field is gone; a sentence on a page you
+ * had to navigate to is the guard, and the same shape now guards the end and the delete. What
+ * none of them is, is a JavaScript `confirm()`: this site's client JS is the arrival animation and
+ * the hint modal, and a control that destroys a night should not be the one thing needing a script
+ * to run.
+ */
+function adminControls({ req, res }) {
+  if (!requireAdmin(req, res)) return undefined;
+
+  const teams = all('select id, name from teams order by name');
+
+  let ending;
+  if (gameHasEnded()) {
+    ending = `<p class="banner"><strong>The night has ended and the league is up.</strong> It does
+        not go back from here.</p>
+      <a class="btn" href="/league">the league</a>`;
+  } else if (gameIsFrozen()) {
+    ending = `<p class="banner"><strong>Frozen. The numbers are final and nobody has seen
+        them.</strong> This is the gap: hand out anything you owe, then end the night.</p>
+      <a class="btn btn--primary" href="/admin/end">end the night</a>
+      <form method="post" action="/admin/unfreeze">
+        <button class="btn">unfreeze</button>
+      </form>`;
+  } else {
+    ending = `<p>Freezing stops every team submitting and scores the games that only resolve at
+        the end. It is a toggle and it costs nothing to undo.</p>
+      <form method="post" action="/admin/freeze">
+        <button class="btn btn--primary">freeze the game</button>
+      </form>`;
+  }
+
+  return html(
+    res,
+    layout({
+      title: 'Controls',
+      nav: navFor(req),
+      still: true, // admin surface
+      body: `
+        ${ending}
+
+        <h2 class="hq-heading">hand out points</h2>
+        <form class="stack stack--tight" method="post" action="/admin/award">
+          ${field({
+            label: 'which team',
+            name: 'team',
+            options: [
+              { value: '', label: '—' },
+              ...teams.map((team) => ({ value: String(team.id), label: team.name })),
+            ],
+            attrs: { required: true },
+          })}
+          ${field({ label: 'how many', name: 'points', type: 'number', value: '1', attrs: { required: true } })}
+          ${field({ label: 'what for', name: 'reason', attrs: { required: true } })}
+          <button class="btn">give</button>
+        </form>
+
+        <h2 class="hq-heading">repairs</h2>
+        <p>Recompute re-runs scoring over what teams have already done. It changes nothing that
+          was not already true, so it is safe to press as often as you like.</p>
+        <form method="post" action="/admin/rescore">
+          <button class="btn">recompute every score</button>
+        </form>
+
+        <h2 class="hq-heading">the dangerous end</h2>
+        <a class="btn" href="/admin/delete-team">delete a team</a>
+        <a class="btn" href="/admin/reset">reset the whole night</a>
+
+        <a class="btn btn--close" href="/admin">back to HQ</a>
+      `,
+    }),
+  );
+}
+
+/**
+ * Deleting a team is not a button, it is a feature with a blast radius, so this is an honest stub
+ * naming the ticket that owns it -- the same bargain `/recap` and `/shots` strike.
+ *
+ * What it is FOR is the door: two guests swap partners at 20:10, or a team registers twice. At
+ * that hour there is nothing to lose, which is why the ticket's guard is a count of what the team
+ * has done rather than a warning.
+ *
+ * What makes it more than a `delete from teams` is the two games built out of what OTHER guests
+ * answered at the door. `deals.ref` holds a member id belonging to another team, deliberately
+ * without a foreign key, so the cascade cannot see it: delete a team and every other team's dealt
+ * Guess Who cards still point at people who no longer exist, and `handFor()` renders them with a
+ * null name and an empty answer -- a blank square in a stranger's hand, counting against their
+ * ten, that they can never fill. Human Bingo has the same shape in strings, with the points
+ * already paid.
+ */
+function adminDeleteTeam({ req, res }) {
+  if (!requireAdmin(req, res)) return undefined;
 
   return html(
     res,
     stub({
-      title: 'Admin',
-      nav: navFor(req, '/admin'),
-      owner: 'Admin dashboard and results showdown',
-      does: 'Live board with polling, per-game galleries, judging, manual awards, end game.',
-      data: { gameOver: gameIsOver(), showdown: showdownHasStarted(), board },
-      still: true, // it polls; a page that re-animates every few seconds cannot be read
-      // The board is undesigned, the reset is not, and the host has to be able to reach it from
-      // here at 19:45. Whoever builds the real board (#79) inherits these links -- they are in
-      // CONTEXT.md's route table, which is where the inventory is settled rather than here.
-      extra: `${endControls()}${galleries}<a class="btn" href="/admin/reset">reset the game</a>`,
+      title: 'Delete a team',
+      nav: navFor(req),
+      owner: 'Deleting a team leaves holes in other teams’ games',
+      does: 'Remove a team registered by mistake, and everything the cascade cannot see.',
+      still: true, // admin surface
     }),
   );
 }
@@ -2064,7 +2274,7 @@ function trophyPanel(res, game) {
           <thead><tr><th>team</th><th>state</th><th></th></tr></thead>
           <tbody>${rows || '<tr><td colspan="3">No teams yet.</td></tr>'}</tbody>
         </table>
-        <a class="btn btn--close" href="/admin">back to the board</a>
+        <a class="btn btn--close" href="/admin">back to HQ</a>
       `,
     }),
   );
@@ -2158,7 +2368,7 @@ function adminGame({ req, res, params }) {
         <p class="statusline">${escape(explainer)}</p>
         <p class="statusline">${submissions.length} submission${submissions.length === 1 ? '' : 's'}</p>
         <div class="gallery">${cards || '<p>Nothing submitted yet.</p>'}</div>
-        <a class="btn btn--close" href="/admin">back to the board</a>
+        <a class="btn btn--close" href="/admin">back to HQ</a>
       `,
     }),
   );
@@ -2242,41 +2452,46 @@ async function adminAward({ req, res }) {
     sourceId: Date.now(), // manual awards accumulate rather than upserting over each other
   });
 
-  return redirect(res, '/admin');
+  return redirect(res, '/admin/controls');
 }
 
-const adminEnd = ({ req, res }) => {
+const adminFreeze = ({ req, res }) => {
   if (!requireAdmin(req, res)) return undefined;
-  endGame();
-  return redirect(res, '/admin');
+  freezeGame();
+  return redirect(res, '/admin/controls');
 };
 
-const adminReopen = ({ req, res }) => {
+const adminUnfreeze = ({ req, res }) => {
   if (!requireAdmin(req, res)) return undefined;
-  // Refused once the showdown is up; `endControls()` stops offering it there, so reaching this is
-  // a stale tab. Either way the host lands back on a board that says which ending they are in.
-  reopenGame();
-  return redirect(res, '/admin');
+  // Refused once the night has ended; `/admin/controls` stops offering it there, so reaching this
+  // is a stale tab. Either way the host lands back on the page that says which state they are in.
+  unfreezeGame();
+  return redirect(res, '/admin/controls');
 };
 
 /**
  * The sentence in front of the second press. It is not a gate -- one tap gets past it -- and that
- * is the design: what makes the showdown irreversible is thirteen phones having been looked at,
- * which no confirmation can undo, so the only useful thing to put here is the checklist the hosts
- * would otherwise be running from memory at 01:00.
+ * is the design: what makes the end irreversible is thirteen phones having been looked at, which
+ * no confirmation can undo, so the only useful thing to put here is the checklist the hosts would
+ * otherwise be running from memory at 01:00.
+ *
+ * It earns its place for a reason the checklist does not say out loud (#79): the gap between the
+ * freeze and the end is exactly when the host is on `/admin/controls` handing out final points,
+ * which puts their thumb repeatedly on the same screen as the press that ends the gap. This is
+ * the one arrangement where a stray tap is plausible rather than theoretical.
  *
  * Redirects rather than renders in both dead ends: pressed too early there is nothing to publish,
- * and pressed twice the results themselves are the better answer than a page asking again.
+ * and pressed twice the league itself is the better answer than a page asking again.
  */
-function adminShowdown({ req, res }) {
+function adminEndPage({ req, res }) {
   if (!requireAdmin(req, res)) return undefined;
-  if (showdownHasStarted()) return redirect(res, '/showdown');
-  if (!gameIsOver()) return redirect(res, '/admin');
+  if (gameHasEnded()) return redirect(res, '/league');
+  if (!gameIsFrozen()) return redirect(res, '/admin');
 
   return html(
     res,
     layout({
-      title: 'The showdown',
+      title: 'End the night',
       still: true, // admin surface
       body: `
         <p class="banner"><strong>This puts the final table on every phone in the house.</strong>
@@ -2290,26 +2505,26 @@ function adminShowdown({ req, res }) {
           <li>Have you read the top three out?</li>
         </ul>
         <p>Do that first. The button publishes; the announcement is yours.</p>
-        <form method="post" action="/admin/showdown">
-          <button class="btn btn--primary" type="submit">start the showdown</button>
+        <form method="post" action="/admin/end">
+          <button class="btn btn--primary" type="submit">end the night</button>
         </form>
-        <a class="btn btn--close" href="/admin">back to the board</a>
+        <a class="btn btn--close" href="/admin/controls">back to the controls</a>
       `,
     }),
   );
 }
 
-/** Straight to the results, which is the page the hosts are about to be reading from. */
-const adminShowdownConfirm = ({ req, res }) => {
+/** Straight to the league, which is the page the hosts are about to be reading from. */
+const adminEndConfirm = ({ req, res }) => {
   if (!requireAdmin(req, res)) return undefined;
-  if (!startShowdown()) return redirect(res, '/admin');
-  return redirect(res, '/showdown');
+  if (!endGame()) return redirect(res, '/admin');
+  return redirect(res, '/league');
 };
 
 const adminRescore = ({ req, res }) => {
   if (!requireAdmin(req, res)) return undefined;
   rescore();
-  return redirect(res, '/admin');
+  return redirect(res, '/admin/controls');
 };
 
 /**
@@ -2373,7 +2588,7 @@ function adminCodes({ req, res }) {
         </table>
         <p class="mono">Print: <code>node scripts/qr-sheet.js</code> &middot;
           reprint one: <code>node scripts/qr-sheet.js --only=&lt;slug&gt;</code></p>
-        <a class="btn btn--close" href="/admin">back to the board</a>
+        <a class="btn btn--close" href="/admin">back to HQ</a>
       `,
     }),
   );
@@ -2389,15 +2604,19 @@ function ago(minutes) {
 }
 
 /**
- * The reset, as a page rather than a button on the board.
+ * The reset, as a page rather than a button.
  *
- * That is the first of its three guards and the cheapest: the board carries a link, and a link
- * destroys nothing. The second is this page, which counts what it is about to clear and says when
- * somebody last played -- see src/reset.js for why that sentence is the one doing the work. The
- * third is the typed word, because a page reached by one tap can be dismissed by another, and a
- * five-letter word on a phone keyboard is a decision rather than a twitch.
+ * That is the first of its two guards and the cheapest: `/admin/controls` carries a link, and a
+ * link destroys nothing. The second is this page, which counts what it is about to clear and says
+ * when somebody last played -- see src/reset.js for why that sentence is the one doing the work.
  *
- * None of the three is a confirm dialog, deliberately: this site's client JS is animation and the
+ * **There used to be a third, and #79 removed it.** The form asked you to type RESET, on the
+ * reasoning that a page reached by one tap can be dismissed by another. The host's rule is that
+ * nothing on this site asks anyone to spell anything: a plain confirmation is enough for anything
+ * dangerous, and this page is already a plain confirmation with a number on it. A spelling test
+ * at 19:45 on a phone was a guard against a mistake nobody had made.
+ *
+ * Neither guard is a confirm dialog, deliberately: this site's client JS is animation and the
  * hint modal, and `confirm()` would be the one place a control depended on a script running.
  */
 function adminReset({ req, res, url }) {
@@ -2405,7 +2624,6 @@ function adminReset({ req, res, url }) {
 
   const state = whatWouldBeCleared();
   const kept = url.searchParams.get('kept');
-  const wrong = url.searchParams.has('wrong');
 
   const row = (label, value) =>
     `<tr><th>${escape(label)}</th><td class="mono">${escape(String(value))}</td></tr>`;
@@ -2413,10 +2631,6 @@ function adminReset({ req, res, url }) {
   const done = kept
     ? `<p class="banner"><strong>Cleared.</strong> The night before this one is in
         <code>data/resets/${escape(kept)}</code>.</p>`
-    : '';
-
-  const refused = wrong
-    ? `<p class="banner banner--bad">That was not the word. Nothing was cleared.</p>`
     : '';
 
   const activity = state.teams
@@ -2432,7 +2646,6 @@ function adminReset({ req, res, url }) {
       still: true, // admin surface
       body: `
         ${done}
-        ${refused}
         <p class="banner banner--bad">This empties the board.</p>
         ${activity}
         <table class="board">
@@ -2450,33 +2663,27 @@ function adminReset({ req, res, url }) {
           <code>data/resets/</code> first, so a mistake here is recoverable &mdash; see
           <code>MM-HANDOFF.md</code>.</p>
         <form method="post" action="/admin/reset">
-          ${field({
-            label: 'Type RESET to confirm',
-            name: 'confirm',
-            attrs: { autocomplete: 'off', autocapitalize: 'characters', autocorrect: 'off' },
-          })}
           <button class="btn btn--primary" type="submit">reset the game</button>
         </form>
-        <a class="btn btn--close" href="/admin">back to the board</a>
+        <a class="btn btn--close" href="/admin">back to HQ</a>
       `,
     }),
   );
 }
 
 /**
- * Redirects either way rather than rendering, so the one page in this site that can destroy five
- * hours of a party is never sitting behind a form resubmission. A refused word goes back to the
- * page with `?wrong`; a successful one comes back naming the directory the old night went into,
- * which doubles as the proof it worked -- the counts above it are now zero.
+ * Redirects rather than rendering, so the one page in this site that can destroy five hours of a
+ * party is never sitting behind a form resubmission. It comes back naming the directory the old
+ * night went into, which doubles as the proof it worked -- the counts above it are now zero.
+ *
+ * **The typed word is gone** (#79). No control on this site asks anyone to spell anything any
+ * more: the host's rule is a plain confirmation for anything dangerous, and this page already IS
+ * one. Two guards remain and they are the two that were doing the work -- it is a page rather
+ * than a button, so a tap on HQ destroys nothing, and it says how long ago somebody last played,
+ * which is the line that separates 19:45 from 23:00.
  */
 async function adminResetConfirm({ req, res }) {
   if (!requireAdmin(req, res)) return undefined;
-
-  const form = await readForm(req);
-  // Trimmed and lowercased because phone keyboards capitalise and add a space, and refusing a
-  // host who typed the right word is a worse outcome than accepting `reset `.
-  const typed = String(form.get('confirm') ?? '').trim().toLowerCase();
-  if (typed !== 'reset') return redirect(res, '/admin/reset?wrong=1');
 
   return redirect(res, `/admin/reset?kept=${encodeURIComponent(resetGame())}`);
 }
@@ -2573,21 +2780,23 @@ const routes = [
   route('POST', '/g/:gameId/hint', revealHint),
   route('GET', '/rules', showRules),
   route('GET', '/p/:pageId', showPage),
-  route('GET', '/showdown', showShowdown),
+  route('GET', '/league', showLeague),
   route('GET', '/recap', showRecap),
   route('GET', '/shots', showShots),
 
   route('GET', '/admin/key/:secret', adminKey),
   route('GET', '/admin', adminBoard),
+  route('GET', '/admin/controls', adminControls),
+  route('GET', '/admin/delete-team', adminDeleteTeam),
   route('GET', '/admin/court', adminCourt),
   route('GET', '/admin/game/:gameId', adminGame),
   route('POST', '/admin/judge', adminJudge),
   route('POST', '/admin/trophy', adminTrophy),
   route('POST', '/admin/award', adminAward),
-  route('POST', '/admin/end', adminEnd),
-  route('POST', '/admin/reopen', adminReopen),
-  route('GET', '/admin/showdown', adminShowdown),
-  route('POST', '/admin/showdown', adminShowdownConfirm),
+  route('POST', '/admin/freeze', adminFreeze),
+  route('POST', '/admin/unfreeze', adminUnfreeze),
+  route('GET', '/admin/end', adminEndPage),
+  route('POST', '/admin/end', adminEndConfirm),
   route('POST', '/admin/rescore', adminRescore),
   route('GET', '/admin/codes', adminCodes),
   route('GET', '/admin/reset', adminReset),

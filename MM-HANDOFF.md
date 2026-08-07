@@ -146,7 +146,7 @@ cp .env.example .env
 
 | Variable | Required | Notes |
 | --- | --- | --- |
-| `ADMIN_SECRET` | **yes** | The host visits `/admin/key/<this>` once to claim the admin cookie. Generate it: `openssl rand -hex 24`. Anyone holding it can end the game and rewrite scores. |
+| `ADMIN_SECRET` | **yes** | The host visits `/admin/key/<this>` once to claim the admin cookie. Generate it: `openssl rand -hex 24`. Anyone holding it can freeze the game, publish the league and rewrite scores. |
 | `BIND_ADDR` | **required here, already filled in** | `192.168.129.201`. Pre-set in `.env.example` so the copy above just works. Not a fallback — without it the proxy answers 502 every time. Reasoning in step 5. |
 | `HA_WEBHOOK_URL` | no | One fully-qualified HA webhook URL, id included. Unset is valid — the hunt still works, the lights just stay put. See below. **Leave it empty for a first deploy**; the lights are a separate job. |
 | `PORT` | no | Defaults to `3040`. |
@@ -691,9 +691,9 @@ docker compose start bday
 
 ### Clearing the practice night
 
-The host does this himself, from his phone, shortly before guests arrive: `/admin` → **reset the
-game** → type `RESET`. It empties every team, answer, photograph and point, so the party does not
-start on top of the rehearsal. You do not need a shell for it, and you should not need to do it at
+The host does this himself, from his phone, shortly before guests arrive: `/admin` → **controls**
+→ **reset the whole night** → **reset the game**. It empties every team, answer, photograph and
+point, so the party does not start on top of the rehearsal. You do not need a shell for it, and you should not need to do it at
 all — it is here because it is the one button that can also be pressed by accident at 23:00.
 
 **It deletes nothing.** Before emptying anything it snapshots the database and *moves* the uploads

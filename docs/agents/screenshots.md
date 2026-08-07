@@ -19,8 +19,17 @@ node scripts/screenshot.js /kit /no-such-code   # any routes you like
 node scripts/screenshot.js --reduced-motion /   # the frozen marquee
 node scripts/screenshot.js --full /kit          # the whole page, not just the fold
 node scripts/screenshot.js --out shots /        # somewhere you choose, instead of a temp dir
+node scripts/screenshot.js --admin /admin      # as the host, not as a stranger
 node scripts/screenshot.js --base https://bday.moeriki.com /   # the real deploy
 ```
+
+**`--admin` is not optional for an admin route, it is the difference between seeing the page and
+seeing a 404.** Every `/admin/*` route answers a stranger with the 404 page rather than a login
+(ADR-admin-is-a-one-time-secret-url), so a cold shot of `/admin` returns *there is no rule 4
+either* — a real screenshot of the wrong page, which is exactly the shape of thing a session reads
+as the answer. The flag visits `/admin/key/<secret>` first, the way a host does. Added by
+[#79](https://github.com/moeriki/tinker-lab/issues/79), which built two admin pages nobody could
+look at.
 
 It prints the path of every PNG it writes. Nothing is installed, `node_modules` stays empty, and it
 needs no human at the keyboard — so it works in a background session and in a parallel worktree.
@@ -88,7 +97,7 @@ standing colours (`#0a7a0a`, `#a35b00`, `#8a0d0d`) — they appear one band at a
 real score to reach.
 
 The `ending` flow reaches the other state nobody can browse to: **01:00**. It presses
-`/admin/end`, sits in the gap with a frozen board, then presses `/admin/showdown` — so the two
+`/admin/freeze`, sits in the gap with a frozen board, then presses `/admin/end` — so the two
 endings, the locked dashboard and the confirm page are all photographable. It holds both cookies at
 once, which is what the hosts actually have on the night.
 

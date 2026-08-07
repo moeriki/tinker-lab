@@ -110,7 +110,7 @@ export const STATUS_SLOTS = 2;
 
 /**
  * The sunburst on `/rules`, sitting beside the block that explains the points. Its own words are
- * about points, which is why that page and not the showdown: the disclaimer undercuts the
+ * about points, which is why that page and not `/league`: the disclaimer undercuts the
  * arithmetic the page has just finished doing, four inches away.
  *
  * "100% REAL POINTS" is deliberately absent from the marquee above. Both would be on screen at
@@ -145,7 +145,7 @@ export const stamp = 'DO NOT LOSE THIS PHONE';
  * handler where nobody looking for the site's words would think to look.
  *
  * `who` and `when`, and nothing else -- no request, no database. `navFor()` in `src/app.js` reads
- * the admin cookie and `showdownHasStarted()` and hands the two booleans down; `/kit` calls the
+ * the admin cookie and `gameHasEnded()` and hands the two booleans down; `/kit` calls the
  * same function with them typed by hand, which is what stops the kit demoing a menu the site has
  * never rendered.
  *
@@ -158,8 +158,8 @@ export const stamp = 'DO NOT LOSE THIS PHONE';
  * sketch -- `dashboard queue results highlights gallery` -- came to 41 and did not fit, which is
  * how the words got cut rather than the type size.
  */
-export const menuFor = ({ admin, showdown }) => {
-  const ending = showdown
+export const menuFor = ({ admin, ended }) => {
+  const ending = ended
     ? [
         { href: '/recap', label: 'recap' },
         { href: '/shots', label: 'shots' },
@@ -174,18 +174,18 @@ export const menuFor = ({ admin, showdown }) => {
     return [
       { href: '/admin', label: 'HQ' },
       { href: '/admin/court', label: 'court' },
-      { href: '/showdown', label: 'league' },
+      { href: '/league', label: 'league' },
       ...ending,
     ];
   }
 
-  // A guest has no bar at all until the showdown is up -- the tiles are the navigation, and this
+  // A guest has no bar at all until the night has ended -- the tiles are the navigation, and this
   // list is empty for five of the night's five hours.
-  if (!showdown) return [];
+  if (!ended) return [];
 
   return [
     { href: '/', label: 'games' },
-    { href: '/showdown', label: 'league' },
+    { href: '/league', label: 'league' },
     ...ending,
   ];
 };

@@ -267,7 +267,7 @@ const RENDERERS = {
   navbar: (a) =>
     navbar(
       chrome
-        .menuFor({ admin: a.who === 'host', showdown: a.showdown === 'up' })
+        .menuFor({ admin: a.who === 'host', ended: a.ended === 'up' })
         .map((item) => ({ ...item, here: item.label === a.here })),
     ),
 
@@ -462,6 +462,9 @@ const OFF_REMIT = {
     'submission--pending',
     'submission__body',
     'submission__who',
+    'hq-row',
+    'hq-heading',
+    'hq-galleries',
   ],
 };
 

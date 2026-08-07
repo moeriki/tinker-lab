@@ -37,27 +37,27 @@ every page that had no menu before this ticket lays out exactly as it did.
 
 | who | when | bar |
 | --- | --- | --- |
-| guest | until the showdown is published | *nothing* |
-| guest | once the showdown is up | `games` `league` `recap` `shots` |
+| guest | until the night has ended | *nothing* |
+| guest | once the night has ended | `games` `league` `recap` `shots` |
 | host | all night | `HQ` `court` `league` |
-| host | once the showdown is up | `HQ` `court` `league` `recap` `shots` |
+| host | once the night has ended | `HQ` `court` `league` `recap` `shots` |
 
-**The reveal is the showdown, not the freeze.**
+**The reveal is the end, not the freeze.**
 [#77](https://github.com/moeriki/tinker-lab/issues/77) landed while this was being built and split
-the ending in two — running → ended → showdown — and the bar gates on the second. The gap between
+the ending in two — running → frozen → ended — and the bar gates on the second. The gap between
 them is the hour in which the hosts finish the queue, and a guest whose bar had already sprouted
 `league` during it would be one tap from an ending nobody has read out yet.
 
 **Which links a request gets is decided by the server on every page load, and nothing else** — no
 counts, no badges, nothing that could be stale by the time it is read. `navFor()` in `src/app.js`
-picks the items from the admin cookie and `showdownHasStarted()`; `navbar()` in `src/render.js` draws them,
+picks the items from the admin cookie and `gameHasEnded()`; `navbar()` in `src/render.js` draws them,
 so the one file here that never opens the database still doesn't. Same seam as `bar`.
 
-**`/showdown` opens to the admin cookie at any time.**
+**`/league` opens to the admin cookie at any time.**
 [#8](https://github.com/moeriki/tinker-lab/issues/8) locked out showing a *guest* anything
 comparative all night; the person running the night has to be able to read the rankings whenever
 they want — including during #77's gap, which is precisely when they are reading the top three off
-something. A guest is still bounced to `/` until the showdown is published.
+something. A guest is still bounced to `/` until the night has ended.
 
 **The page you are standing on wears a solid lime block**, plus `aria-current="page"`. Five flat
 words in a loud room at one in the morning are five identical words.
@@ -100,7 +100,7 @@ because this site polls nowhere but `/admin`, so a count is only true at page lo
 `court 7` on a page opened ten minutes ago is a small lie in the one place that must not tell them.
 The numbers live on the board, which does poll.
 
-**No guest bar at all**, with the showdown carrying links onward to the other three. Rejected: the
+**No guest bar at all**, with `/league` carrying links onward to the other three. Rejected: the
 four end-of-night surfaces are ones guests move *between*, and a guest deep in the photographs would
 have no one-tap route back out.
 
@@ -108,14 +108,14 @@ have no one-tap route back out.
 
 [#77](https://github.com/moeriki/tinker-lab/issues/77) landed mid-build and anticipated this ticket
 in a comment: the guest board's `see where you came` button was, it said, *"the only thing on this
-site that points a guest at `/showdown` — the menu bar (#76) is where that link properly belongs"*.
+site that points a guest at `/league` — the menu bar (#76) is where that link properly belongs"*.
 
 **Both stay.** They are not the same thing. The button appears once, in a banner, at the moment the
 table goes up: it is the invitation, and it is a moment. The bar is the way back afterwards, from
 wherever a guest has wandered to. Deleting the button would delete the announcement and leave the
 reveal arriving silently.
 
-Opening `/showdown` to the admin also broke three of #77's own checks, and they were right to
+Opening `/league` to the admin also broke three of #77's own checks, and they were right to
 break: its `ending` flow hands the walker both cookies, so it was asking whether the results were
 being kept back of the one visitor they are not kept back from, and passing by accident. Those
 checks now run before the admin cookie is in the jar, and the frozen-game one empties the jar and

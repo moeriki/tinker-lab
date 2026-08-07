@@ -454,7 +454,7 @@ so a team that scans everything and submits nothing scores 0. Hunts are the deli
 because there the walking **is** the mechanic.
 
 **Scores may go negative.** Hints are the only debit, and nothing clamps: `score = SUM(awards)`
-stays literally true, with no special case in the tile, the header or the showdown.
+stays literally true, with no special case in the tile, the header or the league.
 See [ADR-the-tile-is-the-unit-of-value](docs/adr/the-tile-is-the-unit-of-value.md).
 
 ### Standing
@@ -483,7 +483,8 @@ they are fourth or eleventh. Ties take the better band, and the first team to sc
 all leads immediately — there is no podium made of zeroes.
 
 > Not "rank", not "leaderboard". A team has a **standing**, which is one of four sentences. The
-> true board exists only at `/admin`, and the numbers only ever come out at the showdown.
+> true board exists only at `/league`, which the admin cookie reaches at any hour and a guest
+> cannot see until the night has ended.
 
 ### Hint reveal
 
@@ -545,43 +546,81 @@ A **`trophy` has no judging mode at all**, and declaring one is a boot error: a 
 *submissions* become points, and a trophy has none. Its admin page is the team list, not a
 gallery.
 
-### Game end, and the showdown
+### HQ, and the controls
+
+The two halves of the admin surface, split by [#79](https://github.com/moeriki/tinker-lab/issues/79)
+along one line: **a page that refreshes itself may not carry a form.**
+
+**HQ** is `/admin` — a dashboard and nothing else. How many teams, how long the night has run, how
+many codes nobody has found, and what is waiting on a human. It carries **no board**: the board
+lives once, at `/league`, which the host reaches from the menu bar at any hour. It carries **no
+form**, which is what buys it a 30-second refresh. And it carries **no "teams who look lost"** —
+#11 asked for one and #79 cut it, because a quiet team is not a lost team and an idle timer would
+flag half the room at midnight.
+
+Its one number is **codes nobody has found**, and it is the only thing on the page that sends the
+host to a room rather than to a thought. A count and not a fraction — `18 / 21` is a thing you nod
+at — and not the slugs either, because `k7rbt9` is not a place. `where` is the field that sends you
+somewhere and it is on `/admin/codes`, which the row is a door to.
+
+**The controls** are `/admin/controls`, off the menu bar: freeze/unfreeze, end, hand out points,
+recompute, delete a team, reset. Everything with a consequence, on the page you visit twice a night
+— which keeps your thumb away from it on the page you glance at ten times an hour.
+
+> **The refresh is new, and the claim was not.** Three comments in this repository said `/admin`
+> polls, including the one explaining why the admin board drops the marquee, and no page had ever
+> carried a timer or a meta refresh. It is a `<meta http-equiv="refresh">` on the two pure
+> readouts — `/admin`, and `/league` for a host — because client JS here is animation and the hint
+> modal.
+
+### The freeze, and the end
 
 **The night ends twice**, and the gap between the two is deliberate — see
 [ADR-the-night-ends-twice](docs/adr/the-night-ends-twice.md). Two rows in the `settings` key/value
-table, `game_ended_at` and `showdown_at`, and three states in one order: **running → ended →
-showdown**. Only the first arrow goes both ways.
+table, `frozen_at` and `ended_at`, and three states in one order: **running → frozen → ended**.
+Only the first arrow goes both ways. Both presses live on `/admin/controls`, which shows whichever
+one the state allows and never the other.
 
-**Game end** is the freeze. Stamped when the host presses **end the game**; in one transaction it
-writes the timestamp and runs every game's `resolve()`, which is what makes the numbers final —
-Herd Mentality, Guess Who and the Triangle Test do not have a score until it runs.
+**The freeze** stops the players. Stamped when the host presses **freeze the game**; in one
+transaction it writes the timestamp and runs every game's `resolve()`, which is what makes the
+numbers final — Herd Mentality, Guess Who and the Triangle Test do not have a score until it runs.
 
 After it, the site is **read-only for teams**: every mutating POST — submit, hint, and any scan
 that would unlock or advance — is refused and lands the team back on the page it came from. Scans
 are still recorded, so you can see who was still hunting at midnight; they just buy nothing. Teams
 **keep their own dashboard**, tiles and all, with a banner saying why nothing responds.
 
-**Reversible, and no confirm.** Reopening clears the timestamp; resolvers are idempotent, so
-ending, reopening and re-ending land on the same numbers.
+**Reversible, and no confirm.** Unfreezing clears the timestamp; resolvers are idempotent, so
+freezing, unfreezing and re-freezing land on the same numbers.
 
-**The showdown** is the publish, and nothing else: it computes nothing and freezes nothing, both
-of which already happened. It writes `showdown_at` and that is the only thing gating `/showdown`.
-Behind a **confirm page** rather than a typed word — it is irreversible socially rather than
-technically, so what it needs is a sentence in front of it, not a harder gate.
+**The end** is the publish, and nothing else: it computes nothing and freezes nothing, both of
+which already happened. It writes `ended_at` and that is the only thing gating `/league` for a
+guest. Behind a **confirm page** — it is irreversible socially rather than technically, so what it
+needs is a sentence in front of it, not a harder gate.
 
-**The announcement has no trigger.** The hosts hold the true board all night and read the top three
-off it whenever they like; the button only publishes.
+> **"End" means the second press**, which is the opposite of what this file said until
+> [#79](https://github.com/moeriki/tinker-lab/issues/79) — *game end* used to be the freeze.
+> Nothing ends for a guest at press one; they just find the buttons dead. Not "lock": a signature
+> card locks for 30 minutes and Teddy is in a lockbox, and one word cannot mean three things.
 
-Once the showdown is up, **the game does not reopen** — `reopenGame()` refuses and the button is
-gone. Publishing final standings for a game that is accepting answers again is the one state this
-split exists to make unreachable.
+**The gap is where the hosts work.** Between the two presses the numbers are final and nobody has
+seen them: that is when they empty the queue, hand out anything they owe with the freehand award,
+and read the top three off `/league` — which the admin cookie has reached all night.
+
+**The announcement has no trigger.** The hosts read the top three whenever they like; the button
+only publishes.
+
+Once the night has ended, **the game does not unfreeze** — `unfreezeGame()` refuses and the button
+is gone. Publishing final standings for a game that is accepting answers again is the one state
+this split exists to make unreachable.
 
 ### Reset
 
-The other end of the night from game end, and the only control that empties the board: **every
+The other end of the night from the freeze, and the only control that empties the board: **every
 table in the database, and the uploads directory with them**. Pressed once, shortly before guests
-arrive, to get the rehearsal out of the way — but it is a live control on `/admin/reset`, not a dev
-tool, because 19:45 on a phone is when it is needed and a shell on Tower is not reachable then.
+arrive, to get the rehearsal out of the way — but it is a live control on `/admin/reset`, reached
+from `/admin/controls`, not a dev tool: 19:45 on a phone is when it is needed and a shell on Tower
+is not reachable then.
 
 **What it clears is not a list.** The database holds player data *only* — content is files in this
 repository — so a reset empties whatever tables `sqlite_master` reports, read at the moment it
@@ -593,12 +632,19 @@ both into `$DATA_DIR/resets/<timestamp>/`, before a row is emptied. That is what
 have on the board at 23:00: the worst a mis-press does is file the night away, restorable by the
 recipe in `MM-HANDOFF.md`.
 
-**Three guards, no dialog.** It is a page rather than a button, so one tap destroys nothing; the
+**Two guards, no dialog.** It is a page rather than a button, so one tap destroys nothing; and the
 page counts what it would clear and says **how long ago somebody last played**, which is the line
-that separates a rehearsal from a party in progress; and the form takes the typed word `RESET`. It
-states the risk and never refuses — at 19:45 the recent activity is the host's own testing, and a
-machine that blocked him then would be wrong. Deliberately no `confirm()`: client JS here is
-animation and the hint modal, and this is the last control that should need a script to run.
+that separates a rehearsal from a party in progress. It states the risk and never refuses — at
+19:45 the recent activity is the host's own testing, and a machine that blocked him then would be
+wrong.
+
+There was a **third guard and [#79](https://github.com/moeriki/tinker-lab/issues/79) removed it**:
+the form used to take the typed word `RESET`. **Nothing on this site asks anyone to spell anything
+any more** — a plain confirmation is enough for anything dangerous, and a page that already counts
+what it is about to destroy *is* one. The rule reaches the end and the delete too.
+
+Still deliberately no `confirm()`: client JS here is animation and the hint modal, and a control
+that files away five hours of a party should not be the one thing needing a script to run.
 
 ### Profile answer
 
@@ -702,9 +748,9 @@ Team-facing:
 | POST | `/g/:gameId/hint` | reveal next hint, write the negative award | PRG |
 | GET | `/rules` | rules; the hidden hint rule appears after the first reveal | ✓ |
 | GET | `/p/:pageId` | gag and hidden pages | ✓ |
-| GET | `/showdown` | final standings, once the **showdown has been started** — not merely once the game has ended. The admin cookie reaches it at any time ([ADR-the-menu-bar-is-pinned-to-the-bottom](docs/adr/the-menu-bar-is-pinned-to-the-bottom.md)) | ✓ |
-| GET | `/recap` | the night played back from its own material; once the showdown has started. Honest stub, owned by #81 | ✓ |
-| GET | `/shots` | every photograph of the night, open to the teams; once the showdown has started. Honest stub, owned by #80 | ✓ |
+| GET | `/league` | the board: every team, ranked. Once the night has **ended** — not merely once it is frozen. The admin cookie reaches it at any time ([ADR-the-menu-bar-is-pinned-to-the-bottom](docs/adr/the-menu-bar-is-pinned-to-the-bottom.md)), and refreshes it every 30s. Honest stub, owned by #78 | ✓ |
+| GET | `/recap` | the night played back from its own material; once the night has ended. Honest stub, owned by #81 | ✓ |
+| GET | `/shots` | every photograph of the night, open to the teams; once the night has ended. Honest stub, owned by #80 | ✓ |
 
 Admin, all behind one cookie gate
 ([ADR-admin-is-a-one-time-secret-url](docs/adr/admin-is-a-one-time-secret-url.md)):
@@ -712,18 +758,20 @@ Admin, all behind one cookie gate
 | method | route | what |
 | --- | --- | --- |
 | GET | `/admin/key/:secret` | set the admin cookie, redirect to `/admin` |
-| GET | `/admin` | live board: teams, scores, hunt progress, unjudged count |
+| GET | `/admin` | **HQ**: the host's dashboard. Team count, how long the night has run, how many codes nobody has found, and what is waiting on a human. Refreshes every 30s, which is why it holds no form |
+| GET | `/admin/controls` | everything with a consequence, on one page and off the menu bar: freeze/unfreeze, end, hand out points, recompute, delete a team, reset |
+| GET | `/admin/delete-team` | remove a team registered by mistake. Honest stub, owned by #93 |
 | GET | `/admin/court` | everything waiting on a human verdict, across all games, in one list. Honest stub, owned by #83 |
 | GET | `/admin/game/:gameId` | the gallery: every submission for one game, with the actions its judging mode calls for — or, for a `trophy`, the team list with one button each |
 | POST | `/admin/judge` | verdict + award on one submission; rejecting writes a zero rather than deleting, so re-judging upserts |
 | POST | `/admin/trophy` | hand a trophy over, or take it back (which writes a zero) |
 | POST | `/admin/award` | manual points to a team |
-| POST | `/admin/end` · `/admin/reopen` | the freeze, and its undo. Reopening is refused once the showdown is up |
-| GET | `/admin/showdown` | the sentence in front of the second press — no typed word, see **Game end, and the showdown** |
-| POST | `/admin/showdown` | publish the results; lands the host on `/showdown`, which is what they read from |
+| POST | `/admin/freeze` · `/admin/unfreeze` | the freeze, and its undo. Unfreezing is refused once the night has ended |
+| GET | `/admin/end` | the sentence in front of the second press, see **The freeze, and the end** |
+| POST | `/admin/end` | publish the league; lands the host on `/league`, which is what they read from |
 | POST | `/admin/rescore` | re-run content scoring over existing player data |
 | GET | `/admin/codes` | slug → target inventory with scan counts, for debugging a code someone says is broken |
-| GET | `/admin/reset` | what a reset would clear, and the typed confirmation — see **Reset** |
+| GET | `/admin/reset` | what a reset would clear, and the confirmation in front of it — see **Reset** |
 | POST | `/admin/reset` | file the night into `$DATA_DIR/resets/` and empty every table |
 
 **`HEAD` is answered wherever `GET` is** — `route()` matches a HEAD against a GET route and Node
@@ -889,11 +937,18 @@ section, so the list cannot rot in either direction.
 
 > **The kit's contract covers the pages guests see, and stops there**
 > ([#66](https://github.com/moeriki/tinker-lab/issues/66)). The **admin surface** — the judging
-> table, the photo gallery and the verdict buttons — is outside it. It is a working tool one person
-> uses on one night, opted out of the party's chrome by `layout({ still: true })`, and nothing is
-> ever assembled out of its parts, which is the drift `/kit` exists to catch.
+> table, the photo gallery, the verdict buttons and HQ's own three classes — is outside it. It is a
+> working tool one person uses on one night, opted out of the party's chrome by
+> `layout({ still: true })`, and nothing is ever assembled out of its parts, which is the drift
+> `/kit` exists to catch.
 
-Those nine classes live in `OFF_REMIT` in `src/kit.js`, kept apart from `OFF_KIT` because they are a
+**Being off the contract is not being off the cascade**, which is why `hq-` is a prefix and not a
+convenience. Admin classes share one stylesheet with the guest side, and `.card` meant two
+unrelated things until [#60](https://github.com/moeriki/tinker-lab/issues/60) — CSS merged them
+per property and drew two components nobody had designed. `.hq-galleries a` is also the one place
+on this site an anchor is styled without being a `.btn`; everywhere else that shape is a bug.
+
+Those classes live in `OFF_REMIT` in `src/kit.js`, kept apart from `OFF_KIT` because they are a
 different claim: `OFF_KIT` says a class **cannot** be drawn on the page — it would animate on every
 load, look permanently broken, or fetch from YouTube — and `OFF_REMIT` says it **should** not be.
 One is a fact and the other is an argument, and merging them costs the rule that keeps `OFF_KIT`
@@ -923,7 +978,7 @@ lines per request.
 
 > **`layout({ still: true })` drops both.** `still` already meant *this is a working surface, not a
 > party* ([#14](https://github.com/moeriki/tinker-lab/issues/14)), so the admin board gets no
-> scrolling banner and no strip that would resample itself under a host every time it polls.
+> scrolling banner and no strip that would resample itself under a host every thirty seconds.
 
 The **menu bar** is the third strip, and the only one that is content rather than decoration: it is
 the site's navigation, pinned to the bottom of the screen with the status bar under it

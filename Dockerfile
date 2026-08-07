@@ -3,7 +3,7 @@
 # so musl never enters the picture.
 FROM node:26-alpine
 
-# Timestamps decide when the game ended and are read back on the showdown screen. Left at UTC the
+# Timestamps decide when the game was frozen and are read back on the league. Left at UTC the
 # logs read two hours early, which is confusing at 01:00 while trying to fix something.
 ENV TZ=Europe/Brussels
 ENV PORT=3040

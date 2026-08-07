@@ -46,6 +46,9 @@ const HUNT = 'riddle';
 // human here to read a secret off a terminal.
 const ADMIN_SECRET = 'walk-the-map';
 
+/** Every code in the inventory, which is what HQ's one number counts down from. */
+const CODE_COUNT = Object.keys(codes).length;
+
 // A real image, already in the repo, already a photograph of something. Photos are stored exactly
 // as they arrive (ADR-photos-are-stored-as-they-arrive), so nothing here needs a fixture.
 const A_REAL_IMAGE = `${REPO}moeriki-birthday-invite.png`;
@@ -182,6 +185,15 @@ const FLOWS = [
       // Twice, because a code is a place in a house and people scan them again.
       await page.goto(`/q/${slug}`);
       check('scanning the same code again is not an error', (await page.url()).startsWith('/g/'));
+
+      // HQ's one number, checked against the only thing that can move it (#79). The count is the
+      // page's whole reason to exist -- a code nobody has found at 23:00 is behind a radiator --
+      // and a readout nothing has ever moved is a readout nobody should trust. Two scans of the
+      // same slug, so this also pins that it counts CODES and not scans.
+      await page.goto(`/admin/key/${ADMIN_SECRET}`);
+      const unfound = Number((await page.text('.hq-row .mono')) ?? NaN);
+      check(`HQ counts one fewer unfound code (${unfound} of ${CODE_COUNT})`, unfound === CODE_COUNT - 1);
+      await shoot('scan-hq');
     },
   },
 
@@ -402,7 +414,7 @@ const FLOWS = [
       }
 
       // Tracked here rather than read off the scorebar before each award, because the page an
-      // award redirects to is /admin, which has no scorebar to read: `Number(null)` is 0, which
+      // award redirects to is /admin/controls, which has no scorebar to read: `Number(null)` is 0, which
       // happened to be the right answer on the first pass and would have been silently wrong on
       // any board that did not start empty. The board's own number seeds it; the check below is
       // what confirms the page agrees.
@@ -445,15 +457,15 @@ const FLOWS = [
 
   {
     name: 'ending',
-    what: 'end the game, sit in the gap, then start the showdown',
+    what: 'freeze the game, sit in the gap, then end the night',
     async run({ page, shoot, check }) {
       await onboard(page);
 
-      // As a plain guest, BEFORE any admin cookie is in the jar. #76 opened /showdown to the admin
+      // As a plain guest, BEFORE any admin cookie is in the jar. #76 opened /league to the admin
       // at any time, so a walker holding both cookies is the wrong one to ask whether the results
       // are being kept back -- it would be turned away by nothing and pass by accident.
-      await page.goto('/showdown');
-      check('while the game runs, /showdown turns a guest away', (await page.url()) === '/');
+      await page.goto('/league');
+      check('while the game runs, /league turns a guest away', (await page.url()) === '/');
       check('a team mid-game gets no ending banner', !(await page.has('.banner')));
 
       // Both cookies at once. Not because a host is a team -- #76 settled that one host runs the
@@ -464,13 +476,13 @@ const FLOWS = [
       await shoot('admin-running');
 
       // --- the first ending: the freeze ---------------------------------------------------
-      await page.post('/admin/end', {});
-      check('ending the game lands back on the board', (await page.url()) === '/admin');
+      await page.post('/admin/freeze', {});
+      check('freezing lands back on the controls', (await page.url()) === '/admin/controls');
       check(
-        'the board now offers the showdown',
-        await page.has('a[href="/admin/showdown"]'),
+        'the controls now offer the end',
+        await page.has('a[href="/admin/end"]'),
       );
-      check('and offers to reopen', await page.has('form[action="/admin/reopen"]'));
+      check('and offer to unfreeze', await page.has('form[action="/admin/unfreeze"]'));
       await shoot('admin-ended');
 
       await page.goto('/');
@@ -495,39 +507,42 @@ const FLOWS = [
       // anything to -- so the jar is emptied and a second team walks in to ask it.
       await page.clearCookies();
       await onboard(page);
-      await page.goto('/showdown');
+      await page.goto('/league');
       check('a frozen game still does not publish the results to a guest', (await page.url()) === '/');
       check('and that guest is told the game is frozen', await page.has('.banner'));
 
       // --- the second ending: the publish -------------------------------------------------
       await page.goto(`/admin/key/${ADMIN_SECRET}`);
-      await page.goto('/admin/showdown');
-      check('the confirm page says it out loud', await page.has('form[action="/admin/showdown"]'));
-      await shoot('showdown-confirm');
+      await page.goto('/admin/end');
+      check('the confirm page says it out loud', await page.has('form[action="/admin/end"]'));
+      await shoot('end-confirm');
 
-      await page.press('form[action="/admin/showdown"] button');
+      await page.press('form[action="/admin/end"] button');
       check(
-        'starting the showdown lands the host on the results',
-        (await page.url()) === '/showdown',
+        'ending the night lands the host on the league',
+        (await page.url()) === '/league',
       );
-      await shoot('showdown');
+      await shoot('league');
 
       await page.goto('/');
       check(
         'the published board points a guest at the results',
-        await page.has('a.btn[href="/showdown"]'),
+        await page.has('a.btn[href="/league"]'),
       );
       await shoot('board-published');
 
       // Socially irreversible, and the site holds that line: the button is gone, and the route
       // underneath it refuses too.
-      await page.goto('/admin');
-      check('the board stops offering to reopen', !(await page.has('form[action="/admin/reopen"]')));
-      await page.post('/admin/reopen', {});
-      await page.goto('/showdown');
+      await page.goto('/admin/controls');
+      check(
+        'the controls stop offering to unfreeze',
+        !(await page.has('form[action="/admin/unfreeze"]')),
+      );
+      await page.post('/admin/unfreeze', {});
+      await page.goto('/league');
       check(
         'and a stale reopen cannot unpublish the results',
-        (await page.url()) === '/showdown',
+        (await page.url()) === '/league',
       );
     },
   },
@@ -542,9 +557,9 @@ const FLOWS = [
       check('a guest playing has no menu bar', !(await page.has('.navbar')));
       await shoot('guest-playing');
 
-      // The other half of opening /showdown to the host: a guest typing it is still turned away,
+      // The other half of opening /league to the host: a guest typing it is still turned away,
       // so nothing comparative reaches the field mid-party (#8).
-      await page.goto('/showdown');
+      await page.goto('/league');
       check('a guest is bounced off the rankings mid-party', (await page.url()) === '/');
 
       // The host, who has a bar from the first minute -- three words, because `league` is not
@@ -554,10 +569,10 @@ const FLOWS = [
       check('the host has a menu bar all night', await page.has('.navbar'));
       check('HQ is the page the host is standing on', await page.has('.navbar__item--here'));
       check(
-        'league is offered before the showdown too',
-        await page.has('.navbar__item[href="/showdown"]'),
+        'league is offered before the night ends too',
+        await page.has('.navbar__item[href="/league"]'),
       );
-      check('recap waits for the showdown', !(await page.has('.navbar__item[href="/recap"]')));
+      check('recap waits for the end', !(await page.has('.navbar__item[href="/recap"]')));
       await shoot('host-playing');
 
       await page.goto('/admin/court');
@@ -565,43 +580,43 @@ const FLOWS = [
       await shoot('host-court');
 
       // The rankings, mid-party, for the one person allowed to read them.
-      await page.goto('/showdown');
-      check('the host reads the rankings mid-party', (await page.url()) === '/showdown');
+      await page.goto('/league');
+      check('the host reads the rankings mid-party', (await page.url()) === '/league');
       await shoot('host-league-early');
 
       // The freeze is NOT the reveal (#77), and the bar has to agree: `recap` and `shots` belong
-      // to the published showdown, not to the gap before it.
-      await page.post('/admin/end', {});
-      await page.goto('/admin');
+      // to the ended night, not to the gap before it.
+      await page.post('/admin/freeze', {});
+      await page.goto('/admin/controls');
       check(
         'the freeze alone does not open recap',
         !(await page.has('.navbar__item[href="/recap"]')),
       );
 
       // The publish. What the bar has been holding back arrives at once.
-      await page.goto('/admin/showdown');
-      await page.press('form[action="/admin/showdown"] button');
+      await page.goto('/admin/end');
+      await page.press('form[action="/admin/end"] button');
       check(
-        'the showdown puts recap in the host bar',
+        'ending the night puts recap in the host bar',
         await page.has('.navbar__item[href="/recap"]'),
       );
       check('and shots', await page.has('.navbar__item[href="/shots"]'));
-      await shoot('host-after-showdown');
+      await shoot('host-after-end');
 
       // Back to being a guest, on the same published night.
       await page.clearCookies();
       await onboard(page);
       await page.goto('/');
-      check('a guest gets a menu bar once the showdown is up', await page.has('.navbar'));
+      check('a guest gets a menu bar once the night has ended', await page.has('.navbar'));
       check(
         'and it points at their own tiles, not at HQ',
         await page.has('.navbar__item[href="/"]'),
       );
       check('a guest is never offered HQ', !(await page.has('.navbar__item[href="/admin"]')));
-      await shoot('guest-after-showdown');
+      await shoot('guest-after-end');
 
       await page.goto('/shots');
-      check('shots is reachable by a guest once the showdown is up', (await page.url()) === '/shots');
+      check('shots is reachable by a guest once the night has ended', (await page.url()) === '/shots');
       await shoot('guest-shots');
     },
   },
@@ -619,18 +634,26 @@ const BAND_CLASS = { podium: 'top', chasing: 'mid', rest: 'low' };
  * screen, just not designed yet. When the real board lands this stops finding them, and it says
  * so in one sentence rather than failing as three confusing checks further down.
  */
+/**
+ * The board, which #79 moved off `/admin` and onto `/league` -- HQ is a dashboard now and prints
+ * no team list at all. `/league` is still the stub, so this still reads JSON; when #78 designs
+ * that page this throws, and the cheapest thing to read instead is a `data-team` attribute per
+ * row.
+ *
+ * The host cookie is what makes this reachable before the night has ended (#77): a guest is
+ * bounced to `/` until the second press, and the walker needs the numbers during the gap.
+ */
 async function readBoard(page) {
-  await page.goto('/admin');
+  await page.goto('/league');
 
   const raw = await page.rawText('pre.mono');
   if (!raw) {
     throw new Error(
-      '/admin no longer prints its board as JSON — teach readBoard() to read the real one',
+      '/league no longer prints its board as JSON — teach readBoard() to read the real one',
     );
   }
 
-  const { board } = JSON.parse(raw);
-  return board;
+  return JSON.parse(raw);
 }
 
 /** Move points, through the route the host's board will press once #11 renders it. */

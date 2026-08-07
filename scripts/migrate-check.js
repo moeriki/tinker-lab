@@ -79,6 +79,32 @@ const seed = (db, version) => {
   for (const [since, sql] of SEED) if (since <= version) db.exec(sql);
 };
 
+// A migration that deliberately REWRITES data, rather than only reshaping the schema around it,
+// trips the row-for-row comparison below -- correctly, since "the values changed" is exactly what
+// it did. Declaring the rewrite is the way past it; loosening the comparison is not, because the
+// comparison is the whole check.
+//
+// `apply` turns the rows that were seeded into the rows that should come out the other side, so a
+// migration that rewrites MORE than it claimed still fails. It runs for every vintage below
+// `version`, which is precisely the set of databases that migration will touch.
+const REWRITES = [
+  {
+    version: 7, // 007-freeze-and-end.sql: the night's two moments, renamed (#79)
+    table: 'settings',
+    apply: (rows) =>
+      rows.map((row) => ({
+        ...row,
+        key: { game_ended_at: 'frozen_at', showdown_at: 'ended_at' }[row.key] ?? row.key,
+      })),
+  },
+];
+
+const rewritten = (table, rows, from) =>
+  REWRITES.filter((rule) => rule.table === table && rule.version > from).reduce(
+    (carried, rule) => rule.apply(carried),
+    rows,
+  );
+
 // --- reading a database -------------------------------------------------------------------------
 
 const userVersion = (db) => db.prepare('pragma user_version').get().user_version;
@@ -186,9 +212,10 @@ function checkVintage(from, db, label) {
   const after = reread(db, before);
   for (const [table, { rows }] of before) {
     const now = after.get(table) ?? [];
-    if (now.length !== rows.length) {
-      complain(label, `${table} held ${rows.length} rows and now holds ${now.length}`);
-    } else if (JSON.stringify(now) !== JSON.stringify(rows)) {
+    const wanted = rewritten(table, rows, from);
+    if (now.length !== wanted.length) {
+      complain(label, `${table} held ${wanted.length} rows and now holds ${now.length}`);
+    } else if (JSON.stringify(now) !== JSON.stringify(wanted)) {
       complain(label, `${table} kept its row count but its values changed`);
     }
   }

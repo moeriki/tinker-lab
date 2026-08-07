@@ -5,7 +5,7 @@
 -- It could have ridden in as `kind = 'manual'` with a game_id, which the unique index would have
 -- kept distinct from a freehand award (those carry no game_id) and would have needed no migration
 -- at all. It gets its own kind because the ledger's kind column is the only record of WHY points
--- moved -- `select kind, sum(points)` at the showdown is the audit -- and a trophy and a
+-- moved -- `select kind, sum(points)` at the end is the audit -- and a trophy and a
 -- consolation award the host typed in are not the same event.
 --
 -- `check` constraints cannot be altered in SQLite, so this is the standard rebuild. Nothing
