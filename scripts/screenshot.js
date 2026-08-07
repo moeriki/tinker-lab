@@ -4,6 +4,7 @@
 //   node scripts/screenshot.js                       -> / and /kit, on a phone
 //   node scripts/screenshot.js /kit /no-such-code
 //   node scripts/screenshot.js --reduced-motion /
+//   node scripts/screenshot.js --dark /welcome      -> the phone set to dark, not the site
 //   node scripts/screenshot.js --full /kit           -> the whole page, not just the fold
 //   node scripts/screenshot.js --scroll 600 /        -> the fold 600px down, where sticky is pinned
 //   node scripts/screenshot.js --base https://bday.moeriki.com /   -> the real deploy
@@ -44,6 +45,10 @@ let width = PHONE.width;
 let height = PHONE.height;
 let scale = PHONE.scale;
 let reducedMotion = false;
+// There is no dark version of this site to shoot. This shoots the PHONE in dark mode, which is a
+// different thing: the platform draws the form controls and the scrollbar, and will theme them
+// itself unless told not to. The only view in which `color-scheme: light` can be seen working.
+let dark = false;
 let full = false;
 let admin = false;
 // How far down the page to scroll before shooting. Zero is the fold, and the fold is the one place
@@ -55,6 +60,7 @@ let scroll = 0;
 for (let i = 0; i < argv.length; i += 1) {
   const arg = argv[i];
   if (arg === '--reduced-motion') reducedMotion = true;
+  else if (arg === '--dark') dark = true;
   else if (arg === '--full') full = true;
   else if (arg === '--admin') admin = true;
   else if (arg === '--base') base = argv[(i += 1)];
@@ -76,7 +82,7 @@ if (!routes.length) routes.push('/', '/kit');
 const problems = [];
 
 const { overflow } = await withBrowser(
-  { base, out, reducedMotion, width, height, scale },
+  { base, out, reducedMotion, dark, width, height, scale },
   async ({ page }) => {
     // The host's own way in, and the only state this script ever puts itself into. It is a GET
     // that sets a cookie and redirects, so one visit covers every admin route in the list.

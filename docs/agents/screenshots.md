@@ -17,6 +17,7 @@ would be wrong twice — the eyes are here, and the change was one command away 
 node scripts/screenshot.js                      # / and /kit, on a phone
 node scripts/screenshot.js /kit /no-such-code   # any routes you like
 node scripts/screenshot.js --reduced-motion /   # the frozen marquee
+node scripts/screenshot.js --dark /welcome     # the PHONE in dark mode, not a dark site
 node scripts/screenshot.js --full /kit          # the whole page, not just the fold
 node scripts/screenshot.js --out shots /        # somewhere you choose, instead of a temp dir
 node scripts/screenshot.js --admin /admin      # as the host, not as a stranger
@@ -70,6 +71,34 @@ Two consequences worth knowing:
   can be judged. `--scroll 9999` clamps to the bottom, which is how you check the status bar is the
   last thing on the page.
 
+## `--dark` shoots the phone, not the site
+
+There is no dark version of this site and there is never going to be one — the map rules a dark
+mode out of scope. `--dark` is not a way to look at one. It is the only way to look at **what a
+phone does to a site that has not declared a colour scheme**, and both scripts take it.
+
+It sets two overrides, and the interesting one is the second:
+
+- `prefers-color-scheme: dark`, which on its own **changes nothing here** — and that is not the
+  flag failing. With no scheme declared the used value is `normal`, and Chrome draws `input`,
+  `select` and the file button light under `normal` whatever the phone prefers. Measured: the media
+  query reported dark and every control stayed white.
+- **Auto Dark Theme** (`Emulation.setAutoDarkModeOverride`), which is Chrome for Android taking an
+  undeclared page and *algorithmically inverting it*. This is the one that bites, and off an
+  Android phone this override is the only way to see it.
+
+[#89](https://github.com/moeriki/tinker-lab/issues/89) is why the flag exists. Before it, with the
+phone dark: headline and body copy white on the light end of the gradient, both onboarding name
+fields black boxes, the DO NOT LOSE THIS PHONE stamp brown. The fix is one line — `color-scheme:
+only light` on `html` in `app.css` — and **`only` is the whole fix**. Plain `light` says the page
+*supports* light, which Auto Dark Theme is happy to hear before inverting it anyway; shot with
+`light`, the page was still white-on-lime. So if that line ever gets tidied down to `light`, this
+flag is what catches it.
+
+**What it cannot do: iOS.** This is Chrome's algorithm and Chrome's override. Safari has no
+equivalent behaviour to emulate, and the declaration is the standard one, but nobody has held a
+dark iPhone against this site.
+
 ## What it cannot do: be a team. That is `walk.js`
 
 `screenshot.js` holds no cookie and submits no form, so its database is always empty and `/` is
@@ -82,6 +111,7 @@ node scripts/walk.js                    # every flow, shot as it goes
 node scripts/walk.js standings          # one flow by name
 node scripts/walk.js --list             # what the flows are
 node scripts/walk.js --reduced-motion   # the frozen marquee, on a real board
+node scripts/walk.js --dark             # the phone in dark mode, through all nine fields
 node scripts/walk.js --out shots
 ```
 

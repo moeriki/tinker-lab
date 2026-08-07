@@ -406,6 +406,7 @@ export async function withBrowser(options, fn) {
     base: givenBase = null,
     out = null,
     reducedMotion = false,
+    dark = false,
     width = PHONE.width,
     height = PHONE.height,
     scale = PHONE.scale,
@@ -515,11 +516,26 @@ export async function withBrowser(options, fn) {
       deviceScaleFactor: scale,
       mobile: true,
     });
-    if (reducedMotion) {
-      await cdp.send('Emulation.setEmulatedMedia', {
-        features: [{ name: 'prefers-reduced-motion', value: 'reduce' }],
-      });
-    }
+    // One call or none: `setEmulatedMedia` REPLACES the whole feature list rather than merging
+    // into it, so two calls would leave only the second one's feature emulated.
+    const features = [
+      ...(reducedMotion ? [{ name: 'prefers-reduced-motion', value: 'reduce' }] : []),
+      ...(dark ? [{ name: 'prefers-color-scheme', value: 'dark' }] : []),
+    ];
+    if (features.length) await cdp.send('Emulation.setEmulatedMedia', { features });
+
+    // `dark` is TWO overrides, and the second one is the one that bites (#89).
+    //
+    // The media query alone changes nothing here, and that is not the flag failing: with no
+    // `color-scheme` declared the used value is `normal`, and Chrome renders `input`, `select` and
+    // the file button LIGHT under `normal` whatever the phone prefers. Measured before the fix --
+    // `prefers-color-scheme` reported dark and every control stayed white.
+    //
+    // What actually repaints this site is Chrome for Android's **Auto Dark Theme**, which inverts
+    // pages that have not declared a scheme -- an algorithm, not a stylesheet, applied to a site
+    // that never asked. `setAutoDarkModeOverride` is the only way to see it off an Android phone,
+    // and declaring `color-scheme: light` is the documented way out of it.
+    if (dark) await cdp.send('Emulation.setAutoDarkModeOverride', { enabled: true });
 
     const page = makePage(cdp, { base, outDir, overflow, width });
     const result = await fn({ page, base, outDir });

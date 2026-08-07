@@ -100,7 +100,30 @@
   box-sizing: border-box;
 }
 
+/*
+ * There is no dark mode and there is never going to be one — the look is black ink and a gradient
+ * on paper, and a second treatment of it is a second design nobody would look at twice on the
+ * night. This line is not a theme. It is what stops a PHONE from inventing one (#89).
+ *
+ * The thing it stops is Chrome for Android's **Auto Dark Theme**, which takes a page that has
+ * declared no scheme and algorithmically inverts it. Shot before this line, with the phone in dark
+ * mode: the headline and body copy flipped to white on the light end of the gradient, both
+ * onboarding name fields became black boxes, and the DO NOT LOSE THIS PHONE stamp went brown.
+ * Nine fields of questionnaire, unreadable, on somebody's phone at a party.
+ *
+ * `only` is the word that does the work, and dropping it is the way this silently comes back.
+ * Plain `color-scheme: light` says the page SUPPORTS light, which Auto Dark Theme is happy to hear
+ * before inverting it anyway — shot with `light`, the page was still white-on-lime with two black
+ * name boxes, indistinguishable from declaring nothing. `only light` is the refusal, and it is the
+ * only value of the three that came back looking like the site.
+ *
+ * It lives in the stylesheet rather than in a `<meta>` because this file is the one thing every
+ * page links (`layout()` in src/render.js, public/kit.html, and anything either of them grows) —
+ * one declaration, no second head block to keep in sync. `node scripts/screenshot.js --dark`
+ * is how it stays checked; that flag exists for this line.
+ */
 html {
+  color-scheme: only light;
   -webkit-text-size-adjust: 100%;
 }
 

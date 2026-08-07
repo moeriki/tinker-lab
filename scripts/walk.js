@@ -5,6 +5,7 @@
 //   node scripts/walk.js standings          -> one flow by name
 //   node scripts/walk.js --out shots
 //   node scripts/walk.js --reduced-motion   -> the frozen marquee, on a real board
+//   node scripts/walk.js --dark             -> the phone set to dark, through all nine fields
 //   node scripts/walk.js --list
 //
 // scripts/screenshot.js shoots anything a URL can reach, which stops at the front door: it holds
@@ -806,10 +807,15 @@ const argv = process.argv.slice(2);
 const wanted = [];
 let out = null;
 let reducedMotion = false;
+// The phone in dark mode, not a dark version of the site. Onboarding's nine fields are the reason
+// this is here and not only on screenshot.js: the questionnaire is the most form-heavy surface on
+// the site and it lives behind the door, so it is unreachable to a cold shot (#89).
+let dark = false;
 
 for (let i = 0; i < argv.length; i += 1) {
   const arg = argv[i];
   if (arg === '--reduced-motion') reducedMotion = true;
+  else if (arg === '--dark') dark = true;
   else if (arg === '--out') out = argv[(i += 1)];
   else if (arg === '--list') {
     for (const flow of FLOWS) console.log(`${flow.name.padEnd(11)} ${flow.what}`);
@@ -845,7 +851,7 @@ mkdirSync(outDir, { recursive: true });
 for (const flow of flows) {
   console.log(`\n${flow.name} — ${flow.what}`);
   const run = await withBrowser(
-    { out: outDir, reducedMotion, ...PHONE, env: { ADMIN_SECRET } },
+    { out: outDir, reducedMotion, dark, ...PHONE, env: { ADMIN_SECRET } },
     async ({ page }) => {
       const shoot = (name, options) => page.shoot(`${flow.name}-${name}`, options);
       try {
