@@ -793,17 +793,55 @@ ol.stack {
   margin-bottom: 0.25rem;
 }
 
+/*
+ * `color` and `-webkit-text-fill-color` are here because Dieter looked at this on an iPhone at
+ * night and could not read it: white text in a white box, "almost fully illegible", on the two
+ * name fields at the front door (#89).
+ *
+ * iOS Safari does not invert the page the way Chrome for Android does. It applies a dark
+ * APPEARANCE to the controls it draws, and it colours their text with `-webkit-text-fill-color` --
+ * which beats `color` wherever both apply. So the rule above won the background off Safari and
+ * lost the text to it, and white-on-white is what that collision looks like.
+ *
+ * `color-scheme: only light` up on `html` should already stop Safari reaching for that appearance
+ * at all, and these two lines are belt and braces on top of it. They are here anyway because the
+ * declaration is the one thing in this file NOBODY HAS CHECKED ON AN IPHONE -- every measurement
+ * behind it was taken in Chrome -- and the screen it protects is the first one every guest sees.
+ * In the working case they change nothing: both resolve to the ink the box already inherited.
+ *
+ * `color: inherit` on the bare `input` further up is now doing nothing for these, and that is
+ * fine -- it still covers the controls that never get `.input`.
+ */
 .input {
   width: 100%;
   min-height: var(--tap);
   padding: 0.5rem 0.6rem;
   background: var(--c-paper);
+  color: var(--c-ink);
+  -webkit-text-fill-color: var(--c-ink);
   border: var(--edge-2) solid var(--c-ink);
   box-shadow: inset 3px 3px 0 rgb(0 0 0 / 12%);
   font-family: var(--font-body);
   font-size: 1.05rem;
   border-radius: 0;
   -webkit-appearance: none;
+}
+
+/*
+ * The placeholder has to be said out loud now, and it is worth knowing why: `-webkit-text-fill-color`
+ * INHERITS, so the two lines above reached into `::placeholder` and painted it the same ink as a
+ * real answer. Shot before this rule: "type something, anything" and "optional, nobody will read
+ * it" came out full black, sitting in the box looking exactly like the typed `astronaut` above
+ * them -- a hint that reads as an answer already given, which is worse than the bug being fixed.
+ *
+ * Until now this colour was Chrome's default and nothing had chosen it, so the kit was quietly
+ * showing a component it did not own. `#6b6b6b` is the grey already in this file and lands within
+ * a shade of what the browser was drawing.
+ */
+.input::placeholder {
+  color: #6b6b6b;
+  -webkit-text-fill-color: #6b6b6b;
+  opacity: 1; /* Firefox dims placeholders by default; the grey above is already the dimming. */
 }
 
 .input:focus {
