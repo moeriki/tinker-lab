@@ -603,6 +603,33 @@ const FLOWS = [
       check('and shots', await page.has('.navbar__item[href="/shots"]'));
       await shoot('host-after-end');
 
+      // Rivals with real numbers, because a board where every row reads `0` cannot show the one
+      // thing `/league` is for. They stop at the door rather than walking both screens -- a team
+      // only has to EXIST to be on the board -- which is the standings flow's trick.
+      for (const who of ['Rival', 'Other']) {
+        await page.clearCookies();
+        await page.goto('/welcome');
+        await page.fillForm({ member: [who] });
+        await page.submit();
+      }
+
+      await page.goto(`/admin/key/${ADMIN_SECRET}`);
+      const rivals = await readBoard(page);
+      for (const [index, points] of [90, 45].entries()) {
+        await award(page, rivals[index].id, points, 'a rival with a real night');
+      }
+
+      // The host's own copy of that board, which is the LAST thing this flow checks before
+      // dropping the admin cookie -- and the check is that it has no expanded row. `showLeague()`
+      // passes a null `youId` for a host on purpose (#78): the walker holds both cookies at once,
+      // and so does any phone that onboarded once during testing, so "a host is never a team"
+      // (#76) is a fact about people and cannot be leaned on here. Without this check the page
+      // renders a full-width gradient row in the middle of the board the hosts read the top three
+      // off, and every other check on this page still passes.
+      await page.goto('/league');
+      check('the host board has no expanded row', !(await page.has('.league__row--you')));
+      await shoot('host-league');
+
       // Back to being a guest, on the same published night.
       await page.clearCookies();
       await onboard(page);
@@ -614,6 +641,20 @@ const FLOWS = [
       );
       check('a guest is never offered HQ', !(await page.has('.navbar__item[href="/admin"]')));
       await shoot('guest-after-end');
+
+      // The reveal, and the only shot of it anyone gets: the two in the `ending` flow are the
+      // host's board, which by design looks nothing like this one. A component photographed only
+      // in the shape it works in is how `<a class="btn">` shipped broken site-wide (#66), and the
+      // expanded row is this page's entire design -- so it is checked in words as well as shot.
+      await page.goto('/league');
+      check('a guest reads the league once it is published', (await page.url()) === '/league');
+      check('and their own row is the expanded one', await page.has('.league__row--you'));
+      check('which says so in words, not only in paint', await page.has('.league__flag'));
+      check(
+        'the winner is a different row, and a quieter one',
+        !(await page.has('.league__row--first.league__row--you')),
+      );
+      await shoot('guest-league');
 
       await page.goto('/shots');
       check('shots is reachable by a guest once the night has ended', (await page.url()) === '/shots');
@@ -726,9 +767,13 @@ const BAND_CLASS = { podium: 'top', chasing: 'mid', rest: 'low' };
  */
 /**
  * The board, which #79 moved off `/admin` and onto `/league` -- HQ is a dashboard now and prints
- * no team list at all. `/league` is still the stub, so this still reads JSON; when #78 designs
- * that page this throws, and the cheapest thing to read instead is a `data-team` attribute per
- * row.
+ * no team list at all. It printed JSON while it was a stub; #78 designed the real one, so this
+ * reads the markup that replaced it.
+ *
+ * `data-team` and `data-score` per row are there FOR this function, which is why they are on the
+ * element rather than being scraped out of the rank and points spans: the spans are copy and a
+ * copy pass may reformat them, and a walker that breaks when a number gains a `pts` suffix is a
+ * walker nobody trusts. The name is read from its own span because nothing else carries it.
  *
  * The host cookie is what makes this reachable before the night has ended (#77): a guest is
  * bounced to `/` until the second press, and the walker needs the numbers during the gap.
@@ -736,14 +781,19 @@ const BAND_CLASS = { podium: 'top', chasing: 'mid', rest: 'low' };
 async function readBoard(page) {
   await page.goto('/league');
 
-  const raw = await page.rawText('pre.mono');
-  if (!raw) {
-    throw new Error(
-      '/league no longer prints its board as JSON — teach readBoard() to read the real one',
-    );
+  const rows = await page.evaluate(`
+    return [...document.querySelectorAll('.league__row')].map((row) => ({
+      id: Number(row.dataset.team),
+      name: (row.querySelector('.league__name') || {}).textContent.trim(),
+      score: Number(row.dataset.score),
+    }));
+  `);
+
+  if (!rows.length) {
+    throw new Error('/league printed no `.league__row` — teach readBoard() to read the real one');
   }
 
-  return JSON.parse(raw);
+  return rows;
 }
 
 /** Move points, through the route the host's board will press once #11 renders it. */

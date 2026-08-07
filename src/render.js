@@ -278,6 +278,91 @@ export function standing({ band = 'fresh', text = '' }) {
 }
 
 /**
+ * Standard competition ranking over an already-sorted board: 1, 2, 2, 4. Equal scores share a
+ * place and the next one skips.
+ *
+ * `standings()` orders on `created_at` after the score, which is arbitrary and fine for ORDER --
+ * two rows have to be printed in some sequence. It is not fine for the NUMBER beside them, and
+ * `scoring.js` already argues exactly this for the bands: telling a team they came fourth instead
+ * of second on identical points, because they walked in later, is a worse error than printing the
+ * same numeral twice. The board is the one surface where that number is read out loud.
+ */
+function ranked(rows) {
+  let place = 0;
+  let previous = null;
+
+  return rows.map((row, index) => {
+    if (row.score !== previous) {
+      place = index + 1;
+      previous = row.score;
+    }
+    return { ...row, place };
+  });
+}
+
+/**
+ * The board: every team, best first, and the only comparative number this site ever prints (#78).
+ *
+ * **Not a `.board`.** That primitive says in its own comment that teams never see one -- it is a
+ * dense `nowrap` mono table for admin surfaces, scrolling sideways inside its own box. Two reasons
+ * it is wrong here beyond that rule. A row that has to *expand* cannot live in a table whose whole
+ * design is uniform density; and `.board` is the exact component whose `contain: inline-size` had
+ * to be invented after it silently widened the layout viewport to 672px on a 390px phone. A column
+ * of `<li>` that wraps has neither problem to have.
+ *
+ * **Your own row is a different component, not a marked-up one.** Dieter's call, and it is the one
+ * thing on the page doing real work: after five hours of a deliberately vague sentence and no rank
+ * at all, a guest opens this to twelve rows of strangers' numbers. Finding yourself in that by
+ * reading twelve names is the wrong first five seconds. So the row you are looking for is the one
+ * that breaks the rhythm -- thicker edge, harder shadow, the tile gradient, and roughly double the
+ * type -- and it is legible from arm's length while the rest of the column is not.
+ *
+ * It is decoration on top of a fact, never instead of one: the row carries its rank and its score
+ * in the same two slots as every other row, and `league__flag` says "that's you" in words. A guest
+ * who sees none of the styling still reads the same board.
+ *
+ * **First place is quieter than you are.** It gets the yellow and the shout face, and that is all
+ * -- if the winner out-shouted the row a reader is hunting for, the page would be doing its one
+ * job backwards. A team who is both wears `--you`, which lands later in the cascade and wins.
+ *
+ * **A host gets no expanded row at all**, and `showLeague()` enforces that by passing a null
+ * `youId` rather than trusting it to fall out of "a host is never a team" (#76). It does not: that
+ * rule is about people, and this function is handed a cookie jar. See the comment there.
+ *
+ * **The scale line belongs to the board, not to the page.** It reads as a footnote and is load-
+ * bearing: this is the first and last surface where a number means anything, and `88` is a
+ * different fact depending on whether the ceiling is 100 or 500. Keeping it here rather than in
+ * `showLeague()` is also what the kit's own rule asks for -- a component's markup exists in exactly
+ * one place -- and `/kit`'s coverage count is what caught it sitting in the other one, reporting
+ * `.league__foot` as a class with nowhere on the page to look it up.
+ *
+ * It is inside the empty guard, so a night nobody played prints no scale for nothing.
+ *
+ * `data-team` and `data-score` are for `scripts/walk.js`, which read this board as JSON while it
+ * was a stub and needed something to read instead.
+ */
+export function league(rows, { youId = null } = {}) {
+  if (!rows.length) return '<p class="blurb">Nobody played. That is also a result.</p>';
+
+  const row = ({ id, name, score, place }) => {
+    const you = youId !== null && id === youId;
+    const modifier = `${place === 1 ? ' league__row--first' : ''}${you ? ' league__row--you' : ''}`;
+
+    return `<li class="league__row${modifier}" data-team="${Number(id)}" data-score="${Number(
+      score,
+    )}">
+      <span class="league__rank">${Number(place)}</span>
+      <span class="league__name">${escape(name)}</span>
+      <span class="league__pts">${Number(score)}</span>
+      ${you ? '<span class="league__flag">that’s you</span>' : ''}
+    </li>`;
+  };
+
+  return `<ol class="league">${ranked(rows).map(row).join('')}</ol>
+    <p class="league__foot">Ten tiles, ten points each. A perfect night is a hundred.</p>`;
+}
+
+/**
  * Who you are, what you have, and how much of the board is still shut -- on every team-facing
  * page rather than only the dashboard, and the whole thing is a link back to it.
  *

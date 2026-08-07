@@ -125,6 +125,7 @@ import {
   hero,
   hintModal,
   layout,
+  league,
   navbar,
   notFound,
   rulesList,
@@ -1883,20 +1884,44 @@ function showPage({ req, res, params }) {
  * results page is about what it SAYS, and that is identical; what differs is that a guest opens
  * this once, at the end, and should get the arrival animation the rest of the site gave them --
  * while a host who is watching it does not want it re-animating every thirty seconds.
+ *
+ * **Both lines of copy are true at both moments**, which is the constraint #11's one-page rule
+ * imposes and the only thing that made this copy hard. "Nobody could see this until now" is the
+ * obvious line for a reveal and is a lie to the host reading the same page at 22:30, so the page
+ * says nothing about when it is being read. `No appeals` is deadpan at either hour.
+ *
+ * The scale line under the board says the hundred out loud, and it belongs to `league()` rather
+ * than to this page -- see the note there.
  */
 function showLeague({ req, res }) {
   if (!gameHasEnded() && !isAdmin(req)) return redirect(res, '/');
 
+  const host = isAdmin(req);
+  const team = currentTeam(req);
+
+  // A host gets NO expanded row, and this line is why it is a rule here rather than a consequence
+  // of "a host is never a team" (#76). That rule is about the night -- one host runs the admin and
+  // does not play -- and it is true of people, not of cookie jars. `scripts/walk.js` holds both
+  // cookies at once and put a full-width gradient row in the middle of the host's board on the
+  // first run of this page; a phone that onboarded once during testing would do the same thing on
+  // the night, in the minute the hosts are reading the top three off this screen.
+  //
+  // It is also the right board on its own terms. The expanded row is a reveal device for someone
+  // arriving once; this surface refreshes every thirty seconds for five hours, and the one thing
+  // it owes its reader is a uniform column they can scan.
+  const youId = host ? null : (team?.id ?? null);
+
   return html(
     res,
-    stub({
+    layout({
       title: 'The league',
       nav: navFor(req, '/league'),
-      owner: '/league is a stub, and nothing on the site can reach it',
-      does: 'Final standings, winner badge and reveal animation.',
-      data: standings(),
-      still: isAdmin(req),
-      refresh: isAdmin(req) ? ADMIN_REFRESH_SECONDS : 0,
+      still: host,
+      refresh: host ? ADMIN_REFRESH_SECONDS : 0,
+      body: `
+        ${blurb('Everyone, in order. No appeals.')}
+        ${league(standings(), { youId })}
+      `,
     }),
   );
 }

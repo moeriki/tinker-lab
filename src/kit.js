@@ -37,6 +37,7 @@ import {
   field,
   hero,
   hintModal,
+  league,
   rulesList,
   scorebar,
   marquee,
@@ -295,6 +296,30 @@ const RENDERERS = {
     const band = a.band ?? 'fresh';
     return standing({ band, text: economy.standingsBands[band] ?? economy.standingsBands.fresh });
   },
+
+  // The one component here whose DATA has to be invented, and the marker names only which row is
+  // yours. Everything else on this page either takes its words from the marker or reads them out
+  // of `content/`; a board has neither, because teams and scores exist only in the database and
+  // this file never opens one.
+  //
+  // The scores are chosen to demo the two things the row treatments have to survive: a TIE at the
+  // top -- so the shared place, the skipped 3rd, and two rows wearing `--first` at once are all on
+  // screen -- and a `you` row that is neither first nor last, which is where about ten of twelve
+  // teams will actually find themselves. The longest name is the longest one `content/team-names.js`
+  // can deal, so the wrap this component claims to handle is demonstrated rather than asserted.
+  league: (a) =>
+    league(
+      [
+        { id: 1, name: 'DE VLIEGENDE PANNENKOEK', score: 71 },
+        { id: 2, name: 'BADGER', score: 71 },
+        { id: 3, name: 'OTTERSPOOR', score: 58 },
+        { id: 4, name: 'MOSSEL', score: 44 },
+        { id: 5, name: 'NAAMLOOS', score: 44 },
+        { id: 6, name: 'KRIEK', score: 12 },
+        { id: 7, name: 'STOEP', score: -3 },
+      ],
+      { youId: num(a.you, 4) },
+    ),
 };
 
 function parseAttrs(source) {
@@ -333,6 +358,7 @@ const BUILT_NAMES = {
   marquee: 'the marquee',
   statusbar: 'the status bar',
   navbar: 'the menu bar',
+  league: 'the league board',
   starburst: 'the starburst',
   stamp: 'the stamp',
   standing: 'the standing colours',

@@ -486,6 +486,30 @@ all leads immediately — there is no podium made of zeroes.
 > true board exists only at `/league`, which the admin cookie reaches at any hour and a guest
 > cannot see until the night has ended.
 
+### The league
+
+The board a **standing** is being vague about: every team, best first, with its score. It is the
+only surface on this site where one team sees another team's number, and until the night has
+**ended** a guest cannot reach it at all.
+
+**Ties share a place** — 1, 2, 2, 4. `standings()` orders equal scores on arrival time, which is
+fine for the sequence rows print in and wrong for the numeral beside them, on the same reasoning
+the bands already use: nobody drops a place for having walked in later.
+
+**A guest's own row is a different component**, not a marked-up one — thicker edge, harder shadow,
+the tile gradient, roughly double the type, and `that's you` written in the aside face. After five
+hours of a deliberately vague sentence, a guest opens this to a column of strangers' numbers, and
+the first thing they want is not first place. **First place is deliberately quieter** than that
+row: the yellow and the shout face, and nothing louder.
+
+**A host gets no expanded row**, enforced by the page rather than inferred from "a host is never a
+team" — that rule is about people, and the page is handed a cookie jar. It is also the right
+five-hour working board: the pop is a reveal, and a reveal that re-arrives every 30 seconds is a
+flicker.
+
+> The page is one page. Hosts and guests read the **same words**; what differs is chrome — a host
+> gets the 30s refresh and no arrival animation, a guest gets the animation and no refresh.
+
 ### Hint reveal
 
 A record that a team has seen hint *n* of a game (or of a hunt step; `step` is `0` for non-hunt
@@ -786,7 +810,7 @@ Team-facing:
 | POST | `/g/:gameId/hint` | reveal next hint, write the negative award | PRG |
 | GET | `/rules` | rules; the hidden hint rule appears after the first reveal | ✓ |
 | GET | `/p/:pageId` | gag and hidden pages | ✓ |
-| GET | `/league` | the board: every team, ranked. Once the night has **ended** — not merely once it is frozen. The admin cookie reaches it at any time ([ADR-the-menu-bar-is-pinned-to-the-bottom](docs/adr/the-menu-bar-is-pinned-to-the-bottom.md)), and refreshes it every 30s. Honest stub, owned by #78 | ✓ |
+| GET | `/league` | the board: every team, ranked. Once the night has **ended** — not merely once it is frozen. The admin cookie reaches it at any time ([ADR-the-menu-bar-is-pinned-to-the-bottom](docs/adr/the-menu-bar-is-pinned-to-the-bottom.md)), and refreshes it every 30s. A guest's own row is expanded; a host's board is uniform | ✓ |
 | GET | `/recap` | the night played back from its own material; once the night has ended. Honest stub, owned by #81 | ✓ |
 | GET | `/shots` | every photograph of the night, open to the teams; once the night has ended. Honest stub, owned by #80 | ✓ |
 

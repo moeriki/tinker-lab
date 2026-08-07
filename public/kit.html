@@ -587,6 +587,66 @@
         </p>
       </section>
 
+      <!-- ============================= LEAGUE =============================== -->
+      <section class="sect" id="league">
+        <h2 class="sect__h">18. The league — the one board a guest ever sees</h2>
+        <p class="sect__note">Every team, best first, at <code>/league</code>. Nothing else on this site shows one team another team's number, and for five hours nothing has: the score header in §5 is deliberately vague on purpose, and this is what it was being vague <em>about</em>.</p>
+
+        <!--@league you="4"-->
+
+        <p class="sect__note">
+          The board is <code>league()</code> in <code>src/render.js</code> — the same call the page
+          makes. The marker names only which row is <em>yours</em>; the teams and the scores are
+          invented here because a demo has to have some, and they are the one thing on this page
+          that is a drawing rather than a reading.
+        </p>
+        <h3 class="sect__sub">Why your row is a different component</h3>
+        <p class="sect__note">
+          <strong>The expanded row is the whole design.</strong> A guest opens this once, at one in
+          the morning, to a column of about twelve strangers' numbers — and the first thing they
+          want is not first place, it is themselves. Reading twelve names to find it is the wrong
+          five seconds, so their row breaks the rhythm instead: <code>--edge-3</code>, the harder
+          shadow, the tile gradient and roughly double the type, legible at arm's length while the
+          rest of the column is not.
+        </p>
+        <p class="sect__note">
+          It is decoration over a fact, never instead of one. The row prints its rank and its score
+          in the same two slots as every other row, and <code>.league__flag</code> says
+          <em>that's you</em> in words — so the board reads identically with none of the styling.
+        </p>
+        <p class="sect__note">
+          <strong>First place is quieter than you are</strong>, which looks backwards and is not:
+          it gets the yellow and the shout face and stops there. A winner loud enough to out-shout
+          the row a reader is hunting for would invert the page's one job. A team who is both wears
+          <code>--you</code>, which lands later in the cascade and wins.
+        </p>
+        <p class="sect__note">
+          <strong>A host sees no expanded row at all</strong>, and the page passes an empty
+          <code>youId</code> to make that so rather than trusting it to follow from “a host is never
+          a team” (#76). That rule is about people; the page is handed a cookie jar, and the walker
+          holds both cookies at once. It is the right board on its own terms anyway: the pop is a
+          reveal device for someone arriving once, and this surface refreshes every thirty seconds
+          for five hours.
+        </p>
+        <h3 class="sect__sub">Not a <code>.board</code></h3>
+        <p class="sect__note">
+          <code>.board</code> is the dense mono table two sections' worth of CSS above this one, and
+          it says in its own comment that teams never see one. Two more reasons beyond that rule: a
+          row that has to <em>expand</em> cannot live in a table whose entire design is uniform
+          density, and <code>.board</code> is the exact component that had to grow
+          <code>contain: inline-size</code> after it silently widened the layout viewport to 672px
+          on a 390px phone. Nothing here is <code>nowrap</code> and no column is fixed, so a long
+          team name wraps to a second line and the page stays 390 wide.
+        </p>
+        <h3 class="sect__sub">Ties share a place</h3>
+        <p class="sect__note">
+          1, 2, 2, 4. <code>standings()</code> orders equal scores on arrival time, which is fine
+          for the sequence rows are printed in and not fine for the numeral beside them —
+          <code>src/scoring.js</code> already argues exactly this for the bands. Two teams on the
+          same score both wear the same place, and the next row skips.
+        </p>
+      </section>
+
       <footer class="kit-foot">
         <p class="aside">That is the whole kit. If a guest-facing page needs something that is not on this page, the page is wrong or the kit is incomplete — say which. The admin surface is not held to this, and the last sentence below says which classes that excuses and what it costs.</p>
         <p class="aside">

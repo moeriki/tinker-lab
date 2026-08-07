@@ -1343,6 +1343,104 @@ ol.stack {
 
 .board tbody tr:nth-child(even) { background: #f2f2f2; }
 
+/* -------------------------------- league ----------------------------------- */
+/* The ranked board at `/league` (#78), and the only place on this site where one team sees
+   another team's number.
+
+   A column of rows rather than a `.board`, which is the primitive directly above and is for the
+   host's working surfaces: dense, mono, `nowrap`, scrolling inside its own box. Nothing here is
+   `nowrap` and nothing has a fixed column, so this cannot reach for `contain: inline-size` and
+   cannot repeat the bug that made it necessary — a long team name wraps onto a second line and
+   the page stays 390px wide.
+
+   The whole design is one contrast: eleven flat rows and one that is not. */
+
+.league {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.league__row {
+  display: grid;
+  grid-template-columns: 2rem 1fr auto;
+  align-items: baseline;
+  gap: 0.7rem;
+  padding: 0.5rem 0.7rem;
+  border: var(--edge-1) solid var(--c-ink);
+  background: var(--c-paper);
+}
+
+.league__rank {
+  font-family: var(--font-shout);
+  font-size: 0.95rem;
+  text-align: right;
+}
+
+/* `anywhere`, not `break-word`: team names are dealt from `content/team-names.js` and a long one
+   is a single unbroken word, which is the case `break-word` declines to split. */
+.league__name {
+  font-family: var(--font-body);
+  font-size: 1rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.league__pts {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+/* First place: the yellow and the shout face, and deliberately nothing louder. The row a reader is
+   actually hunting for is their own, and a winner that out-shouted it would invert the page. */
+.league__row--first {
+  border-width: var(--edge-2);
+  box-shadow: var(--shadow-1);
+  background: var(--c-yellow);
+}
+
+.league__row--first .league__name { font-family: var(--font-shout); }
+
+/* Your row. Last in the cascade on purpose, so a team who won wears this and not the yellow.
+
+   Everything grows: the edge to `--edge-3`, the shadow to `--shadow-2`, the rank and the score to
+   roughly double, and the padding with them. It stays inside `.app`'s 0.85rem gutter — the offset
+   shadow is 6px and the gutter is 13.6px, so nothing here pushes on the page's own width. */
+.league__row--you {
+  grid-template-columns: 2.8rem 1fr auto;
+  gap: 0.7rem 0.8rem;
+  padding: 0.85rem 0.8rem;
+  margin: 0.5rem 0;
+  border-width: var(--edge-3);
+  box-shadow: var(--shadow-2);
+  background: var(--grad-tile);
+}
+
+.league__row--you .league__rank { font-size: 1.9rem; }
+.league__row--you .league__name { font-family: var(--font-shout); font-size: 1.3rem; }
+.league__row--you .league__pts { font-size: 1.9rem; }
+
+/* Spans the full row, under the three facts, in the aside face — the one voice on this site that
+   is a person rather than the machine. */
+.league__flag {
+  grid-column: 1 / -1;
+  font-family: var(--font-aside);
+  font-size: 0.85rem;
+  transform: rotate(-1.5deg);
+  transform-origin: left center;
+}
+
+/* The scale, which is the fact that makes every number above it mean something. */
+.league__foot {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+}
+
 /* ------------------------------- HQ ------------------------------- */
 
 /* The host's dashboard (#79). Three primitives and nothing else: a row that is a door, the
