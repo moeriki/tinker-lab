@@ -467,6 +467,36 @@
           nothing in the house belongs in it.
         </p>
         <p class="sect__note">Both photo tiles arrange these into a list rather than a strip — see §15.</p>
+
+        <h3 class="sect__sub">The wall</h3>
+        <p class="sect__note">Every photograph of the night, by everyone, at <code>/shots</code> (#80). Three across on a phone: at two it stops reading as a pile, at four a face is 5mm across. The cells are square and <code>object-fit: cover</code> crops to it, so a grid of portraits and landscapes is still a grid.</p>
+        <!--@wall cells="/img/kit-shot.jpg|/img/kit-shot.jpg|image/heic|/img/kit-shot.jpg|/img/kit-shot.jpg|/img/kit-shot.jpg|/img/kit-shot.jpg"-->
+        <p class="sect__note">
+          <strong>The same <code>shot()</code> as above, with its download tile switched off</strong>,
+          and that is this block's whole reason for existing rather than a wider <code>.shots</code>.
+          Every other caller links straight at bytes, where <code>download</code> is exactly right.
+          A wall cell links at the fullscreen <em>viewer</em> — so left alone, the yellow tile would
+          have handed the phone a page of HTML as a file. A component demoed only in its working
+          shape is how <code>&lt;a class="btn"&gt;</code> went out broken site-wide, so the tile is
+          in this grid on purpose.
+        </p>
+
+        <h3 class="sect__sub">The filter bar</h3>
+        <p class="sect__note">Two selects above the wall: whose camera, and which prompt. A plain GET form — pick, press, and the URL says what you are looking at. <strong>A full row each</strong>, because the second one holds prompts and a prompt is a sentence; side by side they clip mid-word, and a native select cannot wrap.</p>
+        <form class="filters" method="get" action="/kit">
+          <!--@field label="who took it" name="team" options="every team|BADGER|FERRET|WOMBAT"-->
+          <!--@field label="what it answers" name="prompt" options="every prompt|The most convincing fake laugh in the house|Portrait of a stranger"-->
+          <button class="btn">look</button>
+        </form>
+
+        <p class="sect__note">
+          <strong>The fullscreen viewer is not in this kit and cannot be.</strong> It is a whole
+          document rather than a component — its own <code>&lt;head&gt;</code>, no marquee, no
+          scorebar, no menu bar, a black field and a <code>scroll-snap</code> track you swipe with
+          your thumb. There is nothing to inject it into. Look at it with
+          <code>node scripts/walk.js shots</code>, which shoots it with a real photograph and a
+          real quote under it.
+        </p>
       </section>
 
       <!-- ============================= UNIT ROWS =========================== -->

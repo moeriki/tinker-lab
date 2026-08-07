@@ -828,13 +828,19 @@ export function shoot({ face = 'take a photo' }) {
  *
  * `anim` is a class from the closed vocabulary in `src/moments.js`, and only the photo that just
  * arrived carries one.
+ *
+ * `download` is what the unrenderable branch means by "tap to open", and it is a parameter rather
+ * than a constant because #80 gave this component a second kind of destination. Every caller
+ * before it linked straight at bytes, where the attribute is exactly right. `/shots` links at a
+ * *page* -- the fullscreen viewer -- and a `download` on that would hand the phone the viewer's
+ * own HTML as a file. The default keeps all four original callers byte-identical.
  */
-export function shot({ href = '', src = '', label = 'file', anim = '' }) {
+export function shot({ href = '', src = '', label = 'file', anim = '', download = true }) {
   return src
     ? `<a class="shot${anim}" href="${escape(href)}">
         <img class="shot__img" src="${escape(src)}" alt="" loading="lazy">
       </a>`
-    : `<a class="shot shot--dl${anim}" href="${escape(href)}" download>
+    : `<a class="shot shot--dl${anim}" href="${escape(href)}"${download ? ' download' : ''}>
         <span class="shot__none">${escape(label)}<br>tap to open</span>
       </a>`;
 }
@@ -861,6 +867,108 @@ export function shots(photos = [], newestAnim = '') {
 
   return `<p class="statusline">you've sent ${photos.length}</p>
           <div class="shots">${cells}</div>`;
+}
+
+/**
+ * `/shots` (#80): every photograph of the night, by everyone, as a wall.
+ *
+ * **A wall and not a strip**, which is why it is not `shots()` with a wider grid. `shots()` counts
+ * what YOU sent and reads *"you've sent 6"*; this counts what the house shot and belongs to
+ * nobody. They also tap through to different places -- a strip at raw bytes, a wall at the
+ * viewer -- so one function with a flag would be two functions sharing a name.
+ *
+ * Each entry is `{ href, src, label, id }`, already resolved by the caller for `shot()`'s reason:
+ * which of a submission's three photo columns to point at is database knowledge and this file has
+ * none. `id` becomes the cell's fragment, which is what lets the viewer's close link land you back
+ * on the photograph you opened rather than at the top of a seven-screen scroll -- and, on a
+ * browser that has them, is what the reverse view transition morphs into. See `viewer()`.
+ *
+ * `filters` is markup the page has already rendered, for the same reason `unitRow()` takes a
+ * `body`: which route a form points at is the page's business, never the design system's.
+ */
+export function wall(cells = [], { filters = '', empty = 'No photographs yet.' } = {}) {
+  if (!cells.length) return `${filters}<p class="blurb">${escape(empty)}</p>`;
+
+  const cell = ({ id, ...rest }) =>
+    `<div class="wall__cell" id="p${Number(id)}">${shot({ ...rest, download: false })}</div>`;
+
+  return `${filters}
+    <p class="statusline">${cells.length} photograph${cells.length === 1 ? '' : 's'}</p>
+    <div class="wall">${cells.map(cell).join('')}</div>`;
+}
+
+/**
+ * One photograph, fullscreen, with every other photograph in the same filter to either side of it.
+ *
+ * **It builds its own document instead of calling `layout()`, and that is the point of it.**
+ * `layout()` is the site's frame -- marquee, scorebar, `<h1>`, menu bar, small print -- and this
+ * surface exists to have none of that: a picture on a black field, edge to edge, which is what
+ * "opens fullscreen" means. Passing four flags into `layout()` to switch off everything it does
+ * would leave a function whose only remaining job is the `<head>`, and this needs a different one
+ * anyway (`viewport-fit=cover`, so the picture reaches under a notch).
+ *
+ * **The swipe is the browser's, not ours.** The track is a horizontal scroller with
+ * `scroll-snap-type: x mandatory` and one panel per photograph, so flicking through them is native
+ * momentum scrolling on both phones -- with the inertia, the rubber-banding and the scrollbar the
+ * OS already draws. There is no gesture handler anywhere on this site, and this page did not add
+ * the first one. What it costs is that all N panels are in the document; `loading="lazy"` is what
+ * keeps that from being N megabytes, and the caller marks the one you arrived at eager so it is
+ * painted rather than pending at the moment the transition needs it.
+ *
+ * **Arriving at the right photograph is a fragment**, `#p<id>`, which the browser scrolls the
+ * track to before first paint. No script, no scroll maths, and the URL of a picture is a URL you
+ * can hand to someone.
+ *
+ * **The view transition is CSS on this side.** `:target` names the panel you arrived at
+ * `shot-open`, the wall names the thumbnail you tapped the same thing, and the browser morphs one
+ * into the other -- see `public/js/app.js` for the outbound half and `app.css` for the pair of
+ * rules. A browser without view transitions cuts, which is what every browser did before.
+ */
+export function viewer({ panels, back, title = 'Shots' }) {
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#000">
+  <title>${escape(title)}</title>
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body class="viewer">
+  <div class="viewer__track">${panels}</div>
+  <a class="viewer__close" href="${escape(back)}" aria-label="Back to the wall">close</a>
+</body>
+</html>`;
+}
+
+/**
+ * One panel of the viewer: the photograph, and underneath it who took it and what it answers.
+ *
+ * `said` is Portrait of a stranger's sentence and is empty on every other photograph -- the
+ * scavenger's ten prompts are labels, and a label is `what`. It renders as a `bubble()` for the
+ * reason Guess Who renders one: it is a thing somebody said out loud, and this site has exactly
+ * one shape for that.
+ *
+ * **"shot by", and it is not decoration.** The handle alone sat directly above the game's title,
+ * and on a portrait that reads as a caption for the FACE -- PLATYPUS, Portrait of a stranger.
+ * Portrait records nothing whatever about who is in the shot and that is a decision, not a gap
+ * (#25, CONTEXT.md): the photograph is the identity. A caption that quietly names the subject
+ * would be inventing the one field the tile refuses to store. Two words fix it, and they are true
+ * of every photograph on the wall rather than a special case for one game.
+ */
+export function viewerPanel({ id, src, href, label = 'file', who, what = '', said = '', eager = false }) {
+  const picture = src
+    ? `<img class="viewer__img" src="${escape(src)}" alt=""${eager ? '' : ' loading="lazy"'}>`
+    : `<a class="viewer__dl" href="${escape(href)}" download>${escape(label)}<br>tap to open</a>`;
+
+  return `<figure class="viewer__panel" id="p${Number(id)}">
+      ${picture}
+      <figcaption class="viewer__cap">
+        <span class="viewer__who">shot by ${escape(who)}</span>
+        ${what ? `<span class="viewer__what">${escape(what)}</span>` : ''}
+        ${said ? bubble(said) : ''}
+      </figcaption>
+    </figure>`;
 }
 
 /**

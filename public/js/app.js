@@ -122,6 +122,42 @@ if (boredButton && boredBox) {
   }
 }
 
+// --- opening a photograph off the wall -------------------------------------
+//
+// #80. The thumbnail you tap becomes the fullscreen photograph, via a
+// CROSS-DOCUMENT view transition -- so almost all of this is CSS and browser,
+// and the four lines below are the one part that cannot be.
+//
+// `app.css` names the arriving panel `shot-open` with `:target`, and names a
+// thumbnail `shot-open` with `:target` too, which is what makes the way BACK
+// free: the close link carries `#p<id>`, so the wall knows which cell to morph
+// out of without being told. The way FORWARD has no such luck. Which of a
+// hundred and thirty thumbnails is about to be tapped is not knowable when the
+// server renders the wall, and naming them all would try to animate the whole
+// grid at once -- so the name is put on at the last possible moment, here, in
+// the click that is already navigating.
+//
+// The clear is not defensive tidying, it is the case that happens every time
+// you close one photograph and open another: the cell you came back to is still
+// `:target` and still named by CSS, so tapping a second cell would put one name
+// on two elements. A duplicate `view-transition-name` makes the browser skip
+// the transition ENTIRELY -- not degrade it -- so the animation would work
+// exactly once per page load. Inline `none` outranks the `:target` rule.
+//
+// Blocked script, or a browser without view transitions: the link is a link and
+// the page cuts, which is what every navigation on this site did before.
+
+for (const cell of document.querySelectorAll('.wall__cell')) {
+  cell.addEventListener('click', () => {
+    for (const img of document.querySelectorAll('.wall__cell .shot__img')) {
+      img.style.viewTransitionName = 'none';
+    }
+
+    const opening = cell.querySelector('.shot__img');
+    if (opening) opening.style.viewTransitionName = 'shot-open';
+  });
+}
+
 // --- the host's live numbers -----------------------------------------------
 //
 // #94. HQ and the host's league keep themselves current by fetching rendered

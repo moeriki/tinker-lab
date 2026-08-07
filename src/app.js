@@ -95,6 +95,7 @@ import {
   unlock,
 } from './progress.js';
 import {
+  allPhotos,
   allSubmissionsFor,
   award,
   awardHuntProgress,
@@ -142,6 +143,9 @@ import {
   stub,
   tile,
   unitRow,
+  viewer,
+  viewerPanel,
+  wall,
   win,
 } from './render.js';
 import { inject } from './kit.js';
@@ -2046,18 +2050,170 @@ function showRecap({ req, res }) {
   );
 }
 
-function showShots({ req, res }) {
-  if (!gameHasEnded() && !IS_DEV) return redirect(res, '/');
+// --- shots: the wall, and the fullscreen viewer behind it (#80) --------------------------------
+
+/**
+ * Who may look at the wall. A guest once the night has been revealed, a host at any hour, and a
+ * dev build always.
+ *
+ * The `IS_DEV`-not-`isAdmin` line above belongs to a *stub*, and its reasoning said so: there is
+ * no hour in which anyone should be reading an unbuilt page. This one is built, so it goes back to
+ * `/league`'s rule -- the hosts have the real thing all night, and publishing is a separate press
+ * (#77). A host wanting to see what the guests will see does not have to end the party first.
+ */
+const maySeeShots = (req) => gameHasEnded() || isAdmin(req) || IS_DEV;
+
+/**
+ * The second select's vocabulary: one option per *prompt*, not per game.
+ *
+ * Filtering to "The most convincing fake laugh in the house" and getting thirteen teams' takes on
+ * it side by side is the thing worth having, and a two-entry game filter cannot express it. So a
+ * game with labelled units contributes one option each, and a game whose units are anonymous
+ * contributes one for the whole tile -- which is Portrait of a stranger, where one portrait is by
+ * design not distinguishable from another (CONTEXT.md, Unit).
+ *
+ * The key is `<gameId>:<unit>` for a labelled unit and a bare `<gameId>` for an anonymous one, so
+ * `keyFor` below can derive a submission's key without consulting this list.
+ */
+function promptOptions() {
+  const options = [{ value: '', label: 'every prompt' }];
+
+  for (const game of listGames().filter(takesPhoto)) {
+    const labels = unitLabels(game);
+    if (!labels.length) {
+      options.push({ value: game.id, label: game.title });
+      continue;
+    }
+    labels.forEach((label, unit) => options.push({ value: `${game.id}:${unit}`, label }));
+  }
+
+  return options;
+}
+
+const keyFor = (submission) =>
+  unitLabel(getGame(submission.game_id), submission.unit) === null
+    ? submission.game_id
+    : `${submission.game_id}:${submission.unit}`;
+
+/** The filter as a query string, so the viewer and its close link carry it back and forth. */
+function shotsQuery({ team, prompt }) {
+  const params = new URLSearchParams();
+  if (team) params.set('team', team);
+  if (prompt) params.set('prompt', prompt);
+  const query = params.toString();
+  return query ? `?${query}` : '';
+}
+
+/**
+ * Every photograph the current filter admits, newest first, with the content each one needs
+ * resolved off disk. `displayFor` decides which of a submission's three photo columns a cell may
+ * point at, and that is database knowledge -- which is why render.js is handed entries and never
+ * rows.
+ */
+function filteredPhotos({ team, prompt }) {
+  return allPhotos()
+    .filter((photo) => !team || photo.team_id === Number(team))
+    .filter((photo) => !prompt || keyFor(photo) === prompt)
+    .map((photo) => {
+      const game = getGame(photo.game_id);
+      return {
+        id: photo.id,
+        src: displayFor(photo).src ?? '',
+        label: photo.photo_mime ?? 'file',
+        who: photo.team_name,
+        what: unitLabel(game, photo.unit) ?? game?.title ?? photo.game_id,
+        said: photo.body ?? '',
+        bytes: `/uploads/${photo.photo_path}`,
+      };
+    });
+}
+
+/** The two selects, as a plain GET form: pick, press, the URL says what you are looking at. */
+function shotsFilters({ team, prompt }) {
+  const teams = [
+    { value: '', label: 'every team' },
+    ...all('select id, name from teams order by name').map((row) => ({
+      value: String(row.id),
+      label: row.name,
+    })),
+  ];
+
+  return `<form class="filters" method="get" action="/shots">
+      ${field({ label: 'who took it', name: 'team', value: team, options: teams })}
+      ${field({ label: 'what it answers', name: 'prompt', value: prompt, options: promptOptions() })}
+      <button class="btn">look</button>
+    </form>`;
+}
+
+/**
+ * The wall. Every photograph of the night, by everyone, filtered by two selects and nothing else.
+ *
+ * **Not curated, and that is the decision** (#11): the highlights at `/recap` are the joke and
+ * this is the evidence. The pile is the point.
+ */
+function showShots({ req, res, url }) {
+  if (!maySeeShots(req)) return redirect(res, '/');
+
+  const team = url.searchParams.get('team') ?? '';
+  const prompt = url.searchParams.get('prompt') ?? '';
+  const query = shotsQuery({ team, prompt });
+
+  const cells = filteredPhotos({ team, prompt }).map((photo) => ({
+    id: photo.id,
+    src: photo.src,
+    label: photo.label,
+    // `at` and the fragment say the same thing to two different readers: the fragment is what
+    // scrolls the track, and the server never sees it, so the query param is how this handler's
+    // opposite number learns which panel to render eager.
+    href: `/shots/open${query ? `${query}&` : '?'}at=${photo.id}#p${photo.id}`,
+  }));
 
   return html(
     res,
-    stub({
+    layout({
       title: 'Shots',
       nav: navFor(req, '/shots'),
-      owner: 'Every photograph of the night is visible only to the hosts',
-      does: 'Every photograph of the night, open to the people who took them.',
+      still: isAdmin(req),
+      body: wall(cells, {
+        filters: shotsFilters({ team, prompt }),
+        // Two different nothings, and one sentence for both would be a lie half the time.
+        // Filtered to nothing is the ordinary case -- a team that skipped a prompt -- and the
+        // selects are still on the page above it, which is the way out.
+        empty: query
+          ? 'Nothing matches that. Try a different team, or a different prompt.'
+          : 'Nobody photographed anything. That is also a result.',
+      }),
     }),
   );
+}
+
+/**
+ * One photograph fullscreen, with the rest of the filter either side of it to swipe through.
+ *
+ * The fragment decides which one you land on and the browser does the scrolling, so this handler
+ * never sees it -- `#p42` is not sent to the server. That is why `at` is a query param as well:
+ * the panel it names is the one rendered `eager`, because a `loading="lazy"` image that has not
+ * been fetched yet has nothing for the view transition to morph into.
+ */
+function showShotsOpen({ req, res, url }) {
+  if (!maySeeShots(req)) return redirect(res, '/');
+
+  const team = url.searchParams.get('team') ?? '';
+  const prompt = url.searchParams.get('prompt') ?? '';
+  const at = Number(url.searchParams.get('at'));
+  const photos = filteredPhotos({ team, prompt });
+
+  if (!photos.length) return redirect(res, `/shots${shotsQuery({ team, prompt })}`);
+
+  const panels = photos
+    .map((photo) => viewerPanel({ ...photo, href: photo.bytes, eager: photo.id === at }))
+    .join('');
+
+  // Back to the photograph you opened rather than the top of a seven-screen wall -- and, on a
+  // browser with view transitions, that fragment is also what the reverse morph targets.
+  const anchor = photos.some((photo) => photo.id === at) ? `#p${at}` : '';
+
+  return html(res, viewer({ panels, back: `/shots${shotsQuery({ team, prompt })}${anchor}` }));
 }
 
 // --- admin ------------------------------------------------------------------------------------
@@ -3115,6 +3271,7 @@ const routes = [
   route('GET', '/league', showLeague),
   route('GET', '/recap', showRecap),
   route('GET', '/shots', showShots),
+  route('GET', '/shots/open', showShotsOpen),
 
   route('GET', '/admin/key/:secret', adminKey),
   route('GET', '/admin', adminBoard),

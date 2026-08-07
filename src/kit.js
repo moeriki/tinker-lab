@@ -48,6 +48,7 @@ import {
   shot,
   shots,
   stamp,
+  wall,
   standing,
   starburst,
   statusbar,
@@ -201,6 +202,24 @@ const RENDERERS = {
             : { href: SAMPLE_SHOT, src: '', label: cell },
         ),
       a.anim ? ` ${a.anim}` : '',
+    ),
+
+  // The wall at `/shots` (#80). Same pipe-separated cells as the strip above, and the same
+  // reading of them -- but every cell here taps through to a PAGE rather than at bytes, which is
+  // the one thing that makes it a different call: `shot()`'s download tile must not carry
+  // `download` when its href is a document. The kit has no viewer to link at, so the cells point
+  // at the sample the way the strip's do.
+  wall: (a) =>
+    wall(
+      (a.cells ?? '')
+        .split('|')
+        .filter(Boolean)
+        .map((cell, index) =>
+          cell.startsWith('/')
+            ? { id: index + 1, href: SAMPLE_SHOT, src: cell }
+            : { id: index + 1, href: SAMPLE_SHOT, src: '', label: cell },
+        ),
+      { filters: '' },
     ),
 
   // The row every unit game puts on its tile. Its `body` is markup the page renders, and a marker

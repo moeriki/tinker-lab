@@ -213,6 +213,24 @@ export const submissionsFor = (teamId, gameId) =>
 export const allSubmissionsFor = (gameId) =>
   all('select * from submissions where game_id = ? order by created_at', gameId);
 
+/**
+ * Every photograph taken tonight, across every game, with the team that took it joined on --
+ * what `/shots` is made of (#80). The only query on the site that crosses games; the per-game
+ * gallery at `/admin/game/:id` is judging one tile and this is the whole night at once.
+ *
+ * **Newest first.** The wall is opened at 01:00 by people who want to see what just happened,
+ * and chronological order buries it under five hours of earlier evening.
+ *
+ * A submission with no photo is not a photograph -- Guess Who's answers and Herd's predictions
+ * are rows in this table too -- so the filter is `photo_path is not null` rather than a list of
+ * game ids, and a photo tile added later needs no change here.
+ */
+export const allPhotos = () =>
+  all(`select s.*, t.name as team_name
+         from submissions s join teams t on t.id = s.team_id
+        where s.photo_path is not null
+        order by s.created_at desc, s.id desc`);
+
 // --- the two endings -------------------------------------------------------------------------
 //
 // Running -> frozen -> ended. Only the first arrow goes both ways.

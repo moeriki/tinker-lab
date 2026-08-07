@@ -826,6 +826,73 @@ const FLOWS = [
   },
 
   {
+    name: 'shots',
+    what: 'shoot two games, end the night, and walk the wall and the fullscreen viewer',
+    async run({ page, shoot, check }) {
+      // The wall is the one page on this site that is made of OTHER pages' output, so it can only
+      // be walked by a team that has actually photographed something. The menu flow above proves
+      // the route is reachable; this proves there is anything on it.
+      await onboard(page, { members: ['Dieter', 'Anna'] });
+
+      const scavenger = slugFor('scavenger');
+      const portrait = slugFor('portrait');
+      if (!scavenger || !portrait) return check('both photo games have codes to scan', false);
+
+      // One labelled unit, so the wall's second filter has a prompt to find.
+      await page.goto(`/q/${scavenger}`);
+      await page.setFile('input[type="file"]', A_REAL_IMAGE);
+      await page.submit('input[type="file"]');
+      check('the scavenger took a photograph', (await page.count('.shot img')) > 0);
+
+      // One anonymous unit WITH a quote, which is the only photograph on the site that carries a
+      // sentence -- and the one thing the viewer's caption has to get right.
+      const SAID = 'I only came for the dog, honestly.';
+      await page.goto(`/q/${portrait}`);
+      await page.setFile('input[type="file"]', A_REAL_IMAGE);
+      await page.fillForm({ body: SAID });
+      await page.submit('input[type="file"]');
+      check('the portrait took a photograph and a sentence', (await page.count('.shot img')) > 0);
+
+      // Mid-party, the wall is shut. #77's two presses are what open it, and only the second.
+      await page.goto('/shots');
+      check('a guest is turned away from the wall mid-party', (await page.url()) === '/');
+
+      await page.goto(`/admin/key/${ADMIN_SECRET}`);
+      await page.post('/admin/freeze', {});
+      await page.goto('/admin/end');
+      await page.press('form[action="/admin/end"] button');
+
+      await page.goto('/shots');
+      const cells = await page.count('.wall__cell');
+      check(`the wall holds both photographs (${cells})`, cells === 2);
+      check('and both selects are on it', (await page.count('.filters select')) === 2);
+      await shoot('shots-wall');
+
+      // A cell taps through to the viewer rather than at the bytes -- the difference #80 added
+      // `download: false` to `shot()` for. A `download` here would hand the phone the viewer's
+      // own HTML as a file.
+      const href = String(await page.attr('.wall__cell a', 'href'));
+      check(`a photograph opens the viewer (${href})`, href.startsWith('/shots/open?'));
+
+      // The prompt filter, which is the whole reason the second select lists units and not games.
+      await page.goto('/shots?prompt=portrait');
+      check('filtering to one prompt narrows the wall', (await page.count('.wall__cell')) === 1);
+      const filtered = String(await page.attr('.wall__cell a', 'href'));
+      check('and the filter travels into the viewer', filtered.includes('prompt=portrait'));
+
+      await page.goto(filtered.replace(/#.*$/, ''));
+      check('the viewer is fullscreen, with no menu bar', !(await page.has('.navbar')));
+      check('one panel, because the filter came with it', (await page.count('.viewer__panel')) === 1);
+      // The handle is dealt, so the walk cannot know it -- only that the caption says one.
+      const who = String(await page.text('.viewer__who'));
+      check(`the caption says whose camera it was (${who})`, who.startsWith('shot by '));
+      check('the sentence is under the photograph', (await page.text('.bubble p')) === SAID);
+      check('and there is a way back to the wall', await page.has('.viewer__close'));
+      await shoot('shots-viewer');
+    },
+  },
+
+  {
     name: 'delete',
     what: "remove a team at the door, and check what it takes with it in somebody else's tile",
     async run({ page, shoot, check }) {
