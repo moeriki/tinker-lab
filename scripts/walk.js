@@ -35,6 +35,7 @@ import { join } from 'node:path';
 import codes from '../content/codes.js';
 import economy from '../content/economy.js';
 import { reportOverflow, PHONE, withBrowser } from './lib/browser.js';
+import { answersFor, HERD_MAJORITY, HOUSE, US } from './lib/house.js';
 
 const REPO = new URL('../', import.meta.url).pathname;
 
@@ -111,7 +112,7 @@ function recorder() {
  * constraint; `members: ['Solo']` walks the shorter path, and the counter difference between the
  * two is the thing that would break silently if the wizard ever started lying about its total.
  */
-async function onboard(page, { members = ['Dieter', 'Anna'], shoot = null, check = null } = {}) {
+async function onboard(page, { members = ['Dieter', 'Anna'], shoot = null, check = null, guest = null } = {}) {
   const [captain, mate] = members;
 
   await page.clearCookies();
@@ -163,10 +164,14 @@ async function onboard(page, { members = ['Dieter', 'Anna'], shoot = null, check
     total === 3 + members.length + 1 + 3,
   );
 
+  // `guest` is a cast entry from lib/house.js, and it is what turns this from "the gate opens" into
+  // "the room has a shape". Without one every field takes a distinct filler word, which is right
+  // for a flow that only needs to be somebody -- and wrong for the three tiles that read the whole
+  // house, because a corpus of unrelated words has nothing to cluster and nothing to separate.
   for (let screen = 0; screen < members.length + 1; screen += 1) {
     if (shoot && screen === 0) await shoot('door-question');
     if (shoot && screen === members.length) await shoot('door-herd');
-    await page.fillForm();
+    await page.fillForm(guest ? await answersFor(page, guest, screen) : {});
     await page.submit();
   }
 
@@ -198,6 +203,38 @@ async function onboard(page, { members = ['Dieter', 'Anna'], shoot = null, check
  * five presses fewer than a whole questionnaire. It leaves the cookie attached, so the caller who
  * wants to be somebody else afterwards clears it -- exactly as before.
  */
+/**
+ * One guest of the cast, all the way through the wizard, answering as themselves. Returns the
+ * handle they were dealt.
+ *
+ * It walks the pages a guest walks -- no rows written behind the site's back -- because the GATE is
+ * the thing being relied on. A team that has not passed `onboardingComplete()` is invisible to
+ * `deals.js` and `harvest.js` by design, so a fixture that seeded the database directly would be a
+ * house that nobody in the house can see, which is exactly the wrong answer to look at.
+ */
+const arrive = async (page, guest) =>
+  (await onboard(page, { members: guest.members, guest })).name;
+
+/**
+ * Fill the house, and hand back the handles in arrival order.
+ *
+ * The cookie is dropped before each arrival and left holding the LAST guest, so a caller that
+ * wants to be somebody else calls `arrive(page, US)` afterwards -- which is what the roster flow
+ * does, and why `US` sits in lib/house.js beside the cast rather than being invented here.
+ */
+async function seedHouse(page, { check } = {}) {
+  const handles = [];
+  for (const guest of HOUSE) handles.push(await arrive(page, guest));
+
+  check?.(
+    `${HOUSE.length} other teams are through the door`,
+    handles.filter(Boolean).length === HOUSE.length,
+  );
+  check?.('every handle dealt is distinct', new Set(handles).size === handles.length);
+
+  return handles;
+}
+
 async function stopAtTheDoor(page, who) {
   await page.clearCookies();
   await page.goto('/welcome');
@@ -1103,7 +1140,224 @@ const FLOWS = [
       await shoot('delete-team-phone');
     },
   },
+
+  {
+    name: 'roster',
+    what: 'play all ten tiles as one team, in a house that has other teams in it',
+    async run({ page, shoot, check }) {
+      // THE WHOLE ROSTER, IN ONE NIGHT, BY ONE TEAM. Every other flow above walks one mechanic:
+      // an answer, a photograph, a hunt, the door. Each game was also built by its own session
+      // against its own ticket, so until #82 nobody had held all ten at once -- and three of them
+      // cannot be held alone at all, because they read the rest of the house (see lib/house.js).
+      //
+      // What this flow is for is the sentence "does it actually complete?": scan to unlock to
+      // submit to scored, for every tile, with nothing on the path missing or stubbed. It is
+      // deliberately shallow per game -- the depth is in the flows above -- and wide instead.
+      const handles = await seedHouse(page, { check });
+      const us = await arrive(page, US);
+      check('and we are somebody too', Boolean(us) && !handles.includes(us));
+
+      await page.goto(`/admin/key/${ADMIN_SECRET}`);
+      const board = await readBoard(page);
+      const mine = board.find((row) => row.name === us);
+      check('the host board can see us among the house', Boolean(mine));
+
+      await page.goto('/');
+      const open = await page.text('.scorebar__open');
+      check(`the night opens on the two starters (${open})`, /^2 of 10 open$/.test(open ?? ''));
+      await shoot('board-arrived');
+
+      // --- unlock everything a code can unlock ---------------------------------------------
+      //
+      // Written against the inventory rather than against a list of game ids, so a roster that
+      // gains or loses a tile changes this flow by changing `content/codes.js` alone.
+      const unlockable = [...new Set(Object.values(codes).filter((c) => c.game && !c.step).map((c) => c.game))];
+
+      for (const gameId of unlockable) {
+        const slug = slugFor(gameId);
+        await page.goto(`/q/${slug}`);
+        check(`${gameId}: its code opens it`, (await page.url()).startsWith(`/g/${gameId}`));
+      }
+
+      // --- the two hunts ---------------------------------------------------------------------
+      //
+      // A hunt is not unlocked by a code the way everything else is -- its first STEP is what
+      // opens it -- so the "every tile is open" count below only comes true once both trails have
+      // been walked. Getting that wrong is how this flow first reported 8 of 10.
+      for (const gameId of ['riddle', 'lights']) {
+        const trail = trailFor(gameId);
+        check(`${gameId}: the trail is complete (${trail.length} steps)`, trail.length > 0);
+        for (const slug of trail) await page.goto(`/q/${slug}`);
+
+        await page.goto(`/g/${gameId}`);
+        await shoot(`${gameId}-finished`);
+      }
+
+      await page.goto('/');
+      const opened = await page.text('.scorebar__open');
+      check(`every tile is open (${opened})`, /^10 of 10 open$/.test(opened ?? ''));
+
+      // --- Sign Here: a real handle, and a forged one ------------------------------------------
+      await page.goto('/g/bingo');
+      await page.fillForm({ unit: '0', body: handles[0] });
+      await page.submit();
+      check(
+        `a real handle signs the card (${handles[0]})`,
+        (await page.count('.square--signed')) > 0 || (await page.text('.statusline'))?.includes('1'),
+      );
+      await shoot('bingo-signed');
+
+      await page.goto('/g/bingo');
+      await page.fillForm({ unit: '1', body: 'NOBODYHOLDSTHIS' });
+      await page.submit();
+      check('a word nobody holds is refused', Boolean(await page.text('.banner')));
+      await shoot('bingo-forged');
+
+      // --- Guess Who: the tile that cannot be played on an empty board -------------------------
+      await page.goto('/g/guess-who');
+      const cards = await page.count('.unit');
+      check(`the house deals a full hand (${cards} cards)`, cards === 10);
+      check('and every card offers the whole party to name', await page.has('select'));
+      await page.fillForm();
+      await page.submit();
+      check('a hand of guesses saves', (await page.url()).startsWith('/g/guess-who'));
+      await shoot('guess-who-guessed');
+
+      // --- Herd Mentality: predict what the house said -----------------------------------------
+      await page.goto('/g/herd');
+      const fields = await page.count('input[type="text"]');
+      check(`the harvest asks its five questions back (${fields})`, fields === 5);
+      await page.fillForm(await predictions(page));
+      await page.submit();
+      check('the predictions save', (await page.url()).startsWith('/g/herd'));
+      await shoot('herd-predicted');
+
+      // --- the photo pair ----------------------------------------------------------------------
+      check('there is a real image to send', existsSync(A_REAL_IMAGE));
+
+      await page.goto('/g/portrait');
+      await page.fillForm({ body: 'Marieke, who came for the dog' });
+      await page.setFile('input[type="file"]', A_REAL_IMAGE);
+      await page.submit('input[type="file"]');
+      check('a portrait comes back as a thumbnail', (await page.count('.shot img')) > 0);
+      await shoot('portrait-sent');
+
+      await page.goto('/g/scavenger');
+      await page.setFile('input[type="file"]', A_REAL_IMAGE);
+      await page.submit('input[type="file"]');
+      check('a scavenger photo comes back as a thumbnail', (await page.count('.shot img')) > 0);
+      await shoot('scavenger-sent');
+
+      // --- the Triangle Test, which gets one shot ----------------------------------------------
+      await page.goto('/g/triangle');
+      await page.fillForm();
+      await page.submit();
+      check('the Triangle Test answers back', Boolean(await page.text('.banner')));
+      check('and closes its form for good', !(await page.has('form select')));
+
+      // --- Longest yarn -------------------------------------------------------------------------
+      await page.goto('/g/yarn');
+      await page.fillForm({ body: '184' });
+      await page.submit();
+      check('a length is accepted', (await page.url()).startsWith('/g/yarn'));
+
+      // --- Teddy, which no team can play ---------------------------------------------------------
+      await page.goto('/g/teddy');
+      check('the trophy holds no form', !(await page.has('form')));
+
+      // The trophy's admin page is the ONLY way Teddy's ten points ever move, and until #82 nobody
+      // had opened it: `trophyPanel()` read a `req` it was never passed, so it threw and the host
+      // got the 500 page. What made that survivable for a whole build is how weakly it fails --
+      // the error page is a real page, it carries the site's chrome, and every loose check ("is
+      // there no gallery here?") passes against it. So this asks for the thing only the working
+      // page has: a button that awards the trophy, and a team list with the whole house on it.
+      await page.goto('/admin/game/teddy');
+      const buttons = await page.count('form[action="/admin/trophy"] button');
+      check(`the host gets a button per team (${buttons})`, buttons === HOUSE.length + 1);
+
+      // Pressed in OUR row rather than in whichever row the list sorts first, because the point of
+      // awarding it here is what the tile does about it on the board below.
+      await page.press(`form[action="/admin/trophy"]:has(input[name="team"][value="${mine.id}"]) button`);
+      check('awarding the trophy lands back on the trophy', (await page.url()).includes('teddy'));
+      // The SECOND statusline — the first is the panel's standing explanation, which says nothing
+      // about tonight and would pass this check on any page that renders at all.
+      const holders = await page.text('.statusline + .statusline');
+      check(`and the host can see who is holding it (${holders})`, /^1 team/.test(holders ?? ''));
+      await shoot('teddy-awarded');
+
+      // --- what the board says it all added up to -----------------------------------------------
+      //
+      // THE TILE IS READ AGAINST THE LEDGER, not against a number this flow worked out for itself.
+      // A tile's job on the dashboard is to report what a team has scored in it, and a whole class
+      // of games -- the two `trust` tiles and the signature card -- deliberately stays `unlocked`
+      // until it is finished, so that its POINTS do the talking (CONTEXT.md, "Tile"). Which means
+      // the one thing that has to be true is that a tile carrying points says so.
+      await page.goto('/');
+      await shoot('board-played');
+
+      const played = await tilePoints(page);
+      const scored = Number(await page.text('.scorebar__num'));
+      check(`the night added up to something (${scored} points)`, scored > 0);
+
+      // Every tile this flow has actually banked points in. The two hunts and the Triangle Test
+      // are settled kinds and already say `+10 pts`; these four are the ones whose state machine
+      // has somewhere to hide, and each is here because this flow paid it above:
+      //   Sign Here            one square signed, 1 point (grid)
+      //   Portrait / scavenger one photograph each, 1 point (trust)
+      //   Teddy                the trophy, awarded to us by the host, 10 points
+      const PAID = ['Sign Here', 'Portrait of a stranger', 'Photo scavenger', 'Teddy'];
+
+      const silent = PAID.filter((title) => played[title] === 'not played');
+      check(
+        `a tile that has paid says so (${silent.join(', ') || 'all four do'})`,
+        silent.length === 0,
+      );
+
+      // The trophy is the sharper half of the same rule and has its own sentence in CONTEXT.md:
+      // a trophy holds no submissions, so "awarded" IS the verdict and the tile goes green.
+      check(`an awarded trophy is a finished tile (Teddy: ${played.Teddy})`, played.Teddy === '+10 pts');
+    },
+  },
 ];
+
+/**
+ * What every tile on the dashboard says about itself: title -> its points line.
+ *
+ * Read off the rendered board rather than out of the database on purpose. The question this flow
+ * asks is not "did the ledger get it right" -- `/league` and the ending flow settle that -- but
+ * "does the thing a guest looks at agree with it".
+ */
+const tilePoints = async (page) =>
+  JSON.parse(
+    (await page.evaluate(
+      `return JSON.stringify(Object.fromEntries([...document.querySelectorAll('.tile')].map((t) => [
+         t.querySelector('.tile__title')?.textContent?.trim(),
+         t.querySelector('.tile__pts')?.textContent?.trim(),
+       ])))`,
+    )) ?? '{}',
+  );
+
+/**
+ * Herd's five prediction fields, filled with what the house actually said.
+ *
+ * The fields are named `<questionId>:` exactly as they are at the door, which is the point of a
+ * harvest naming its questions by id rather than restating them (CONTEXT.md, "Harvest"). Predicting
+ * the majority is what makes this flow prove the tile can PAY, rather than merely accept typing.
+ */
+async function predictions(page) {
+  const names = JSON.parse(
+    (await page.evaluate(
+      `return JSON.stringify([...document.querySelectorAll('form [name]')].map((el) => el.name))`,
+    )) ?? '[]',
+  );
+
+  const overrides = {};
+  for (const name of names) {
+    const answer = HERD_MAJORITY[name.replace(/:$/, '')];
+    if (answer) overrides[name] = answer;
+  }
+  return overrides;
+}
 
 /** A tile every team has from the moment it exists, so the flow above needs no scan. */
 const STARTER = 'yarn';

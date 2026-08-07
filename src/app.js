@@ -3064,7 +3064,7 @@ async function adminDeleteTeamConfirmed({ req, res }) {
  * people carrying Teddy between them is the kind of thing that happens at midnight -- the count is
  * shown instead, so an accidental second award is visible rather than prevented.
  */
-function trophyPanel(res, game) {
+function trophyPanel(req, res, game) {
   const worth = game.points ?? 0;
   const holders = new Map(
     all(
@@ -3146,7 +3146,7 @@ function adminGame({ req, res, params }) {
 
   const game = getGame(params.gameId);
   if (!game) return html(res, notFound(), 404);
-  if (game.kind === 'trophy') return trophyPanel(res, game);
+  if (game.kind === 'trophy') return trophyPanel(req, res, game);
 
   const mode = judgingMode(game);
   const submissions = allSubmissionsFor(game.id);

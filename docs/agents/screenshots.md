@@ -118,14 +118,27 @@ node scripts/walk.js --out shots
 
 It arrives as a stranger, walks both onboarding screens, scans codes, submits answers and
 photographs, moves points through `/admin/award` and ends the night — then shoots each of those
-states. Six flows: `door`, `scan`, `answer`, `photo`, `standings`, `ending`. Each gets its **own
-server and its own database**, so a flow never inherits the teams the flow before it left lying
-around.
+states. Run `--list` for the flows; each gets its **own server and its own database**, so a flow
+never inherits the teams the flow before it left lying around.
 
 The standings flow is the one that pays for the rest: it puts three rivals on the board and walks
 the viewing team through **podium, chasing and rest**, which is the only way to see all three
 standing colours (`#0a7a0a`, `#a35b00`, `#8a0d0d`) — they appear one band at a time and need a
 real score to reach.
+
+The `roster` flow is the one that plays the whole night: **all ten tiles, by one team, in a house
+that has seven other teams in it** ([#82](https://github.com/moeriki/tinker-lab/issues/82)). Every
+other flow walks one mechanic; this one walks the roster, which is the only way to catch a tile
+that works alone and not in company. It is where the trophy panel's `500` was found — the only
+route Teddy's ten points can ever move through, and nobody had opened it.
+
+Its cast lives in **`scripts/lib/house.js`**, and the answers there are chosen rather than
+generated on purpose: a herd question needs answers that **cluster** so a prediction can be right,
+and a Guess Who rung needs answers that **separate** so a card has one right name. `fillForm()`'s
+filler words satisfy neither. Reuse `seedHouse()` for anything that reads the room — and note the
+trap it exists to absorb: a questionnaire field is named `<questionId>:<memberId>`, so a fixture
+that hardcodes `wanted-to-be:1` writes its answers against **another team's members**, the rows
+land, the counts look right, and the team silently never passes the gate.
 
 The `ending` flow reaches the other state nobody can browse to: **01:00**. It presses
 `/admin/freeze`, sits in the gap with a frozen board, then presses `/admin/end` — so the two

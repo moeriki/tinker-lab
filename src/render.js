@@ -629,12 +629,26 @@ const TILE_BADGE = {
   wrong: '<span class="tile__flag" aria-hidden="true">✗</span>',
 };
 
+/**
+ * `+1 pt`, `+3 pts`. It only started mattering when tiles began reporting single points: before
+ * #82 the only numbers a tile ever printed were a finished tile's ten, and `pts` was always right.
+ */
+const pts = (points) => `+${points} pt${Math.abs(points) === 1 ? '' : 's'}`;
+
 const TILE_PTS = {
   locked: () => 'go find it',
-  unlocked: () => 'not played',
-  correct: (points) => `+${points} pts`,
+  // An unlocked tile is the only state that can be part-played, and three kinds spend most of the
+  // night in it on purpose: the two `trust` tiles and the signature card stay `unlocked` until
+  // they are FINISHED, so that green keeps meaning finished rather than started (CONTEXT.md,
+  // "Tile"). The same paragraph says a half-filled tile "lets its points do the talking" -- and
+  // until #82 played the roster, nothing here let it: this returned the same three words whatever
+  // the ledger said, so a team that had signed a square and sent two photographs read `not
+  // played` on all three of the tiles it had actually been working at. Zero still says `not
+  // played`, because zero is what you scored and not a thing you have done.
+  unlocked: (points) => (points ? pts(points) : 'not played'),
+  correct: (points) => pts(points),
   unknown: () => 'answered · counts at the end',
-  wrong: (points) => `+${points} pts`,
+  wrong: (points) => pts(points),
 };
 
 /**
