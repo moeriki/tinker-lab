@@ -646,6 +646,44 @@ what it is about to destroy *is* one. The rule reaches the end and the delete to
 Still deliberately no `confirm()`: client JS here is animation and the hint modal, and a control
 that files away five hours of a party should not be the one thing needing a script to run.
 
+### Deleting a team
+
+The site's other destructive control, and **a door tool rather than a small reset**
+([#87](https://github.com/moeriki/tinker-lab/issues/87)). What it is for is 20:10: a pair who
+registered, changed their minds, and want to be on different teams — or the same phone through the
+door twice. It exists so the night does not run with ghost teams on the league table.
+
+That hour decides the design. **There is no snapshot and no `data/deleted/`**, where reset has
+both, because at the door a team is a dealt handle, two names and nine onboarding answers and
+there is nothing to file away. What guards the press instead is the **count**: `/admin/delete-team`
+lists every team with what it has done, and the confirmation says it again. `nothing yet` means the
+press is free; `14 scans · 6 submitted · 31 points` is the sentence that stops the thumb, without
+the page ever having to know what time it is.
+
+It is a **list, not a dropdown**, and rows carry the **two members' names** as well as the handle —
+handles are dealt animals, so choosing between PENGUIN and PELICAN in a collapsed picker in a loud
+hall is a coin toss with an irreversible button on the end of it. A team that never finished the
+door questions says so, because that is the likeliest dud and the freest one to remove.
+
+Three consequences, two of them invisible from the page:
+
+- **The phone starts over.** No row means no team behind the cookie, so the next tap lands on
+  `/welcome`. This is the *start over on this phone* hatch [#9](https://github.com/moeriki/tinker-lab/issues/9)
+  refused to build for guests — here it is the entire point, and it is host-gated.
+- **The handle goes back in the bag**, since `dealTeamName` deals from words no live team holds.
+- **Other teams' Guess Who cards** pointing at the deleted members are taken back, and the guesses
+  written on them go too. `deals.ref` is an opaque integer with no foreign key, so no cascade can
+  see it; `forgetMembers()` in `src/deals.js` is the one thing that can, and dropping beats leaving
+  because a hand tops up on every open — leave the row and a stranger holds a blank square,
+  counting against their ten, that they can never fill.
+
+**Not repaired, deliberately:** a Human Bingo signature naming the deleted handle stays on the
+stranger's card with its points banked. A signature is a word, not a reference, and there is
+nothing to repoint it at. Dieter's steer covers it — *"in the end it's their choice. If it impacts
+other teams then we should accept that."* At the door there are no signatures anyway.
+
+`src/removal.js`, walked by `node scripts/walk.js delete`.
+
 ### Profile answer
 
 An onboarding questionnaire answer, keyed by `question_id` from `content/questions.js`. Its
@@ -760,7 +798,8 @@ Admin, all behind one cookie gate
 | GET | `/admin/key/:secret` | set the admin cookie, redirect to `/admin` |
 | GET | `/admin` | **HQ**: the host's dashboard. Team count, how long the night has run, how many codes nobody has found, and what is waiting on a human. Refreshes every 30s, which is why it holds no form |
 | GET | `/admin/controls` | everything with a consequence, on one page and off the menu bar: freeze/unfreeze, end, hand out points, recompute, delete a team, reset |
-| GET | `/admin/delete-team` | remove a team registered by mistake. Honest stub, owned by #87 |
+| GET | `/admin/delete-team` | the teams, each with its two members' names and what it has done; `?team=<id>` is the confirmation in front of the press — see **Removing a team** |
+| POST | `/admin/delete-team` | remove one team, its photographs, and the dead cards it leaves in other hands |
 | GET | `/admin/court` | everything waiting on a human verdict, across all games, in one list. Honest stub, owned by #83 |
 | GET | `/admin/game/:gameId` | the gallery: every submission for one game, with the actions its judging mode calls for — or, for a `trophy`, the team list with one button each |
 | POST | `/admin/judge` | verdict + award on one submission; rejecting writes a zero rather than deleting, so re-judging upserts |

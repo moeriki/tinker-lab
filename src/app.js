@@ -114,6 +114,7 @@ import {
   submissionsFor,
   teamScore,
 } from './scoring.js';
+import { deleteTeam, removableTeams, whatTeamHasDone } from './removal.js';
 import { resetGame, whatWouldBeCleared } from './reset.js';
 import { fireWebhook } from './webhooks.js';
 import {
@@ -2189,34 +2190,157 @@ function adminControls({ req, res }) {
   );
 }
 
+/** What a team has done, in one line, for the list and again for the confirmation. */
+function tally(team) {
+  const parts = [];
+  if (team.scans) parts.push(`${team.scans} ${team.scans === 1 ? 'scan' : 'scans'}`);
+  if (team.submissions) parts.push(`${team.submissions} submitted`);
+  if (team.photos) parts.push(`${team.photos} ${team.photos === 1 ? 'photograph' : 'photographs'}`);
+  if (team.points) parts.push(`${team.points} points`);
+
+  if (!parts.length) return team.onboarded ? 'nothing yet' : 'never finished the door questions';
+  return parts.join(' · ');
+}
+
 /**
- * Deleting a team is not a button, it is a feature with a blast radius, so this is an honest stub
- * naming the ticket that owns it -- the same bargain `/recap` and `/shots` strike.
+ * Every team, with a way to remove one. A LIST rather than the dropdown the controls page uses for
+ * handing out points, and the reason is the handles: they are dealt animals (#9), so choosing
+ * between PENGUIN and PELICAN from a collapsed picker in a loud hall is a coin toss with an
+ * irreversible button on the end of it. Rows show the two people's names, which is what the host
+ * actually knows about the pair standing in front of him.
  *
- * What it is FOR is the door: two guests swap partners at 20:10, or a team registers twice. At
- * that hour there is nothing to lose, which is why the ticket's guard is a count of what the team
- * has done rather than a warning.
- *
- * What makes it more than a `delete from teams` is the two games built out of what OTHER guests
- * answered at the door. `deals.ref` holds a member id belonging to another team, deliberately
- * without a foreign key, so the cascade cannot see it: delete a team and every other team's dealt
- * Guess Who cards still point at people who no longer exist, and `handFor()` renders them with a
- * null name and an empty answer -- a blank square in a stranger's hand, counting against their
- * ten, that they can never fill. Human Bingo has the same shape in strings, with the points
- * already paid.
+ * Each row also carries what that team has done, because that is the guard Dieter asked for in so
+ * many words -- *"just so I know how much I'm voiding"*. It is honest at both hours without the
+ * page having to know what time it is: at 20:10 every row says `nothing yet` and the press is
+ * free; at 23:00 one says `14 scans · 6 submitted · 31 points` and stops the thumb by itself.
  */
-function adminDeleteTeam({ req, res }) {
+function adminDeleteTeam({ req, res, url }) {
   if (!requireAdmin(req, res)) return undefined;
+  if (url.searchParams.has('team')) return deleteTeamConfirmation({ req, res, url });
+
+  const teams = removableTeams();
+  const gone = url.searchParams.get('gone');
+
+  const done = gone
+    ? `<p class="banner"><strong>${escape(gone)} is gone.</strong> Their phone starts over at the
+        welcome screen, and the name is back in the bag.</p>`
+    : '';
+
+  const rows = teams
+    .map(
+      (team) => `
+        <tr>
+          <td>
+            <strong>${escape(team.name)}</strong><br>
+            ${team.members.length ? team.members.map(escape).join(' &amp; ') : '<em>nobody</em>'}
+          </td>
+          <td class="mono">${escape(tally(team))}</td>
+          <td>
+            <div class="judge"><a class="btn" href="/admin/delete-team?team=${team.id}">delete</a></div>
+          </td>
+        </tr>`,
+    )
+    .join('');
 
   return html(
     res,
-    stub({
+    layout({
       title: 'Delete a team',
       nav: navFor(req),
-      owner: 'A team can be made but never unmade, and the night will produce at least one dud',
-      does: 'Remove a team registered by mistake, and everything the cascade cannot see.',
       still: true, // admin surface
+      body: `
+        ${done}
+        <p>For the pair at the door who registered, changed their minds, and want to be on
+          different teams. Deleting frees their phone to start again.</p>
+        ${
+          teams.length
+            ? `<table class="board"><tbody>${rows}</tbody></table>`
+            : '<p>No teams yet.</p>'
+        }
+        <a class="btn btn--close" href="/admin/controls">back to controls</a>
+      `,
     }),
+  );
+}
+
+/**
+ * The confirmation, as a page rather than a dialog -- the same two guards the reset page keeps,
+ * for the same reasons. The list is reached by a link, and a link removes nothing; this page names
+ * one team and says what goes with it. **No typed word**: the host's rule is that nothing on this
+ * site asks anyone to spell anything (#79), and a page carrying the count IS the plain confirmation
+ * that rule asks for. Not a `confirm()` either, since client JS here is animation and the hint
+ * modal, and this would be the one control that broke when a script did not run.
+ *
+ * The line about other teams' cards only appears when there are any, which at the door there never
+ * are. It is the one consequence of the press that the host cannot see from the room.
+ */
+function deleteTeamConfirmation({ req, res, url }) {
+  const team = whatTeamHasDone(Number(url.searchParams.get('team')));
+  if (!team) return redirect(res, '/admin/delete-team');
+
+  const row = (label, value) =>
+    `<tr><th>${escape(label)}</th><td class="mono">${escape(String(value))}</td></tr>`;
+
+  const spent = team.scans || team.submissions || team.points;
+
+  return html(
+    res,
+    layout({
+      title: 'Delete a team',
+      nav: navFor(req),
+      still: true, // admin surface
+      body: `
+        <p class="banner banner--bad">This deletes ${escape(team.name)} for good.</p>
+        <p><strong>${team.members.map(escape).join(' &amp; ') || 'Nobody'}</strong>, playing as
+          ${escape(team.name)}${team.onboarded ? '' : ', who never finished the door questions'}.
+          Last seen ${escape(ago(team.minutesIdle))}.</p>
+        <table class="board">
+          <tbody>
+            ${row('scans', team.scans)}
+            ${row('submissions', team.submissions)}
+            ${row('photographs', team.photos)}
+            ${row('points', team.points)}
+          </tbody>
+        </table>
+        ${
+          spent
+            ? '<p>Everything above goes with them, photographs included, and none of it comes back.</p>'
+            : '<p>They have done nothing yet, so there is nothing to lose here.</p>'
+        }
+        ${
+          team.cards
+            ? `<p>${team.cards} Guess Who ${team.cards === 1 ? 'card' : 'cards'} in other teams'
+                hands point at these two. Those cards are taken back, and those teams top up to a
+                fresh ten next time they open the tile.</p>`
+            : ''
+        }
+        <p>Their phone starts over at the welcome screen, and ${escape(team.name)} goes back in the
+          bag of names.</p>
+        <form method="post" action="/admin/delete-team">
+          <input type="hidden" name="team" value="${team.id}">
+          <button class="btn btn--primary" type="submit">delete ${escape(team.name)}</button>
+        </form>
+        <a class="btn btn--close" href="/admin/delete-team">keep them</a>
+      `,
+    }),
+  );
+}
+
+/**
+ * Redirects rather than rendering, so the removal is never sitting behind a form resubmission, and
+ * comes back naming who went -- which doubles as the proof it worked, since the row above it is
+ * now missing from the list. A second press of a stale page finds nothing to remove and lands on
+ * the same calm list; `deleteTeam` returns null rather than throwing for exactly that.
+ */
+async function adminDeleteTeamConfirmed({ req, res }) {
+  if (!requireAdmin(req, res)) return undefined;
+
+  const form = await readForm(req);
+  const removed = deleteTeam(Number(form.get('team')));
+
+  return redirect(
+    res,
+    removed ? `/admin/delete-team?gone=${encodeURIComponent(removed.name)}` : '/admin/delete-team',
   );
 }
 
@@ -2788,6 +2912,7 @@ const routes = [
   route('GET', '/admin', adminBoard),
   route('GET', '/admin/controls', adminControls),
   route('GET', '/admin/delete-team', adminDeleteTeam),
+  route('POST', '/admin/delete-team', adminDeleteTeamConfirmed),
   route('GET', '/admin/court', adminCourt),
   route('GET', '/admin/game/:gameId', adminGame),
   route('POST', '/admin/judge', adminJudge),

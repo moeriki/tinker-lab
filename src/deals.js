@@ -8,7 +8,7 @@
 // receives its own cards back as plain facts; it never learns that a `deals` table exists, and the
 // table never learns what a `ref` means.
 
-import { ladderRungs } from './content.js';
+import { hasHand, ladderRungs, listGames } from './content.js';
 import { all, run, transact } from './db.js';
 import { onboardingComplete } from './identity.js';
 
@@ -170,3 +170,62 @@ export function dealsByUnit(gameId) {
 /** Every member's name by id, so a resolver can write "said Anna — it was Bram" into the ledger. */
 export const memberNames = () =>
   new Map(all('select id, name from members').map((row) => [row.id, row.name]));
+
+/**
+ * Throw away every card, in anybody's hand, pointing at one of these members -- because they are
+ * about to stop existing. Returns how many cards were taken back. See #87.
+ *
+ * This is the one piece of a team's removal that no foreign key can do, and that is by design
+ * rather than by omission: `ref` is an OPAQUE integer the table refuses to interpret
+ * (006-deals.sql), so a cascade off `members` cannot see it. The knowledge that a ref is a member
+ * id lives in this module, because this module is what wrote the integer -- which is also why the
+ * delete is scoped to the games that deal member ids instead of being a blanket sweep of `deals`.
+ * A future game that deals something else keeps its cards.
+ *
+ * DROPPING is right, where leaving is wrong and repointing is impossible. `handFor` tops a hand up
+ * to `size` every single time the tile is opened, so a stranger who loses a card here walks back
+ * into a full ten and never learns anything happened. Leave the row instead and they hold a square
+ * with no name, no prompt and no answer -- counting against their ten, unfillable, and raising no
+ * error anywhere. The failure would surface in someone else's tile an hour after the press.
+ *
+ * THE GUESS GOES WITH THE CARD, which is the part that is not obvious. A guess is a submission row
+ * keyed by unit, and units are handed out as `max(existing) + 1` -- so a hand that loses SOME of
+ * its cards keeps counting upwards and a stale guess is merely invisible, but a hand that loses
+ * ALL of them restarts at unit 0, and the next card dealt into that slot would come up wearing
+ * somebody's old answer. Rare, silent, and three lines to make impossible.
+ *
+ * The LEDGER is deliberately not touched. Points are a ledger (docs/adr/points-are-a-ledger.md):
+ * you do not un-pay a team at midnight because the host tidied the board. Guess Who resolves at
+ * the freeze anyway, so at the hour this button is for there is nothing paid to argue about.
+ */
+export function forgetMembers(memberIds) {
+  const gameIds = listGames().filter(hasHand).map((game) => game.id);
+  if (!memberIds.length || !gameIds.length) return 0;
+
+  const games = gameIds.map(() => '?').join(', ');
+  const refs = memberIds.map(() => '?').join(', ');
+
+  const doomed = all(
+    `select team_id, game_id, unit from deals
+      where game_id in (${games}) and ref in (${refs})`,
+    ...gameIds,
+    ...memberIds,
+  );
+
+  for (const card of doomed) {
+    run(
+      'delete from submissions where team_id = ? and game_id = ? and unit = ?',
+      card.team_id,
+      card.game_id,
+      card.unit,
+    );
+    run(
+      'delete from deals where team_id = ? and game_id = ? and unit = ?',
+      card.team_id,
+      card.game_id,
+      card.unit,
+    );
+  }
+
+  return doomed.length;
+}

@@ -620,6 +620,96 @@ const FLOWS = [
       await shoot('guest-shots');
     },
   },
+
+  {
+    name: 'delete',
+    what: "remove a team at the door, and check what it takes with it in somebody else's tile",
+    async run({ page, shoot, check }) {
+      // Three teams, because the interesting damage is never to the team being removed. THE DUD is
+      // the pair who changed their minds; ANOTHER is the rest of the party, there so the survivor's
+      // hand is not wiped to nothing; and the survivor is the stranger holding cards dealt out of
+      // both. Onboarded in that order so the survivor's cookie is the live one.
+      await onboard(page, { members: ['Dud', 'Dudder'] });
+      const dudName = await page.text('.scorebar__name');
+
+      await page.clearCookies();
+      await onboard(page, { members: ['Otto', 'Odile'] });
+
+      await page.clearCookies();
+      await onboard(page, { members: ['Ann', 'Bram'] });
+      const ourName = await page.text('.scorebar__name');
+
+      // Deal the hand by opening the tile, which is the only thing that ever deals one.
+      const slug = slugFor('guess-who');
+      if (!slug) return check('guess-who has a code to scan', false);
+      await page.goto(`/q/${slug}`);
+
+      const dealt = await page.count('.units > li');
+      check(`the survivor is dealt cards from both other teams (${dealt})`, dealt === 4);
+
+      await page.goto(`/admin/key/${ADMIN_SECRET}`);
+      const board = await readBoard(page);
+      const dud = board.find((row) => row.name === dudName);
+      check('the dud is on the board to begin with', Boolean(dud));
+      if (!dud) return undefined;
+
+      // The list. Its whole job is telling PENGUIN from PELICAN in a loud hall, so the check is on
+      // the names of the two people rather than on the dealt handle.
+      await page.goto('/admin/delete-team');
+      check('every team is offered for removal', (await page.count('tbody tr')) === 3);
+      check(
+        'a row names the pair, not just their handle',
+        ((await page.text('tbody')) ?? '').includes('Dud & Dudder'),
+      );
+      await shoot('delete-team-list');
+
+      // The confirmation, which has to say the one cost the host cannot see from the room.
+      await page.goto(`/admin/delete-team?team=${dud.id}`);
+      const warning = (await page.text('.shell')) ?? '';
+      check('the confirmation names the team being removed', warning.includes(dudName));
+      check(
+        'it counts the cards this press takes out of other hands',
+        /2 Guess Who cards in other teams/.test(warning),
+      );
+      check('and it asks for no typed word', !(await page.has('input[type="text"]')));
+      await shoot('delete-team-confirm');
+
+      await page.press('form[action="/admin/delete-team"] button');
+      check('the removal lands back on the list', (await page.url()).startsWith('/admin/delete-team'));
+      check('which says who went', ((await page.text('.banner')) ?? '').includes(dudName));
+      check('and is one team shorter', (await page.count('tbody tr')) === 2);
+      await shoot('delete-team-done');
+
+      check(
+        'the dud is off the board',
+        !(await readBoard(page)).some((row) => row.name === dudName),
+      );
+
+      // The invisible half, and the reason this is more than `delete from teams`: the stranger's
+      // hand. Two cards pointed at people who no longer exist, and a hand that merely lost their
+      // NAMES would still render two squares -- blank, counting against the ten, unfillable.
+      await page.goto('/g/guess-who');
+      const left = await page.count('.units > li');
+      check(`the stranger's dead cards are taken back (4 -> ${left})`, left === 2);
+      check(
+        'and no blank square is left behind counting against them',
+        (await page.count('.bubble p:empty')) === 0,
+      );
+      await shoot('delete-team-hand');
+
+      // The phone. Deleting the team we are currently holding the cookie for is the door case run
+      // to its end: the pair who changed their minds have to be able to register again, which is
+      // the escape hatch #9 refused to build for a guest and this button deliberately opens for
+      // the host.
+      const us = (await readBoard(page)).find((row) => row.name === ourName);
+      await page.goto(`/admin/delete-team?team=${us.id}`);
+      await page.press('form[action="/admin/delete-team"] button');
+
+      await page.goto('/');
+      check("the removed team's phone starts over at the door", (await page.url()) === '/welcome');
+      await shoot('delete-team-phone');
+    },
+  },
 ];
 
 /** A tile every team has from the moment it exists, so the flow above needs no scan. */
