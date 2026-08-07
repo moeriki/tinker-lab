@@ -2213,7 +2213,7 @@ function adminDeleteTeam({ req, res }) {
     stub({
       title: 'Delete a team',
       nav: navFor(req),
-      owner: 'Deleting a team leaves holes in other teams’ games',
+      owner: 'A team can be made but never unmade, and the night will produce at least one dud',
       does: 'Remove a team registered by mistake, and everything the cascade cannot see.',
       still: true, // admin surface
     }),

@@ -760,7 +760,7 @@ Admin, all behind one cookie gate
 | GET | `/admin/key/:secret` | set the admin cookie, redirect to `/admin` |
 | GET | `/admin` | **HQ**: the host's dashboard. Team count, how long the night has run, how many codes nobody has found, and what is waiting on a human. Refreshes every 30s, which is why it holds no form |
 | GET | `/admin/controls` | everything with a consequence, on one page and off the menu bar: freeze/unfreeze, end, hand out points, recompute, delete a team, reset |
-| GET | `/admin/delete-team` | remove a team registered by mistake. Honest stub, owned by #93 |
+| GET | `/admin/delete-team` | remove a team registered by mistake. Honest stub, owned by #87 |
 | GET | `/admin/court` | everything waiting on a human verdict, across all games, in one list. Honest stub, owned by #83 |
 | GET | `/admin/game/:gameId` | the gallery: every submission for one game, with the actions its judging mode calls for — or, for a `trophy`, the team list with one button each |
 | POST | `/admin/judge` | verdict + award on one submission; rejecting writes a zero rather than deleting, so re-judging upserts |
