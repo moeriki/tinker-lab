@@ -75,8 +75,7 @@ import { escape } from './http.js';
  * from CSS instead, which `.shell` in `app.css` explains at the declaration that feeds it. Android
  * Chrome and iOS below 26 do read the tag, and the party's guests bring whatever they bring, so one
  * line covering them is worth having as long as nobody mistakes it for the mechanism.
- */
-/**
+ *
  * `heading: false` suppresses the `<h1>` and hands the body responsibility for emitting one. Only
  * `doorStep()` passes it (#97): the wizard's title belongs inside its box, in the box's own display
  * face, and an `<h1>` above the box repeating it would be the title twice. The body still has to
