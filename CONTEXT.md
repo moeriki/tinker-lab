@@ -590,17 +590,30 @@ gallery.
 The two halves of the admin surface, split by [#79](https://github.com/moeriki/tinker-lab/issues/79)
 along one line: **a page that refreshes itself may not carry a form.**
 
-**HQ** is `/admin` — a dashboard and nothing else. How many teams, how long the night has run, how
-many codes nobody has found, and what is waiting on a human. It carries **no board**: the board
-lives once, at `/league`, which the host reaches from the menu bar at any hour. It carries **no
-form**, which is what buys it a 30-second refresh. And it carries **no "teams who look lost"** —
-#11 asked for one and #79 cut it, because a quiet team is not a lost team and an idle timer would
-flag half the room at midnight.
+**HQ** is `/admin` — a dashboard and nothing else. It carries **no board**: the board lives once, at
+`/league`, which the host reaches from the menu bar at any hour. It carries **no form**, which is
+what buys it a refresh. And it carries **no "teams who look lost"** — #11 asked for one and #79 cut
+it, because a quiet team is not a lost team and an idle timer would flag half the room at midnight.
 
-Its one number is **codes nobody has found**, and it is the only thing on the page that sends the
-host to a room rather than to a thought. A count and not a fraction — `18 / 21` is a thing you nod
-at — and not the slugs either, because `k7rbt9` is not a place. `where` is the field that sends you
-somewhere and it is on `/admin/codes`, which the row is a door to.
+Its one **loud** number is **codes nobody has found**, and it is the only thing on the page that
+sends the host to a room rather than to a thought. A count and not a fraction — `18 / 21` is a
+thing you nod at — and not the slugs either, because `k7rbt9` is not a place. `where` is the field
+that sends you somewhere and it is on `/admin/codes`, which the row is a door to.
+
+Everything else is a **gauge**: quiet, glanced at, and there to answer *is this working* rather
+than *what do I do*. [#94](https://github.com/moeriki/tinker-lab/issues/94) added four, which is
+where that word comes from — a gauge is explicitly held to a weaker standard than #79's
+send-you-to-a-room test, and the hierarchy on the page is what keeps the two apart.
+
+| gauge | what it says |
+| --- | --- |
+| **progress** | the average team score, on the headline line. A perfect night is exactly 100 (`content/economy.js`), so the average **is** the percentage — no denominator to argue about, and points already weigh partial progress that a tile count could not. It cannot reach 100 and is not meant to: Teddy's ten go to one team all night, and Longest yarn pays most teams its floor of two |
+| **codes found** | the same fact as the loud row from the other end. Kept anyway, deliberately: a to-do and a progress bar read differently at a glance |
+| **scans** | every visit, including the eleven teams who all scanned the same kitchen code |
+| **the pulse** | scans **and submissions** in the last **30 minutes**. Both, because teams stop scanning once they have found everything and start grinding tiles — a scans-only pulse would report an empty house at 23:00. Thirty minutes because a short window swings to zero every time the room pauses for a conversation, and a gauge that cries wolf is one nobody reads by midnight |
+
+The pulse's window and the page's refresh are **different dials** and it is worth keeping them
+straight: the window is thirty minutes and slow on purpose; the refresh is ten seconds.
 
 **The controls** are `/admin/controls`, off the menu bar: freeze/unfreeze, end, hand out points,
 recompute, delete a team, reset. Everything with a consequence, on the page you visit twice a night
@@ -608,9 +621,16 @@ recompute, delete a team, reset. Everything with a consequence, on the page you 
 
 > **The refresh is new, and the claim was not.** Three comments in this repository said `/admin`
 > polls, including the one explaining why the admin board drops the marquee, and no page had ever
-> carried a timer or a meta refresh. It is a `<meta http-equiv="refresh">` on the two pure
-> readouts — `/admin`, and `/league` for a host — because client JS here is animation and the hint
-> modal.
+> carried a timer or a meta refresh until #79 added a `<meta http-equiv="refresh">`.
+>
+> **Since #94 that meta refresh is the `<noscript>` fallback.** The two host readouts — `/admin`,
+> and `/league` **for a host** — poll `/admin/live` every ten seconds and swap in fragments the
+> server rendered, so the numbers move without the page flashing or losing its scroll position.
+> This is the site's only data-fetching JavaScript and the only thing outside "animation and the
+> hint modal"; it is host-only, and nothing a guest sees updates itself. There is one renderer —
+> `liveFragments()` — used by both the page and the endpoint, so the browser holds no opinion about
+> how anything looks. See
+> [ADR-the-host-readouts-poll-fragments](docs/adr/the-host-readouts-poll-fragments.md).
 
 ### The freeze, and the end
 
@@ -835,7 +855,8 @@ Admin, all behind one cookie gate
 | method | route | what |
 | --- | --- | --- |
 | GET | `/admin/key/:secret` | set the admin cookie, redirect to `/admin` |
-| GET | `/admin` | **HQ**: the host's dashboard. Team count, how long the night has run, how many codes nobody has found, and what is waiting on a human. Refreshes every 30s, which is why it holds no form |
+| GET | `/admin` | **HQ**: the host's dashboard. Team count, how long the night has run, the progress percent, the three code numbers, the half-hour pulse, and what is waiting on a human. Refreshes itself, which is why it holds no form |
+| GET | `/admin/live` | the fragments HQ and the host's league poll every 10s. The site's one non-page endpoint; admin-gated, because it hands back the whole board in one request |
 | GET | `/admin/controls` | everything with a consequence, on one page and off the menu bar: freeze/unfreeze, end, hand out points, recompute, delete a team, reset |
 | GET | `/admin/delete-team` | the teams, each with its two members' names and what it has done; `?team=<id>` is the confirmation in front of the press — see **Removing a team** |
 | POST | `/admin/delete-team` | remove one team, its photographs, and the dead cards it leaves in other hands |

@@ -28,14 +28,27 @@ import { escape } from './http.js';
  * `refresh` is that self-refresh, in seconds, and until #79 it did not exist. Three comments in
  * this repository stated that `/admin` polls -- including the one above, and the one explaining
  * why the admin board drops the marquee -- and no page ever carried a timer or a meta refresh.
- * It had never once been true. It is a `<meta http-equiv>` rather than a script because client JS
- * here is the arrival animation and the hint modal, and a working surface should not be the one
- * thing on the site that needs a script to stay current.
+ * It had never once been true.
+ *
+ * **`live` is how it stays current now (#94), and `refresh` is the `<noscript>` fallback.** The
+ * meta refresh was chosen in #79 over a script, on the reasoning that a working surface should
+ * not be the one thing on the site needing JavaScript to stay accurate. What that reasoning
+ * missed is what a whole-page reload does to a dashboard: it flashes, it throws away the scroll
+ * position, and it lands you back at the top every thirty seconds. Dieter asked for the numbers
+ * to move *"so it looks real-time"*, which a reload cannot do however often it fires.
+ *
+ * So `live` marks the page for `public/js/app.js`, which polls `/admin/live` and swaps SERVER-
+ * rendered fragments into the `data-live` slots. The two halves of #79's reasoning both survive:
+ * every number is still rendered on the server, and a phone with JavaScript blocked still
+ * self-updates -- it falls back to exactly the meta refresh it had before, wrapped in `<noscript>`
+ * so the two can never fight.
  *
  * **A page that refreshes may not carry a form**, which is the constraint that shaped `/admin`
  * (#79): a reload at 30 seconds would eat a half-typed award reason at the exact moment the host
  * was using it. So every control that needs typing moved to `/admin/controls`, which does not
- * refresh, and the two pages that do are pure readouts.
+ * refresh, and the two pages that do are pure readouts. Polling would technically lift that ban
+ * -- a fragment swap leaves an untouched form alone -- but nothing has been moved back, because
+ * the `<noscript>` reload is still a reload and would still eat the field.
  *
  * `bar` is the scorebar, and it is a slot rather than something this function builds, so that
  * render.js keeps knowing nothing about the database. Team-facing pages pass one; admin surfaces
@@ -72,6 +85,7 @@ export function layout({
   still = false,
   modal = '',
   refresh = 0,
+  live = 0,
 }) {
   const foot = `${nav}${still ? '' : statusbar()}`;
 
@@ -81,11 +95,11 @@ export function layout({
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#000">
-  ${refresh ? `<meta http-equiv="refresh" content="${refresh}">` : ''}
+  ${refresh ? `<noscript><meta http-equiv="refresh" content="${refresh}"></noscript>` : ''}
   <title>${escape(title)}</title>
   <link rel="stylesheet" href="/css/app.css">
 </head>
-<body class="shell${nav ? ' shell--nav' : ''}">
+<body class="shell${nav ? ' shell--nav' : ''}"${live ? ` data-live-seconds="${Number(live)}"` : ''}>
   ${modal}
   ${still ? '' : marquee()}
   <div class="app${still ? '' : ' anim-page'}">

@@ -121,3 +121,94 @@ if (boredButton && boredBox) {
     });
   }
 }
+
+// --- the host's live numbers -----------------------------------------------
+//
+// #94. HQ and the host's league keep themselves current by fetching rendered
+// fragments and swapping them in, rather than by reloading the whole page every
+// thirty seconds the way #79 built it. A reload flashes, and it throws away the
+// scroll position -- on a phone lying on a kitchen counter for five hours that
+// reads as the page turning over rather than as a dashboard.
+//
+// This is the first data-fetching JavaScript on the site, and it reopens a
+// locked constraint on the map ("client JS is for animation and the hint modal
+// only"). Reopened deliberately, by Dieter, for these two host-only surfaces:
+// *"Scans, league, progress % - all refresh client-side so it looks real-time!"*
+// It is NOT a licence to do this on a guest page. Nothing a guest sees updates
+// itself, and #8's rule that nothing comparative reaches a guest before the
+// reveal is the reason /admin/live is admin-gated at all.
+//
+// There is no templating here on purpose. The server renders every fragment
+// with the same functions that rendered the page, so this file never learns
+// what a percentage is or how a league row is shaped -- it only knows where
+// things go. A poller with its own copy of the markup is a second renderer, and
+// the two disagree the first time either is edited.
+//
+// Degradation is the meta refresh in <noscript>: a phone with this file blocked
+// gets exactly what #79 built. The two can never fight, because a browser that
+// runs this never parses that.
+
+const liveSeconds = Number(document.body.dataset.liveSeconds || 0);
+
+if (liveSeconds > 0) {
+  // Only the slots this page actually has. One endpoint serves HQ and the
+  // league, so each page picks up its own keys and ignores the rest.
+  const slots = new Map(
+    [...document.querySelectorAll('[data-live]')].map((node) => [node.dataset.live, node]),
+  );
+
+  // What was last written into each slot, as the SERVER spelled it. Comparing against
+  // `slot.innerHTML` instead looks equivalent and is not: the browser re-serialises entities on
+  // the way out, so a fragment containing `&middot;` reads back as `·` and never compares equal
+  // to itself. That guard would have been dead on arrival and every slot would have been rebuilt
+  // every tick -- invisible here, but it throws away a text selection and any half-made tap.
+  const applied = new Map();
+
+  let inFlight = false;
+
+  const draw = async () => {
+    // A slow response must not queue a second one behind it. Without this, a
+    // phone waking with a stalled request would fire every missed tick at once.
+    if (inFlight || document.hidden) return;
+    inFlight = true;
+
+    try {
+      const response = await fetch('/admin/live', { headers: { accept: 'application/json' } });
+
+      // A 404 here means the admin cookie is gone -- the secret URL is one-time
+      // (ADR-admin-is-a-one-time-secret-url), so there is nothing to retry into
+      // and no error worth drawing over the numbers. Leave the last good ones
+      // on screen and stop asking.
+      if (!response.ok) {
+        clearInterval(timer);
+        return;
+      }
+
+      const parts = await response.json();
+
+      for (const [key, markup] of Object.entries(parts)) {
+        const slot = slots.get(key);
+        if (!slot || applied.get(key) === markup) continue;
+
+        // Same-origin markup this server just rendered and escaped itself.
+        slot.innerHTML = markup;
+        applied.set(key, markup);
+      }
+    } catch {
+      // The container restarting mid-party is the ordinary case, not the exotic
+      // one. Keep the numbers that are on screen and try again on the next tick.
+    } finally {
+      inFlight = false;
+    }
+  };
+
+  const timer = setInterval(draw, liveSeconds * 1000);
+
+  // A phone locked in a pocket for forty minutes has its timers throttled, so
+  // waking it would otherwise show numbers from before it went in the pocket
+  // with nothing saying they were stale. The meta refresh this replaced could
+  // not have that problem; this is what buys the parity back.
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) draw();
+  });
+}

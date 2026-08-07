@@ -17,6 +17,7 @@ import {
 } from './config.js';
 import { devAttach, devRoutes, isTestTeam } from './dev.js';
 import { all, get, run, transact } from './db.js';
+import { PULSE_MINUTES, codeCounts, progressPercent, pulse } from './hq.js';
 import {
   assetIsPresent,
   getGame,
@@ -180,8 +181,27 @@ const MIME = {
  *
  * It applies to `/admin` and to `/league` for a host, and to nothing else on the site. Both are
  * pure readouts -- no form, no typing -- which is the rule that lets them refresh at all.
+ *
+ * **Since #94 this is the `<noscript>` fallback only.** A whole-page reload flashes and throws
+ * away the scroll position, which is exactly what a dashboard must not do, so the live path is
+ * now `LIVE_SECONDS` polling against `/admin/live`. This stays because a reload is the only
+ * self-updating a phone with JavaScript blocked can do, and it costs one line to keep.
  */
 const ADMIN_REFRESH_SECONDS = 30;
+
+/**
+ * How often those readouts fetch their numbers when JavaScript runs (#94). Ten seconds, which is
+ * three times the old reload and reads as live rather than as a page turning over.
+ *
+ * Dieter asked for one minute, having been told the page refreshed every thirty MINUTES; it was
+ * thirty seconds. Once that was straightened out the ask was *"so it looks real-time"*, and this
+ * is that ask rather than the number attached to the misunderstanding. A fetch is genuinely
+ * cheap: `liveFragments()` is four counts and a fifteen-row board over local SQLite.
+ *
+ * Note the pulse's window is a different dial entirely and is thirty MINUTES on purpose -- it is
+ * a stall detector, and see `src/hq.js` for why a short one would cry wolf.
+ */
+const LIVE_SECONDS = 10;
 
 /** A team, or a bounce to the door. Used by the onboarding routes themselves. */
 const requireTeam = (req, res) => {
@@ -1974,9 +1994,18 @@ function showLeague({ req, res }) {
       nav: navFor(req, '/league'),
       still: host,
       refresh: host ? ADMIN_REFRESH_SECONDS : 0,
+      live: host ? LIVE_SECONDS : 0,
       body: `
         ${blurb('Everyone, in order. No appeals.')}
-        ${league(standings(), { youId })}
+        ${
+          // The slot is a HOST-only wrapper (#94). A guest's board is the reveal, rendered once
+          // and never touched again -- and marking it live would be worse than pointless: the
+          // fragment `/admin/live` returns carries no expanded `--you` row, so a guest's own row
+          // would silently flatten into the column ten seconds after they found it.
+          host
+            ? `<div data-live="league-board">${league(standings(), { youId })}</div>`
+            : league(standings(), { youId })
+        }
       `,
     }),
   );
@@ -2058,27 +2087,6 @@ function nightSoFar() {
 }
 
 /**
- * Codes no team has ever scanned. THE number on this page, and the only one that sends the host
- * to a room rather than to a thought (#79): at 23:00 a code nobody has found is behind a radiator
- * or under a coat, and the fix is to walk over and move it.
- *
- * A fraction was the obvious shape and it was the wrong one -- `18 / 21` is a thing you nod at.
- * The count of what is missing is a thing you act on, and it is absent from the page entirely
- * once it reaches zero.
- *
- * The COUNT and not the slugs, which was the first version and looked fine reasoning about the
- * night and terrible on screen: before anyone has scanned anything this is all 22 of them, which
- * drew a five-line block of random syllables at the top of the page and squeezed its own heading
- * into six words on six lines. A slug says nothing anyway -- `k7rbt9` is not a place. `where` is
- * the field that sends you to a room, and it is on `/admin/codes`, which is what this row is a
- * door to.
- */
-const unfoundCodes = () => {
-  const found = new Set(all('select distinct slug from scans').map((row) => row.slug));
-  return listCodes().filter(([slug]) => !found.has(slug));
-};
-
-/**
  * Submissions sitting on a verdict a human owes. Only `manual` games can hold one: a `trust`
  * submission is already paid, and `check`/`resolve` games write their own verdicts.
  *
@@ -2104,31 +2112,23 @@ const hqRow = (href, label, note) =>
   `<a class="hq-row" href="${href}"><span>${label}</span><span class="mono">${note}</span></a>`;
 
 /**
- * HQ. A dashboard and nothing else (#79) -- no board, no forms, no judging, no lost-team
- * detection.
+ * Every part of a host's screen that changes on its own, keyed by the `data-live` attribute that
+ * marks where it goes. Rendered into the page on load AND returned by `/admin/live` ten seconds
+ * later -- the same functions both times, which is the point of the indirection: a poller with
+ * its own copy of the markup is a second renderer, and the two disagree the first time one is
+ * edited. There is no client-side templating here at all; the browser swaps server HTML in.
  *
- * **No board.** It used to print every team and score as JSON in a `<pre>`, and the board now
- * lives once, at `/league`, which the host reaches from the menu bar at any hour. Two boards on
- * one phone can disagree for thirty seconds at a time, and the host asked for one.
+ * This carries `league-board` as well as HQ's four, so one endpoint serves both host surfaces.
+ * The script applies only the keys whose element is on the page, so HQ ignores the board and the
+ * league ignores the gauges. Rendering a board nobody asked for costs one indexed query over
+ * fifteen rows; making the client explain itself would cost more than that in code.
  *
- * **No forms**, which is what buys the refresh. A page that reloads itself every thirty seconds
- * cannot hold a text field -- it would eat a half-typed award reason at exactly the moment it was
- * being typed -- so every control that needs typing is behind `/admin/controls`, and what is left
- * here is a readout.
- *
- * **No "teams who look lost".** #11 asked for one and #79 cut it: an idle timer would flag half
- * the room at midnight, because forty minutes of silence is two people drinking and talking, and
- * a section that cries wolf is a section nobody reads. The host reads the board and thinks.
- *
- * **`waiting on you` is absent when there is nothing waiting**, which is most of the night. A
- * heading over an empty list is the thing #36 called a lie with no rows under it.
+ * `youId` is null by construction: this is admin-only, and a host has no row of their own (#76).
  */
-function adminBoard({ req, res }) {
-  if (!requireAdmin(req, res)) return undefined;
-
+function liveFragments() {
   const teams = get('select count(*) as count from teams').count;
   const elapsed = nightSoFar();
-  const unfound = unfoundCodes();
+  const codes = codeCounts();
   const waiting = awaitingVerdict();
 
   const teddy = listGames().find((game) => game.kind === 'trophy');
@@ -2154,6 +2154,93 @@ function adminBoard({ req, res }) {
     .filter(Boolean)
     .join('');
 
+  return {
+    // Teams, time, and the one percent (#94). The percent sits up here with the other two facts
+    // about the night as a whole rather than in a row of its own, because it is a gauge and not
+    // a job: #79's loud row is reserved for the thing that sends you to a room.
+    'hq-headline': `${teams} team${teams === 1 ? '' : 's'}${
+      elapsed ? ` &middot; ${elapsed}` : ''
+    } &middot; ${progressPercent()}%`,
+
+    // THE number on this page, and the only one that sends the host to a room rather than to a
+    // thought (#79): at 23:00 a code nobody has found is behind a radiator or under a coat, and
+    // the fix is to walk over and move it. Absent from the page entirely once it reaches zero.
+    //
+    // The COUNT and not the slugs, which was the first version and looked fine reasoning about
+    // the night and terrible on screen: before anyone has scanned anything this is all 22 of
+    // them, which drew a five-line block of random syllables at the top of the page. A slug says
+    // nothing anyway -- `k7rbt9` is not a place. `where` is the field that sends you to a room,
+    // and it is on `/admin/codes`, which is what this row is a door to.
+    'hq-codes': codes.unfound
+      ? hqRow('/admin/codes', '<strong>codes nobody has found</strong>', String(codes.unfound))
+      : '',
+
+    // The quiet gauges (#94). Deliberately mono and small: they are glanced at, not acted on.
+    // `found` restates `unfound` from the other end and that redundancy is Dieter's call, made
+    // after it was put to him -- see `codeCounts()` for why all three earn their place.
+    //
+    // TWO LINES, broken by hand rather than left to wrap. As one line it ran to 58 characters and
+    // a 390px phone split it at "in the last / 30 min", mid-phrase -- and the break point would
+    // then have moved every time a number gained a digit. Broken here it is coverage-and-volume
+    // on top, recency underneath, which is also the honest grouping: the first line is what has
+    // happened all night, the second is whether anything is happening now.
+    //
+    // "things" is the deadpan-but-accurate word for a mixed count of scans and submissions; there
+    // is no house noun covering both (`moment` is taken -- see src/moments.js). Flagged for the
+    // map's standing copy pass rather than settled here.
+    'hq-gauges': `${codes.found} of ${codes.total} found &middot; ${codes.scans} scan${
+      codes.scans === 1 ? '' : 's'
+    }<br>${pulse()} things in the last ${PULSE_MINUTES} min`,
+
+    'hq-jobs': jobs ? `<h2 class="hq-heading">waiting on you</h2>${jobs}` : '',
+
+    'league-board': league(standings(), { youId: null }),
+  };
+}
+
+/**
+ * What the host's two screens poll. JSON, and the only endpoint on this site that is not a page.
+ *
+ * Admin-gated by the same `requireAdmin` as every other admin surface, so a guest gets the 404
+ * page rather than the night's numbers -- which matters more here than on the pages, because #8's
+ * rule is that nothing comparative reaches a guest before the reveal and this hands back the
+ * whole board in one request.
+ */
+function adminLive({ req, res }) {
+  if (!requireAdmin(req, res)) return undefined;
+
+  res.writeHead(200, {
+    'content-type': 'application/json; charset=utf-8',
+    'cache-control': 'no-store',
+  });
+  return res.end(JSON.stringify(liveFragments()));
+}
+
+/**
+ * HQ. A dashboard and nothing else (#79) -- no board, no forms, no judging, no lost-team
+ * detection.
+ *
+ * **No board.** It used to print every team and score as JSON in a `<pre>`, and the board now
+ * lives once, at `/league`, which the host reaches from the menu bar at any hour. Two boards on
+ * one phone can disagree for thirty seconds at a time, and the host asked for one.
+ *
+ * **No forms**, which is what buys the refresh. A page that reloads itself every thirty seconds
+ * cannot hold a text field -- it would eat a half-typed award reason at exactly the moment it was
+ * being typed -- so every control that needs typing is behind `/admin/controls`, and what is left
+ * here is a readout.
+ *
+ * **No "teams who look lost".** #11 asked for one and #79 cut it: an idle timer would flag half
+ * the room at midnight, because forty minutes of silence is two people drinking and talking, and
+ * a section that cries wolf is a section nobody reads. The host reads the board and thinks.
+ *
+ * **`waiting on you` is absent when there is nothing waiting**, which is most of the night. A
+ * heading over an empty list is the thing #36 called a lie with no rows under it.
+ */
+function adminBoard({ req, res }) {
+  if (!requireAdmin(req, res)) return undefined;
+
+  const parts = liveFragments();
+
   // Every game with a surface behind /admin/game/:id, as small text rather than as buttons.
   // Six of these will show a team a read-only list all night: they score themselves, and the
   // page is for "I answered that and it did not save" (#79). Dressing them as eight jobs is what
@@ -2169,22 +2256,17 @@ function adminBoard({ req, res }) {
     layout({
       title: 'HQ',
       nav: navFor(req, '/admin'),
-      still: true, // it refreshes; a page that re-animates every thirty seconds cannot be read
-      refresh: ADMIN_REFRESH_SECONDS,
+      still: true, // it refreshes; a page that re-animates every ten seconds cannot be read
+      refresh: ADMIN_REFRESH_SECONDS, // <noscript> only -- see layout()
+      live: LIVE_SECONDS,
       body: `
-        <p class="mono">${teams} team${teams === 1 ? '' : 's'}${elapsed ? ` &middot; ${elapsed}` : ''}</p>
+        <p class="mono" data-live="hq-headline">${parts['hq-headline']}</p>
 
-        ${
-          unfound.length
-            ? hqRow(
-                '/admin/codes',
-                '<strong>codes nobody has found</strong>',
-                String(unfound.length),
-              )
-            : ''
-        }
+        <div data-live="hq-codes">${parts['hq-codes']}</div>
 
-        ${jobs ? `<h2 class="hq-heading">waiting on you</h2>${jobs}` : ''}
+        <p class="mono hq-gauges" data-live="hq-gauges">${parts['hq-gauges']}</p>
+
+        <div data-live="hq-jobs">${parts['hq-jobs']}</div>
 
         <a class="btn" href="/admin/controls">controls</a>
 
@@ -3036,6 +3118,7 @@ const routes = [
 
   route('GET', '/admin/key/:secret', adminKey),
   route('GET', '/admin', adminBoard),
+  route('GET', '/admin/live', adminLive),
   route('GET', '/admin/controls', adminControls),
   route('GET', '/admin/delete-team', adminDeleteTeam),
   route('POST', '/admin/delete-team', adminDeleteTeamConfirmed),

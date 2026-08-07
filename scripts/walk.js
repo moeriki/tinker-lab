@@ -249,7 +249,74 @@ const FLOWS = [
       await page.goto(`/admin/key/${ADMIN_SECRET}`);
       const unfound = Number((await page.text('.hq-row .mono')) ?? NaN);
       check(`HQ counts one fewer unfound code (${unfound} of ${CODE_COUNT})`, unfound === CODE_COUNT - 1);
+
+      // The three gauges #94 added, checked against the same two scans -- which is what makes
+      // this worth the lines: ONE code was found and TWO scans happened, so a gauge that counted
+      // the wrong event would read 2 and 2 or 1 and 1 and look perfectly reasonable on screen.
+      const gauges = (await page.text('.hq-gauges')) ?? '';
+      check(
+        `HQ says one code of ${CODE_COUNT} has been found (${gauges.split('\n')[0]})`,
+        gauges.includes(`1 of ${CODE_COUNT} found`),
+      );
+      check('HQ counts both scans of it, not just the code', gauges.includes('2 scans'));
+
+      // The pulse counts scans AND submissions, and nothing has been submitted yet, so it is the
+      // two scans alone at this point. A window of thirty minutes means a walk cannot age out of
+      // it -- if this ever goes flaky, that is the reason and the fix is not a longer window.
+      check('the pulse has both of them in its half hour', gauges.includes('2 things in the last 30 min'));
+
+      // Progress is the average team score over a perfect 100. One team, nothing scored yet.
+      const headline = (await page.text('[data-live="hq-headline"]')) ?? '';
+      check(`HQ opens on 0% (${headline})`, headline.includes('0%'));
+
       await shoot('scan-hq');
+
+      // The live endpoint is the SAME renderer as the page, which is the whole design of #94 --
+      // a poller with its own copy of the markup drifts the first time either is edited. So this
+      // does not check that the JSON is well-formed, it checks that a fragment it returns is
+      // byte-identical to the one already on screen.
+      const live = await page.evaluate(`
+        return fetch('/admin/live', { headers: { accept: 'application/json' } })
+          .then((r) => r.json())
+          .then((parts) => {
+            // Through a scratch element, because the page's own innerHTML has already been
+            // through one: the browser decodes \`&middot;\` to \`·\` on the way out, so comparing
+            // the raw server string to it fails on markup that is character-for-character the
+            // same thing. Normalising both sides the same way is what makes this an equality
+            // check about RENDERING rather than about entity spelling.
+            const scratch = document.createElement('div');
+            scratch.innerHTML = parts['hq-gauges'];
+            return JSON.stringify({
+              keys: Object.keys(parts).sort(),
+              matches: scratch.innerHTML === document.querySelector('[data-live="hq-gauges"]').innerHTML,
+            });
+          })
+      `);
+      const served = JSON.parse(live);
+      check(
+        `/admin/live serves every slot (${served.keys.join(', ')})`,
+        ['hq-codes', 'hq-gauges', 'hq-headline', 'hq-jobs', 'league-board'].every((key) =>
+          served.keys.includes(key),
+        ),
+      );
+      check('and renders them identically to the page itself', served.matches === true);
+
+      // The page has to be marked, or the poller never starts and every number above freezes at
+      // whatever it said when the host opened it -- which looks exactly like a quiet party.
+      const seconds = await page.evaluate('return document.body.dataset.liveSeconds ?? ""');
+      check(`HQ is marked live (every ${seconds}s)`, Number(seconds) > 0);
+
+      // Last, because it burns the admin cookie: a stranger must not reach the live endpoint.
+      // This matters more here than on the admin PAGES -- those leak a screen at a time, and this
+      // one hands back the entire league board in a single request, which is exactly what #8 says
+      // no guest sees before the reveal. 404 and not 401, like every admin surface: a guest
+      // poking at it should not learn that it exists.
+      await page.clearCookies();
+      const guessed = await page.evaluate(`
+        return fetch('/admin/live', { headers: { accept: 'application/json' } })
+          .then((r) => r.status + ' ' + r.headers.get('content-type'))
+      `);
+      check(`a stranger gets the 404 page from /admin/live (${guessed})`, guessed.startsWith('404 text/html'));
     },
   },
 
@@ -530,6 +597,46 @@ const FLOWS = [
       await page.goto(`/admin/key/${ADMIN_SECRET}`);
       check('the admin key lets us in', !(await page.url()).startsWith('/admin/key'));
       await shoot('admin-running');
+
+      // Progress is the average team score over a perfect 100 (#94), and this is the only place
+      // anything MOVES it. Checked here rather than in the scan flow because a scan unlocks a
+      // tile and unlocking scores nothing -- so every other shot of HQ in this suite sits on 0%,
+      // which is exactly how a number that never worked would also look.
+      //
+      // One team on 25 of a possible 100 is 25%. The arithmetic is stated in the check so a
+      // future change to the roster's size fails loudly here rather than drifting quietly: add an
+      // eleventh tile and the ceiling becomes 110, and this reads 23%.
+      const [onlyTeam] = await readBoard(page);
+      await award(page, onlyTeam.id, 25, 'a quarter of a perfect night');
+      await page.goto('/admin');
+      const scored = (await page.text('[data-live="hq-headline"]')) ?? '';
+      check(`25 points on the only team reads as 25% (${scored})`, scored.includes('25%'));
+
+      // The poller, end to end, and the one check in this suite that has to spend real time. Every
+      // other #94 check proves a PART: that the endpoint serves, that it renders identically, that
+      // the page is marked. None of them would fail if the interval never fired -- HQ would open
+      // with correct numbers, freeze at them for five hours, and look exactly like a quiet party.
+      //
+      // So: move the score WITHOUT navigating, wait one tick, and read the DOM. `__stillHere` is
+      // wiped by any reload, which is what separates "the poller swapped the fragment" from "the
+      // <noscript> meta refresh reloaded the page" -- both would show the new number, and only one
+      // of them is the thing being built.
+      const polled = await page.evaluate(`
+        window.__stillHere = true;
+        return fetch('/admin/award', {
+          method: 'POST',
+          headers: { 'content-type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({ team: '${onlyTeam.id}', points: '10', reason: 'the poller' }),
+        })
+          .then(() => new Promise((done) => setTimeout(done, ${LIVE_TICK_MS})))
+          .then(() => JSON.stringify({
+            reloaded: window.__stillHere !== true,
+            headline: document.querySelector('[data-live="hq-headline"]').textContent,
+          }))
+      `);
+      const live = JSON.parse(polled);
+      check(`the poller moves HQ on its own (${live.headline.trim()})`, live.headline.includes('35%'));
+      check('and does it without reloading the page', live.reloaded === false);
 
       // --- the first ending: the freeze ---------------------------------------------------
       await page.post('/admin/freeze', {});
@@ -851,6 +958,14 @@ async function readBoard(page) {
 
   return rows;
 }
+
+/**
+ * Long enough for HQ's ten-second poll to have fired at least once, plus slack for the fetch and
+ * the render. Deliberately not tuned close to the interval: the check it serves is "does the
+ * poller run at all", and a flaky wait would read as "the live numbers are broken" every few runs
+ * and get someone to delete the feature rather than the timing.
+ */
+const LIVE_TICK_MS = 13_000;
 
 /** Move points, through the route the host's board will press once #11 renders it. */
 const award = (page, teamId, points, reason) =>

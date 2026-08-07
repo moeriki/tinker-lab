@@ -1552,6 +1552,19 @@ ol.stack {
   letter-spacing: 0.08em;
 }
 
+/* The gauges (#94): codes found, scans, and the half-hour pulse. Quieter than the headline above
+   them and much quieter than the unfound-codes row between, which is the whole hierarchy of this
+   page -- #79's loud row is the one that sends you to a room, and these are glanced at.
+
+   They sit UNDER the loud row rather than beside the headline because they read as a footnote to
+   it: three numbers about codes, directly below the one code number that is a job. Line height
+   is generous because on a 390px phone this wraps to two lines most of the night. */
+.hq-gauges {
+  font-size: 0.72rem;
+  line-height: 1.8;
+  margin-top: -0.35rem;
+}
+
 /* The read-only galleries, deliberately the quietest thing on the page: they are for "I answered
    that and it did not save", not for work.
 
