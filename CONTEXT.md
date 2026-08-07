@@ -1012,9 +1012,10 @@ Sweeping every rule block in `app.css` for a selector declared twice found **exa
 collision — this one. Every other repeat is a group rule setting shared properties before a
 per-component rule specialises them (`.tile__lock, .tile__flag`, `.starburst, .stamp`,
 `.board th, .board td`), or the reduced-motion guard, and in all of those the two blocks belong to
-the same component. Deliberately **not** landed as a check: there is no test suite and no CI, so it
-would be a file nobody runs that looks like enforcement — [#32](https://github.com/moeriki/tinker-lab/issues/32)'s
-reasoning, unchanged.
+the same component. Deliberately **not** landed as a check: a CSS drift check would be a file
+nobody runs that looks like enforcement — [#32](https://github.com/moeriki/tinker-lab/issues/32)'s
+reasoning, unchanged. ([#102](https://github.com/moeriki/tinker-lab/issues/102) added a `test`
+script, but it covers pure functions on bytes and touches no CSS, so it does not reach this.)
 
 No **component** the app renders is missing from `/kit` any more. The last one was the **signature
 card** — `card()` and `square()`, demoed at §16 in all three of its states, and the one component
@@ -1066,9 +1067,15 @@ file in `scripts/`, #32 applies again and it should go.
 > run a suite eight days before a party. Everybody wants to see the page — and every flow in
 > `walk.js` both walks a state and **shoots** it, so a broken flow cannot produce its screenshot.
 > You run it because you want the picture; the regression check is what you get on the way past.
-> That is the footer's property, moved. What #32 forbids is still forbidden: there is **no `test`
-> script and no CI**, and if `walk.js` ever stops taking screenshots it becomes exactly the thing
-> that rule is against.
+> That is the footer's property, moved. And if `walk.js` ever stops taking screenshots it becomes
+> exactly the thing that rule is against.
+>
+> [#102](https://github.com/moeriki/tinker-lab/issues/102) added a `test` script after finding
+> where the byproduct principle runs out: it only covers what the walk **renders**, and a pure
+> function on bytes renders nothing. `exifThumbnail` had never executed once in this repository —
+> the walk uploaded a PNG, which it rejects on its first line — on the one path every guest uses.
+> The suite is deliberately confined to that gap: bytes in, bytes out, no pages. There is still no
+> CI, and the walk is still the thing that proves a flow works.
 
 Classes deliberately kept off the kit are named with their reason in `OFF_KIT` in `src/kit.js`, and
 an exemption naming a class `app.css` no longer declares is reported just as loudly as a missing

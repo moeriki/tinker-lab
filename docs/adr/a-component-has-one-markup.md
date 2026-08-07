@@ -41,6 +41,11 @@ field markup.
 Detection was considered and is not available: there is no test suite, no `test` script and no CI,
 so a drift check would be a file nobody ever runs — enforcement in appearance only.
 
+> Amended by [#102](https://github.com/moeriki/tinker-lab/issues/102): a `test` script now exists.
+> It does not change this decision. The suite covers pure functions on bytes — sniffing, EXIF,
+> content types, QR — and deliberately touches no markup and no CSS, so there is still nothing
+> here that a drift check could hang off. The reasoning above stands as written.
+
 ## Decision
 
 **A component's markup exists in exactly one place.**

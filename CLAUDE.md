@@ -60,12 +60,25 @@ throwaway database and write phone-sized PNGs you can Read — no dependency, no
 safe in a background session and in parallel worktrees.
 
 - `node scripts/screenshot.js` — any route a URL can reach, cold.
-- `node scripts/walk.js` — arrives as a team: walks onboarding, scans, submits an answer and a
-  photograph, and puts a real score on the board so the three standing colours can be seen. It is
-  also the E2E suite, which is why there is still no `test` script.
+- `node scripts/walk.js` — arrives as a team: walks onboarding, scans, submits an answer and a real
+  phone photograph, and puts a real score on the board so the three standing colours can be seen.
+  It is also the E2E suite: **this is what proves a page or a flow works.**
 
 A page **and a state** are verifiable here, so **never report a change as "not seen by eye"** for
 want of a way to look at it. See `docs/agents/screenshots.md`.
+
+### Tests
+
+`pnpm test` (`node --test`) is deliberately small and is **not** where pages are checked — that is
+`walk.js`, above. It covers only what the walk cannot reach: pure functions on bytes, where a
+wrong answer is silent rather than a broken screenshot. Sniffing, EXIF thumbnails, content types,
+and the QR round-trip over the whole printed inventory.
+
+It exists because those paths had no coverage at all and one of them had **never once executed**
+(#102). Fixtures live in `test/fixtures/` with their regeneration recipe in `test/photos.test.js`.
+The tests characterise *behaviour, not implementation*, because the code underneath is being
+replaced by libraries — an assertion that has to change during a swap is a swap that changed the
+site.
 
 ### The local dev server
 

@@ -8,6 +8,7 @@
     "start": "node server.js",
     "dev": "NODE_ENV=development node --watch server.js",
     "dev:prod": "node --watch server.js",
+    "test": "node --test \"test/**/*.test.js\"",
     "backup": "node scripts/backup.js",
     "qr": "node scripts/qr-sheet.js",
     "migrate-check": "node scripts/migrate-check.js"

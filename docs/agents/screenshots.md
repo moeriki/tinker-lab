@@ -155,7 +155,22 @@ the check a byproduct of something somebody already wants.
 Nobody will run a suite eight days before a party. Everybody wants to see the page. So every flow
 both **walks** the state and **shoots** it, and a flow that breaks cannot produce its screenshot:
 the run fails, loudly, naming the step. You run it because you want the picture. The regression
-check is what you get on the way past. There is still no `test` script, and that is on purpose.
+check is what you get on the way past.
+
+**That reasoning still holds, and [#102](https://github.com/moeriki/tinker-lab/issues/102) found
+the shape of hole in it.** The byproduct only covers what the walk *renders*. A broken page cannot
+produce its screenshot — true, and the reason this works. But a pure function on bytes renders
+nothing, so nothing was covering `sniff()`, `exifThumbnail()`, `contentTypeFor()` or the QR
+encoder. Worse than uncovered: the walk uploaded a PNG, and `exifThumbnail` returns null on its
+first line for anything that is not a JPEG, so fifty-seven lines of TIFF byte-walking had never
+executed in this repository at all — on the one path every guest uses.
+
+So there is now a `test` script (`pnpm test`, `node --test`), and it is deliberately small: the
+pure functions the walk cannot reach, and nothing else. **It does not replace the walk and it does
+not test pages.** Both halves of the original decision survive — the screenshot is still the thing
+you want and still the thing that catches a broken flow. The walk now sends a real phone JPEG
+(`test/fixtures/phone-photo.jpg`), so the gallery screenshot cannot be produced unless the
+thumbnail was genuinely extracted, which is the byproduct principle reaching one path further.
 
 ### Why not Playwright
 

@@ -1,5 +1,6 @@
 // Small helpers over node:http. No framework: forms POST and redirect, pages render fresh.
 
+import { extname } from 'node:path';
 import { Readable } from 'node:stream';
 
 export function noCache(res) {
@@ -113,6 +114,36 @@ export async function readMultipart(req, { limit } = {}) {
 
   return { fields, files };
 }
+
+/**
+ * What to put in `Content-Type` for a file on disk. Two directories are served through this:
+ * `public/` (css, html, jpg, js, woff2) and `data/uploads/`, which is where the six image formats
+ * come from -- so the table is longer than a listing of `public/` suggests, and deliberately so.
+ *
+ * It lives here rather than beside the static handler in app.js because app.js opens the database
+ * on import: a test that wanted to check this table would have had to create a database to read
+ * it, which is why it went untested for as long as it did.
+ *
+ * Unknown extensions get `application/octet-stream` -- a download rather than a guess.
+ */
+const CONTENT_TYPES = {
+  '.html': 'text/html; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.svg': 'image/svg+xml',
+  '.woff2': 'font/woff2',
+  '.ico': 'image/x-icon',
+  '.webp': 'image/webp',
+  '.heic': 'image/heic',
+  '.avif': 'image/avif',
+};
+
+export const contentTypeFor = (file) =>
+  CONTENT_TYPES[extname(file).toLowerCase()] ?? 'application/octet-stream';
 
 export function redirect(res, location, status = 303) {
   noCache(res);

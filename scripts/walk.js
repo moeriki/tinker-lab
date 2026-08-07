@@ -51,9 +51,18 @@ const ADMIN_SECRET = 'walk-the-map';
 /** Every code in the inventory, which is what HQ's one number counts down from. */
 const CODE_COUNT = Object.keys(codes).length;
 
-// A real image, already in the repo, already a photograph of something. Photos are stored exactly
-// as they arrive (ADR-photos-are-stored-as-they-arrive), so nothing here needs a fixture.
-const A_REAL_IMAGE = `${REPO}moeriki-birthday-invite.png`;
+// A JPEG WITH AN EMBEDDED EXIF THUMBNAIL, and both halves of that sentence are load-bearing.
+//
+// This used to be `moeriki-birthday-invite.png`, on the reasoning that photos are stored exactly
+// as they arrive (ADR-photos-are-stored-as-they-arrive) so nothing here needed a fixture. What
+// that missed: `exifThumbnail` returns null on its first line for anything that is not a JPEG, so
+// a PNG walked straight past the fifty-seven lines of TIFF byte-walking underneath it. Every walk
+// this repo has ever run left that code unexecuted -- and every guest uploads a phone JPEG, so it
+// was going to run for the first time on the night (#102).
+//
+// A phone photo is now what gets sent, so the gallery screenshot below cannot be produced unless
+// the thumbnail was really extracted. Regenerate it with the recipe in test/photos.test.js.
+const A_REAL_IMAGE = `${REPO}test/fixtures/phone-photo.jpg`;
 
 /** The first code pointing at this game whose content actually exists. */
 function slugFor(gameId) {
@@ -586,8 +595,13 @@ const FLOWS = [
       check('the photo lands back on the scavenger', landed.startsWith('/g/scavenger'));
       check('the photo comes back as a thumbnail', (await page.count('.shot img')) > 0);
 
+      // `.thumb.`, not merely `/uploads/`. An <img> renders whether the src is the extracted
+      // thumbnail or the full photo, so the looser check passed even while `exifThumbnail` was
+      // returning null for every walk this repo ever ran (#102). Naming the thumbnail is what
+      // makes this flow prove the EXIF path actually executed rather than that a picture appeared.
       const src = await page.attr('.shot img', 'src');
       check(`the thumbnail points at the upload (${src})`, String(src).startsWith('/uploads/'));
+      check(`the EXIF thumbnail was really extracted (${src})`, String(src).includes('.thumb.'));
 
       await shoot('photo-sent');
     },

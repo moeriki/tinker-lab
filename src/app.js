@@ -2,7 +2,7 @@
 // settled, an honest stub where a later ticket owns the design.
 
 import { readFile } from 'node:fs/promises';
-import { extname, join, normalize } from 'node:path';
+import { join, normalize } from 'node:path';
 
 import * as chrome from '../content/chrome.js';
 import rulesCopy from '../content/rules.js';
@@ -61,6 +61,7 @@ import {
 } from './bingo.js';
 import { handFor, namesFor } from './deals.js';
 import {
+  contentTypeFor,
   escape,
   html,
   isMultipart,
@@ -163,22 +164,6 @@ import {
   SUBMITTED,
   verdictAnimation,
 } from './moments.js';
-
-const MIME = {
-  '.html': 'text/html; charset=utf-8',
-  '.css': 'text/css; charset=utf-8',
-  '.js': 'text/javascript; charset=utf-8',
-  '.png': 'image/png',
-  '.jpg': 'image/jpeg',
-  '.jpeg': 'image/jpeg',
-  '.gif': 'image/gif',
-  '.svg': 'image/svg+xml',
-  '.woff2': 'font/woff2',
-  '.ico': 'image/x-icon',
-  '.webp': 'image/webp',
-  '.heic': 'image/heic',
-  '.avif': 'image/avif',
-};
 
 /**
  * How often the two host readouts redraw themselves (#79). Thirty seconds: long enough not to
@@ -3532,7 +3517,7 @@ async function serveFrom(rootDir, relativePath, res, { immutable = false } = {})
 
   try {
     const body = await readFile(file);
-    const headers = { 'Content-Type': MIME[extname(file)] ?? 'application/octet-stream' };
+    const headers = { 'Content-Type': contentTypeFor(file) };
 
     if (immutable) {
       // An upload's name carries a random tail and its bytes never change, so a phone should
