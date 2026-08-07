@@ -581,7 +581,14 @@ Four modes. Two are *derived* from the presence of a function; two are *declared
 - **`trust`** — points land on submit, unjudged. One point per **unit**, no host involved. A trust
   game must declare `points`, and the gallery deliberately gives it **no buttons**: the points
   are already banked and a second press would double-pay.
-- **`manual`** — the host judges in the admin gallery: award or reject, per submission.
+- **`manual`** — the host judges in the admin gallery: award or reject. A verdict is per
+  submission, but on a game with **units** the *value* is per unit, exactly as under `trust`: a
+  prompt is worth one point if **any** photograph for it has been approved, and nothing otherwise.
+  That equivalence is the cap, and it is currently **only implemented on the trust path** — the
+  gallery still writes one award per submission, so a unit game switched to `manual` today would
+  pay per photograph and overspend its tile. Nothing exercises it yet because no unit game is
+  host-judged; [#83](https://github.com/moeriki/tinker-lab/issues/83) is what lands on it. See
+  [ADR-a-photograph-pays-on-approval](docs/adr/a-photograph-pays-on-approval.md).
 
 **The default is `manual`**, deliberately: a game that forgot to say gets a human looking at it,
 never silent free points.
