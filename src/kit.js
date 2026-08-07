@@ -30,6 +30,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import {
+  askModal,
   blurb,
   bubble,
   card,
@@ -148,6 +149,17 @@ const RENDERERS = {
 
   hintmodal: (a) =>
     hintModal({ notice: a.notice ?? 'paid', cost: num(a.cost, 3), backHref: a.href ?? '#modal' }),
+
+  // The two-answer shape. It gets its own marker rather than a flag on `hintmodal` because they
+  // are two boxes on the page at once -- the point is seeing `No?` drawn beside a real `Okay?`,
+  // and one `#hint-modal` cannot be both. Its words come from `modalActions()`, not from here.
+  askmodal: (a) =>
+    askModal({
+      title: a.title ?? 'sure?',
+      body: a.body ?? 'nothing is being deleted. this is the shape, not a question.',
+      denyHref: a.deny ?? '#modal',
+      confirmHref: a.href ?? '#modal',
+    }),
 
   // A marker attribute cannot contain a `"` -- ATTR reads up to the closing one -- so the kit's
   // line wears curly quotes. That is the only thing about it this extraction changed.
@@ -310,6 +322,7 @@ const BUILT_NAMES = {
   blurb: 'the blurb',
   field: 'the fields',
   hintmodal: 'the modal',
+  askmodal: 'the modal',
   bubble: 'the speech bubble',
   shoot: 'the camera',
   unitrow: 'the unit rows',

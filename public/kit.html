@@ -366,6 +366,15 @@
         <p class="sect__note">Fires on every hint reveal, saying a different thing the first time a team ever asks (free, a gift) than every time after (the price, a fine). Built by <code>hintModal()</code> in <code>src/render.js</code> and rendered <em>already open</em> by the server, because the hint has been revealed and charged by the time it appears — it announces, it never asks. On a real page it sits <em>outside</em> <code>.app</code> — because <code>anim-page</code> animates a transform and a transformed ancestor would pin a <code>position: fixed</code> box to the page instead of the viewport — and <em>first</em>, ahead of it, so the box you are looking at is also the first thing read and the first thing tabbed to. That is the whole of this site's focus management (#31, ADR-document-order-instead-of-focus-management): no trap, no move-in, no restore, no script. Here it is at the end of the page instead, because this is the one place that opens it by hand.</p>
         <p class="sect__note">Shown here in its <em>paid</em> framing. The free one is the same box with different words, and there is only one <code>#hint-modal</code> on a page — demoing both would mean a second copy, which is the thing this page no longer keeps.</p>
         <button class="btn btn--hint" type="button" data-open-modal>Open it</button>
+
+        <h3 class="sect__sub">The two words — <code>No?</code> and <code>Okay?</code></h3>
+        <p class="sect__note">A modal has exactly two answers and they are always the same two words: <strong><code>No?</code></strong> and <strong><code>Okay?</code></strong>. Not <em>fine</em>, not <em>lovely</em>, not <em>no thanks</em> — this box had already invented three words for two slots before anyone else got a turn. The question marks are the register (#37): the site sounds unsure of its own offer while it takes your points. They hold on <strong>admin surfaces too</strong>. The admin is Dieter, who knows the voice, so there is no quieter register for HQ.</p>
+        <p class="sect__note"><strong>The order is as fixed as the words</strong>: aside, then deny, then confirm, left to right — and the confirm stays rightmost on a <em>destructive</em> press too. Flipping it there would move the only irreversible button on the site to the place the muscle memory says is safe.</p>
+        <p class="sect__note"><strong>The deny is optional.</strong> Plenty of modals will not have one: the hint box above does not, because the hint is already revealed and charged by the time it appears — there is nothing left to say no to. A box that only announces gets one button. What is <em>not</em> optional is the words, which is why they live in <code>modalActions()</code> in <code>src/render.js</code> and not in each caller.</p>
+        <p class="sect__note">The third slot is <strong>neither answer</strong>. The hint box's <code>What?</code> is a link to the rules, not a refusal, so it keeps its own words and sits outside the pair. Two buttons fit one row at 390px; three has never been drawn, because no modal has yet wanted an aside <em>and</em> a deny.</p>
+        <p class="sect__note">The pair is <strong>not case-matched on screen</strong>, and that is not a defect to fix here: <code>.btn--primary</code> is <code>text-transform: uppercase</code> site-wide and <code>.btn--close</code> is <code>none</code>, so the words land as <code>No?</code> and <code>OKAY?</code>. That is the primary button being itself. A modal opting out of it would be the page-level design decision this page exists to prevent. Note too that <code>.modal__actions .btn</code> out-specifies <code>.btn--primary</code>'s <code>flex: 1 1 100%</code>, so inside a modal the confirm shares a row instead of taking one.</p>
+        <p class="sect__note">Below is the two-answer shape, from <code>askModal()</code>. No page ships one yet — the first will be the delete-team confirm (#87) — and it is demoed here <em>before</em> that, so <code>No?</code> reaches a page as a button somebody has looked at. A component demoed only in the shape that already worked is how <code>&lt;a class="btn"&gt;</code> rendered as a raw blue link site-wide.</p>
+        <button class="btn btn--hint" type="button" data-open-modal="ask-modal">Open the asking one</button>
       </section>
 
       <!-- ============================= NONSENSE ============================ -->
@@ -607,6 +616,11 @@
          because the hint has been revealed and charged by the time it appears. Only this page
          wants it shut on arrival, so kit.js hides it and the button in §11 opens it. -->
     <!--@hintmodal notice="paid" cost="3"-->
+
+    <!-- The asking shape, from askModal(). Two boxes on this page at once is the point: `No?` is
+         only worth demoing beside a real `Okay?`, and one #hint-modal cannot be both. app.js
+         closes #hint-modal and only that, so kit.js closes this one. -->
+    <!--@askmodal-->
 
     <!-- Both as modules, exactly as layout() loads app.js. As classic scripts they shared one
          global lexical scope and both declare a top-level `const modal`, so kit.js — the second

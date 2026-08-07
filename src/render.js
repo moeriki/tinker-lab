@@ -306,6 +306,76 @@ export function scorebar({ name, score, open = 0, total = 0 }) {
 }
 
 /**
+ * The house words for a modal's two answers, and the only two words any modal may use for them
+ * (#90). They are exported so a second modal cannot quietly invent a third pair -- which is what
+ * this one had already done to itself, saying "fine" when a hint cost and "lovely" when it did
+ * not.
+ *
+ * The question marks are the register (#37): the site sounds unsure of its own offer even while
+ * it takes your points. They hold on the admin's side too -- the admin is Dieter, who knows the
+ * voice -- so there is no quieter register for HQ and no exception for the irreversible presses.
+ */
+export const MODAL_YES = 'Okay?';
+export const MODAL_NO = 'No?';
+
+/**
+ * The action row of any modal, which exists so the **order** is as fixed as the words: aside,
+ * then deny, then confirm, left to right. Confirm is always rightmost, including on a destructive
+ * press -- an exception there would land on the one button in the house people press wrong.
+ *
+ * `deny` is **optional**, and plenty of modals will not have one: this one does not, because the
+ * hint is already revealed and charged by the time the box appears, so there is nothing left to
+ * say no to. A modal that only announces gets one button.
+ *
+ * `aside` is the third slot and is neither answer -- the hint modal's "What?" is a link to the
+ * rules, not a refusal -- so it keeps its own words and sits outside the pair.
+ *
+ * The deny reuses `.btn--close`, the site's quiet paper-and-mono "leave this alone" button, rather
+ * than earning a class of its own that no page had ever rendered.
+ *
+ * On layout, note that `.modal__actions .btn { flex: 1 1 auto }` **out-specifies**
+ * `.btn--primary { flex: 1 1 100% }` (0,2,0 beats 0,1,0), so inside a modal the confirm does NOT
+ * take a row of its own the way it does everywhere else -- the buttons share one row and wrap only
+ * when they stop fitting. Two fit at 390px. Three has never been drawn, because no modal has
+ * wanted an aside and a deny at once.
+ *
+ * And the pair is not case-matched on screen: `.btn--primary` is `text-transform: uppercase`
+ * site-wide while `.btn--close` is `none`, so the words land as `No?` and `OKAY?`. That is the
+ * primary button being itself, not this modal deciding something -- a modal opting out of it would
+ * be exactly the page-level design decision `/kit` exists to prevent.
+ */
+export function modalActions({ aside = '', denyHref, confirmHref, confirmAttrs = {} }) {
+  return `<div class="modal__actions">
+        ${aside}
+        ${denyHref ? `<a class="btn btn--close" href="${escape(denyHref)}">${MODAL_NO}</a>` : ''}
+        <a class="btn btn--primary" href="${escape(confirmHref)}"${attrsHtml(confirmAttrs)}>${MODAL_YES}</a>
+      </div>`;
+}
+
+/**
+ * A modal that **asks**, rather than announcing: the two-answer shape, `No?` beside `Okay?`.
+ *
+ * No page renders one yet — the first will be the delete-team confirm (#87) — and that is the
+ * whole reason this function exists rather than waiting. `/kit` calls it, so the deny ships as a
+ * button somebody has looked at, drawn beside a real confirm, at phone width. The kit showing a
+ * component only in the shape that already worked is how `<a class="btn">` rendered as a raw blue
+ * link site-wide, and the map says so out loud.
+ *
+ * `title` and `body` are the caller's, because what is being asked differs every time. The two
+ * answers are not the caller's: they come from `modalActions()` and there is no argument for
+ * overriding them.
+ */
+export function askModal({ id = 'ask-modal', title, body, denyHref, confirmHref }) {
+  return `<div class="modal" id="${escape(id)}">
+    <div class="modal__box">
+      <p class="modal__title">${escape(title)}</p>
+      <p class="modal__body">${escape(body)}</p>
+      ${modalActions({ denyHref, confirmHref })}
+    </div>
+  </div>`;
+}
+
+/**
  * The hint modal: the one modal the site has, and the only thing `/js/app.js` binds beyond
  * spending a param.
  *
@@ -342,10 +412,11 @@ export function hintModal({ notice, cost, backHref }) {
           ? `that one was <strong>free</strong> — your first one always is. every hint after it costs you ${price}.`
           : `that hint cost you ${price}.`
       }</p>
-      <div class="modal__actions">
-        <a class="btn btn--what" href="/rules">What?</a>
-        <a class="btn btn--primary" href="${escape(backHref)}" data-close-modal>${free ? 'lovely' : 'fine'}</a>
-      </div>
+      ${modalActions({
+        aside: '<a class="btn btn--what" href="/rules">What?</a>',
+        confirmHref: backHref,
+        confirmAttrs: { 'data-close-modal': true },
+      })}
     </div>
   </div>`;
 }
