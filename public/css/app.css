@@ -221,32 +221,54 @@ code {
   background: var(--c-ink);
   border-bottom: var(--edge-2) solid var(--c-ink);
   padding: 0.4rem 0;
+
+  /*
+   * One monospace character at `.marquee__item`'s size, and the gap of exactly one more that the
+   * track sets between gags. 0.8rem x (0.6em advance + 0.12em letter-spacing) = 0.576rem, and
+   * 0.8rem x 0.6em = 0.48rem. `marquee()` counts characters and multiplies by these to get the
+   * strip width, so the two numbers live here, next to the font-size and letter-spacing they are
+   * derived from -- change either of those and these change with them.
+   */
+  --cell: 0.576rem;
+  --gap: 0.48rem;
 }
 
-/*
- * The duration is set per instance by `marquee()`, which derives it from the length of the line so
- * the scroll speed stays readable however long the list gets. The keyframe moves one copy's width
- * in whatever time it is given, so a constant here would silently change speed the next time
- * somebody edits `content/chrome.js`. The 34s fallback is what the kit's original short line used.
- */
 .marquee__track {
   display: flex;
   width: max-content;
-  animation: marquee var(--marquee-secs, 34s) linear infinite;
+  gap: var(--gap);
 }
 
+/*
+ * Every cell runs the same animation, with no delay, so they move as one rigid strip -- the layout
+ * above has already put them where they belong and the transform only slides them. Animating the
+ * cells and not the track is deliberate: see `marquee()` in src/render.js for what the track's own
+ * twenty-odd thousand pixels do to the compositor.
+ *
+ * The duration is set per instance by `marquee()`, which derives it from the length of the copy so
+ * the scroll speed stays readable however long the list gets. The keyframe moves one strip width in
+ * whatever time it is given, so a constant here would silently change speed the next time somebody
+ * edits `content/chrome.js`. The 34s fallback is what the kit's original short line used.
+ */
 .marquee__item {
   font-family: var(--font-mono);
   font-size: 0.8rem;
   letter-spacing: 0.12em;
   color: #2bff2b;
-  padding-right: 3rem;
   white-space: nowrap;
+
+  /* `--n` is the cell's character count, set per cell by `marquee()`. Stating the width rather than
+     letting the glyphs decide it is what keeps the wrap exact; without `--n` this is invalid and
+     the width falls back to `auto`, which is the old behaviour rather than a collapsed cell. */
+  flex: 0 0 auto;
+  width: calc(var(--n) * var(--cell));
+
+  animation: marquee var(--marquee-secs, 34s) linear infinite;
 }
 
 @keyframes marquee {
   from { transform: translateX(0); }
-  to { transform: translateX(-50%); }
+  to { transform: translateX(calc(-1 * var(--marquee-strip))); }
 }
 
 /* --------------------------------- headings -------------------------------- */
@@ -1939,7 +1961,7 @@ ol.stack {
     transition-duration: 0.001ms !important;
   }
 
-  .marquee__track {
+  .marquee__item {
     animation: none !important;
     transform: none !important;
   }

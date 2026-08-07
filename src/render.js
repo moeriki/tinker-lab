@@ -133,12 +133,29 @@ export function layout({
  * on every route. It carries no information and has no tab stops, which is exactly the case for
  * treating it as decoration -- the same call `win()` makes for its two chrome buttons.
  *
- * **Two identical copies** because the keyframe translates the track by -50%: at the halfway point
- * copy two sits exactly where copy one started, so the loop is seamless. That is also why the
- * duration is derived rather than fixed. The animation moves one copy's width in whatever time it
- * is given, so a hardcoded 34s -- correct for the ~180 characters the kit used to carry -- would
- * crawl this list at a sixth of a readable speed. Dividing by 7 lands near 70px/s at this font
- * size, and unlike a constant it cannot go stale when someone edits the list.
+ * **Two identical copies, and the animation is on the cells rather than on the track.** The two
+ * copies are the seamless-loop trick: every cell travels exactly one strip width per lap, so at the
+ * moment copy A's cell wraps back to the right it lands precisely where copy B's identical cell is
+ * leaving, and the swap cannot be seen. What changed is which element moves. Translating the
+ * *track* by -50% is the obvious way to write that and it is why this strip used to judder: at 43
+ * gags the track measured 21,111px, and a transform-animated layer past the compositor's max
+ * texture size (16,384px on most GPUs, and this is a 2x-3x phone) cannot be handed to the GPU
+ * whole, so it repaints on the main thread every frame. Moving the same distance a cell at a time
+ * leaves the biggest animated box at one gag -- 498px, at the longest one on the list -- and the
+ * track, still twenty-odd thousand pixels, is now only a layout box that nothing animates.
+ *
+ * **Which is why the strip length is arithmetic rather than a percentage.** A cell cannot say
+ * "-50%" and mean the strip; percentages in a transform are of the element's own size. So
+ * `--marquee-strip` counts it out in characters, which is exact because this is set in a monospace
+ * face: every font in `--font-mono` -- Courier Prime, `ui-monospace`, Courier New -- advances
+ * 0.6em, and `--cell`/`--gap` in the stylesheet carry that number so it is stated once. Splitting
+ * the line into one cell per gag is what makes the count possible at all.
+ *
+ * The duration is derived rather than fixed for the same reason it always was. The animation moves
+ * one strip width in whatever time it is given, so a hardcoded 34s -- correct for the ~180
+ * characters the kit used to carry -- would crawl this list at a sixth of a readable speed.
+ * Dividing by 7 lands near 70px/s at this font size, and unlike a constant it cannot go stale when
+ * someone edits the list.
  *
  * It sits **outside `.app`**, and since #88 that is a plain layout fact rather than a positioning
  * one: `.app` is capped at 42rem with side padding, so a strip inside it would stop short of both
@@ -148,11 +165,28 @@ export function layout({
  * stickiness; the modal is still out here for exactly that reason (#30), because it is `fixed`.
  */
 export function marquee(items = chrome.marquee) {
-  const line = `★ ${items.join(' ★ ')} ★`;
-  const copy = `<span class="marquee__item">${escape(line)}</span>`;
-  const secs = Math.max(20, Math.round(line.length / 7));
+  // The star leads each gag rather than sitting between two, so that the wrap needs no separator
+  // of its own: the last cell is followed by the first, and the first already brings its star.
+  const cells = items.map((item) => `★ ${item}`);
+  const chars = cells.reduce((n, cell) => n + cell.length, 0);
+  const secs = Math.max(20, Math.round(chars / 7));
 
-  return `<div class="marquee" aria-hidden="true" style="--marquee-secs: ${secs}s">
+  // One strip: every character in a copy, plus the one-character gap the track puts after each.
+  const strip = `calc(${chars} * var(--cell) + ${cells.length} * var(--gap))`;
+
+  // `--n` is the cell's character count, and the stylesheet makes that its width. Letting the text
+  // size the box instead leaves the strip a hair wider than the arithmetic says -- the star is not
+  // a Courier Prime glyph and the face it falls back to advances 0.025px further, which across 43
+  // of them put the wrap 1.2px out. Stating the width takes that back to 0.6px, which is Blink
+  // rounding each cell down to a 64th of a pixel and is as exact as this can be made; a hair either
+  // way once every 163 seconds is not a thing anyone can see. What it also does is make the strip
+  // immune to the same class of drift from any future character the mono face turns out not to
+  // carry, and from the fallback face if the woff2 never arrives.
+  const copy = cells
+    .map((cell) => `<span class="marquee__item" style="--n: ${cell.length}">${escape(cell)}</span>`)
+    .join('');
+
+  return `<div class="marquee" aria-hidden="true" style="--marquee-secs: ${secs}s; --marquee-strip: ${strip}">
     <div class="marquee__track">${copy}${copy}</div>
   </div>`;
 }
