@@ -881,7 +881,9 @@ The switch is an explicit equality, so an **unset `NODE_ENV` is production**. Th
 deliberate: a laptop that forgets the flag shows locked tiles and you notice within one screen,
 while a container that lost its env file would hand every guest every game and say nothing.
 
-`npm run dev` sets it. `npm run dev:prod` is the same watcher without it, for the times the locked
+`npm run dev` sets it, and `pitchfork.toml` keeps one such build permanently up on this laptop at
+<http://bday.localhost:8080> (see [`docs/agents/dev-server.md`](docs/agents/dev-server.md)).
+`npm run dev:prod` is the same watcher without it, for the times the locked
 wall is the thing being tested. Docker builds either flavour — `NODE_ENV=development docker compose
 up -d --build` — and defaults to production when the arg is unset.
 

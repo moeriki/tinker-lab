@@ -1,0 +1,36 @@
+# The local test env: one always-on dev build of this site, so "does it look right?" is a tab that
+# is already open rather than a deploy you wait for. See docs/agents/dev-server.md.
+#
+# `pitchfork activate fish | source` is in ~/.config/fish/config.fish, so `auto = ["start"]` means
+# cd'ing into this repo starts it. It is not in the `auto` list for stop, so leaving the directory
+# leaves it running -- that is the whole point.
+namespace = "bday"
+
+[daemons.dev]
+auto = ["start"]
+
+# NODE_ENV=development lives in the `dev` script, not here, so there is one place that decides what
+# the dev build is. `node --watch` inside it restarts on every source file the process imported --
+# which is all of src/ and all of content/, because content is loaded with `import()` and not read
+# as data. So `watch` below only has to cover what node cannot see.
+run = "pnpm dev"
+
+# server.js prints this once it is listening. Without it `pitchfork start` would return after a
+# fixed delay and call a crashed boot "ready".
+ready_output = "bday →"
+
+# Dependencies change out from under a running node; source does not.
+watch = ["pnpm-lock.yaml"]
+
+[daemons.dev.port]
+# 3041, not the 3040 from src/config.js, and deliberately: `docker-compose.yml` publishes 3040 on
+# the host and cannot be told otherwise, so a daemon that lives here forever would break the
+# container check for everyone (docs/agents/containers.md) in exchange for a rounder number. The
+# URL you actually use is http://bday.localhost:8080; the port underneath it is plumbing.
+#
+# `bump` is only for a port held by something that is NOT this daemon -- a stray `pnpm dev`, say.
+# It is not how two copies coexist: the id `bday/dev` is global, so starting it from a second
+# directory answers "already running, use --force" and no second port is ever asked for. Which is
+# the intended shape; see docs/agents/dev-server.md on pointing the one daemon at a worktree.
+expect = [3041]
+bump = true

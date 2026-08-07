@@ -67,6 +67,16 @@ safe in a background session and in parallel worktrees.
 A page **and a state** are verifiable here, so **never report a change as "not seen by eye"** for
 want of a way to look at it. See `docs/agents/screenshots.md`.
 
+### The local dev server
+
+**A dev build of this site is always up at <http://bday.localhost:8080>**, supervised by pitchfork
+(`pitchfork.toml`), running `pnpm dev` from the shared checkout on port 3041 with a database that
+persists. `pf ls`, `pf logs bday/dev`, `pf restart bday/dev`.
+
+It is a browser tab for a human, not a verification tool for you: it is one shared daemon, so
+`pf start dev -f` from a worktree silently repoints everyone's URL at your branch. Prefer the
+screenshot scripts, which are isolated and disposable. See `docs/agents/dev-server.md`.
+
 ### Containers
 
 **This machine runs Podman; there is no `docker` binary.** Use `podman` and `podman-compose` — a container change is verifiable here, so never report one as unproven for want of a runtime. The `docker compose` lines in `MM-HANDOFF.md` are Tower's and stay as they are. See `docs/agents/containers.md`.
