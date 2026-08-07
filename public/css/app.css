@@ -794,20 +794,27 @@ ol.stack {
 }
 
 /*
- * `color` and `-webkit-text-fill-color` are here because Dieter looked at this on an iPhone at
- * night and could not read it: white text in a white box, "almost fully illegible", on the two
- * name fields at the front door (#89).
+ * `color` and `-webkit-text-fill-color` say outright what this box was previously inheriting. The
+ * reason they are worth the two lines: `-webkit-text-fill-color` BEATS `color` wherever both
+ * apply, and it is what Safari reaches for when it decides to draw a control in a dark appearance.
+ * A rule that sets `background` but leaves the text to inheritance can therefore win the box and
+ * lose the writing in it -- white on white, in the two name fields at the front door (#89).
  *
- * iOS Safari does not invert the page the way Chrome for Android does. It applies a dark
- * APPEARANCE to the controls it draws, and it colours their text with `-webkit-text-fill-color` --
- * which beats `color` wherever both apply. So the rule above won the background off Safari and
- * lost the text to it, and white-on-white is what that collision looks like.
+ * WHAT PROMPTED THIS WAS NOT A MEASUREMENT, and the distinction matters enough to write down.
+ * Dieter reported the door unreadable on an iPhone at night, this was attributed to Safari, and it
+ * then turned out he runs **Noir**, a Safari extension whose whole purpose is to force dark onto
+ * sites that do not have a dark mode. So the sighting is most likely the extension, not Safari,
+ * and nothing here has ever been observed failing on an iPhone.
  *
- * `color-scheme: only light` up on `html` should already stop Safari reaching for that appearance
- * at all, and these two lines are belt and braces on top of it. They are here anyway because the
- * declaration is the one thing in this file NOBODY HAS CHECKED ON AN IPHONE -- every measurement
- * behind it was taken in Chrome -- and the screen it protects is the first one every guest sees.
- * In the working case they change nothing: both resolve to the ink the box already inherited.
+ * The lines stay anyway, on their own merit rather than on that story: the collision above is real
+ * and documented, `color-scheme: only light` up on `html` is the thing meant to prevent it, and
+ * that declaration is THE ONE THING IN THIS FILE NOBODY HAS CHECKED ON AN IPHONE -- every
+ * measurement behind it was taken in Chrome, because Chrome's dark behaviour is emulable and
+ * Safari's is not. Two lines with no visual cost, under the first screen every guest sees.
+ *
+ * None of this is aimed at Noir, and no rule here should be. An extension injects over the page
+ * and wins by construction; a guest running one has arrived with their own settings, and the site
+ * does not hold itself to those.
  *
  * `color: inherit` on the bare `input` further up is now doing nothing for these, and that is
  * fine -- it still covers the controls that never get `.input`.
