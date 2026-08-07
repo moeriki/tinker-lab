@@ -86,7 +86,6 @@ export function layout({
   <link rel="stylesheet" href="/css/app.css">
 </head>
 <body class="shell${nav ? ' shell--nav' : ''}">
-  ${devBar()}
   ${modal}
   ${still ? '' : marquee()}
   <div class="app${still ? '' : ' anim-page'}">
@@ -101,36 +100,6 @@ export function layout({
   <script type="module" src="/js/app.js"></script>
 </body>
 </html>`;
-}
-
-/**
- * The dev build's own strip, above everything, on every page including the admin surfaces --
- * which is the point: "back and forth between dashboard and admin" is one link each way, from
- * wherever you are. Empty string in production, so the markup is not there to be inspected (#62).
- *
- * Styled INLINE rather than in `public/css/app.css`. The stylesheet is served to guests, and a
- * dev-only rule sitting in it would be dead weight on the night and one more thing on the style
- * kit's list of components the site owes. Six declarations in a string keep production's CSS
- * byte-identical to what it was.
- *
- * Both links are always shown rather than one of them chosen from request state, so `layout()`
- * does not have to start taking a request in order to draw its frame. Tapping the wrong one costs
- * a redirect.
- */
-function devBar() {
-  if (!IS_DEV) return '';
-
-  const link = (href, text) =>
-    `<a href="${href}" style="color:#000;text-decoration:none;padding:0 .5rem">${text}</a>`;
-
-  const strip =
-    'background:#ff0;color:#000;font:700 12px/2.2 monospace;' +
-    'letter-spacing:.08em;text-align:center;text-transform:uppercase';
-
-  return `<div style="${strip}">DEV ${link('/', 'board')}${link('/admin', 'admin')}${link(
-    '/dev/login',
-    'test team',
-  )}${link('/dev/logout', 'log out')}</div>`;
 }
 
 /**
@@ -203,16 +172,39 @@ export function statusbar(items = sample(chrome.status, chrome.STATUS_SLOTS)) {
  * room are five identical words; the block is the only thing that says which one you already
  * pressed. Colour is decoration, `aria-current` is the meaning, and neither is load-bearing --
  * every one of these pages says its own name in its `<h1>`.
+ *
+ * **Yellow on a dev build, and that is now the only thing saying so** (#96). Until this the badge
+ * was `devBar()`, a yellow strip across the top carrying four links. Three of those links have
+ * homes -- `admin` is `HQ` here, `board` is here, and the test-team toggle moved to
+ * `/admin/controls` -- and a fourth menu at the top of the screen contradicted the one decision
+ * this site's navigation has made (ADR-the-menu-bar-is-pinned-to-the-bottom). So the strip is
+ * gone and its colour moved down here: same warning, no second navigation, and it lands on the
+ * bar a walker is already looking at.
+ *
+ * Recolouring rather than adding: lime on yellow is unreadable, so the pair inverts to ink on
+ * yellow and the lit block inverts with it. It stays legible because it is the same two colours
+ * swapped, not a new palette.
+ *
+ * **Inline, for the reason `devBar()` was inline (#62).** `public/css/app.css` is served to every
+ * guest on the night; a `.navbar--dev` rule in it would be dead weight there and one more
+ * component the style kit owes. Three declarations in a string keep production's CSS
+ * byte-identical, and production emits no `style` attribute at all. `:active` is the one state
+ * that cannot be inlined and so stays magenta on paper -- its own colour pair, legible over
+ * either background, and a tap flash besides.
  */
-export function navbar(items) {
+export function navbar(items, { dev = IS_DEV } = {}) {
   if (!items.length) return '';
 
   const link = ({ href, label, here }) =>
     `<a class="navbar__item${here ? ' navbar__item--here' : ''}" href="${escape(href)}"${
       here ? ' aria-current="page"' : ''
-    }>${escape(label)}</a>`;
+    }${dev ? ` style="${here ? 'background:#000;color:#ff0' : 'color:#000'}"` : ''}>${escape(
+      label,
+    )}</a>`;
 
-  return `<nav class="navbar" aria-label="Menu">${items.map(link).join('')}</nav>`;
+  return `<nav class="navbar" aria-label="Menu"${
+    dev ? ' style="background:#ff0;border-top-color:#000"' : ''
+  }>${items.map(link).join('')}</nav>`;
 }
 
 /** `count` distinct members of `list`, in random order. Partial Fisher-Yates over a copy. */

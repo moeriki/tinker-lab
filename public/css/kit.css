@@ -192,6 +192,36 @@
   text-align: center;
 }
 
+/* The menu bar is the one component the kit cannot draw at its real width. On the site it is
+   `position: fixed` across the whole viewport -- 390px on the phone this is measured at -- and it
+   is out of flow, so it contributes nothing to the page's own width. In here it is an ordinary
+   block inside a padded section, which offers about 327px: sixty-odd pixels narrower than the
+   thing it is a picture of.
+
+   That gap is what #96 walked into. The host's dev bar is six words and 381px of min-content,
+   which fits a phone with room at both ends and does NOT fit a section. Chrome does not clip it or
+   shrink it -- it widens the LAYOUT VIEWPORT until the intrinsic width fits, so a 390px shot came
+   back 445px wide and every section on the page was quietly rendered too wide. Same failure as
+   `.board` in app.css, same medicine, and the same reason it is worth a comment: it hides from a
+   check that compares `scrollWidth` against `innerWidth`, because both grew together.
+
+   `contain: inline-size` settles this box's width from the outside so nothing inside can push on
+   the page. `min-width: max-content` then keeps the bar at its TRUE width rather than letting it
+   ellipsise down to the section -- an ellipsised demo would be a picture of a bar the site never
+   draws -- and `overflow-x: auto` gives the last word somewhere to go. It scrolls here and does
+   not on a real page, which the section says out loud.
+
+   On the whole set of them, not just the yellow ones: production's five words clear 327px by a
+   hair, and the next word added would tip them over in exactly the same silence. */
+.navbar-slot {
+  overflow-x: auto;
+  contain: inline-size;
+}
+
+.navbar-slot .navbar {
+  min-width: max-content;
+}
+
 /* --------------------------- decoration specimens -------------------------- */
 
 .nonsense {

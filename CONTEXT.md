@@ -869,13 +869,32 @@ with nine onboarding fields and nineteen slugs tapped out of `/admin/codes`
   any browser that is not already carrying a team;
 - **every tile unlocked** and nothing played, which is the seed in full: no fabricated rival teams,
   no submissions, no photographs;
-- the **admin cookie**, so `/admin` and `/` link to each other from a strip across the top of every
-  page rather than through a secret URL;
+- the **admin cookie**, so `/admin` and `/` link to each other from the menu bar rather than
+  through a secret URL;
+- a **yellow menu bar** instead of the black one, which is the only thing on screen saying this is
+  not the night, and which holds **every link there is** — `board HQ court league recap shots`.
+  `board` is dev-only because `/` demands a team and a host on the night is never one; `recap` and
+  `shots` show whatever the clock says, because a dev build has no night to be partway through, and
+  both routes let a dev build through the gate that bounces production;
+- a **menu bar on `/welcome` and `/questions`**, the two pages that carry none on the night — so
+  the front door still says which build it is, and so the walk back in from a logout is a tap;
 - a **logout**, which is a dev affordance and not a change of heart — this site still has no
-  sign-out, no rejoin and no recovery (see **Team**).
+  sign-out, no rejoin and no recovery (see **Team**). It and its way back are one toggle at the
+  foot of `/admin/controls`, below the dangerous end and not inside it: nothing there destroys
+  anything.
 
 Everything it does lives in `src/dev.js`. Production imports it and calls nothing: the routes are
-an empty array, the strip renders an empty string, and no test team is ever written.
+an empty array, no `style` attribute is emitted on the menu bar, `/welcome` and `/questions` draw
+no bar, and no test team is ever written.
+
+> **There was a fourth menu until [#96](https://github.com/moeriki/tinker-lab/issues/96)**:
+> `devBar()`, a yellow strip across the top of every page carrying `DEV · board · admin · test team
+> · log out`. It was the only navigation this site had when it was written, and by the time the
+> menu bar existed three of its four links had homes — `admin` is `HQ`, `board` moved down, the
+> toggle moved to `/admin/controls`. It also sat at the top of the screen, which is the one place
+> this site decided navigation does not go
+> ([ADR-the-menu-bar-is-pinned-to-the-bottom](docs/adr/the-menu-bar-is-pinned-to-the-bottom.md)).
+> Its colour is what survives it.
 
 The switch is an explicit equality, so an **unset `NODE_ENV` is production**. That asymmetry is
 deliberate: a laptop that forgets the flag shows locked tiles and you notice within one screen,

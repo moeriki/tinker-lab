@@ -81,6 +81,8 @@ words in a loud room at one in the morning are five identical words.
   [#81](https://github.com/moeriki/tinker-lab/issues/81) and
   [#80](https://github.com/moeriki/tinker-lab/issues/80). The words are settled; the pages are not.
 - **The door keeps no menu.** `/welcome` and `/questions` stay bare: you are not inside yet.
+  *Amended [#96](https://github.com/moeriki/tinker-lab/issues/96) — still true on the night, and no
+  longer true on a dev build. See the amendment below.*
 - `scripts/walk.js` grows a `menu` flow that ends the game mid-run, so both bars either side of the
   reveal are photographed rather than reasoned about.
 
@@ -120,3 +122,49 @@ break: its `ending` flow hands the walker both cookies, so it was asking whether
 being kept back of the one visitor they are not kept back from, and passing by accident. Those
 checks now run before the admin cookie is in the jar, and the frozen-game one empties the jar and
 walks a second team in to ask it properly.
+
+## Amendment: the yellow strip is gone (#96)
+
+**Date:** 2026-08-07 · **Ticket:** [The yellow strip is a fourth menu, and three of its four links
+have homes now](https://github.com/moeriki/tinker-lab/issues/96)
+
+This ADR's Context opens by naming `devBar()` as the only navigation the site had. It is now
+deleted, and this bar is the only navigation the site has on any build.
+
+**Why it could go.** Three of its four links had homes by the time this bar shipped: `admin` is
+`HQ`, `board` moves into this bar, and `test team`/`log out` were never two links but one toggle,
+which now sits at the foot of `/admin/controls` beside the other levers with consequences. The
+fourth item was the word `DEV`. Keeping a whole strip at the top of the screen to carry one word
+would have contradicted this ADR's own decision twice over — a second navigation, and one above
+the marquee.
+
+**What replaced the warning.** The bar is drawn **yellow on a dev build**, ink on yellow with the
+lit block inverted, because lime on yellow is unreadable. The colour is the badge. It is inline on
+the element rather than a rule in `app.css`, which is why production's stylesheet is still
+byte-identical — the same bargain `devBar()` struck in
+[#62](https://github.com/moeriki/tinker-lab/issues/62). The one state that cannot be inlined,
+`:active`, keeps its magenta.
+
+**A dev build holds every word.** `board`, plus `recap` and `shots` whatever the clock says, and
+`showRecap`/`showShots` let a dev build past the gate that bounces production — a word in the bar
+whose route redirects away is the dead link this ADR created three stubs to avoid. `board` is
+dev-only and not as a preference: `/` demands a team, and **a host is never a team**, so on the
+night that link would land the host on the front door and invite him into his own league. It works
+in dev only because `devAttach()` plants both cookies.
+
+**The door keeps no menu, on the night.** `/welcome` and `/questions` now draw one on a dev build,
+for the two reasons the deleted strip existed: it is where a stray dev build says hello — and
+[#69](https://github.com/moeriki/tinker-lab/issues/69) put one on `bday.moeriki.com` with nothing
+to take it off — and it is where `/dev/logout` lands you, so without it the walk back in was typing
+an admin URL from memory.
+
+**Width was not spent.** The night's widest bar is still the host's five words and still 23
+characters. The sixth word exists only on a build no guest loads.
+
+**What it cost the style kit.** `/kit` draws this bar in flow inside a padded section, which offers
+about 327px against a phone's 390px. The six-word bar is 381px of min-content, so it did not
+overflow — Chrome widened the *layout viewport* until it fit and rendered the whole page at 445px,
+silently, hiding from a check that compares `scrollWidth` to `innerWidth` because both grew
+together. The same failure `.board` had in `app.css`, and the same medicine: the kit's demo slots
+now `contain: inline-size` and scroll. Measured, not assumed — and the items shrink as this ADR
+claims they do, verified at a 200px container.

@@ -15,7 +15,7 @@ import {
   PUBLIC_DIR,
   UPLOADS_DIR,
 } from './config.js';
-import { devAttach, devRoutes } from './dev.js';
+import { devAttach, devRoutes, isTestTeam } from './dev.js';
 import { all, get, run, transact } from './db.js';
 import {
   assetIsPresent,
@@ -433,6 +433,7 @@ function showWelcome({ req, res, url }) {
     res,
     layout({
       title: 'Right. Who are you?',
+      nav: devNav(req),
       body: `
         <p>Two of you, one phone. Whoever is holding it is carrying the team all night — so pick
           the one with battery left.</p>
@@ -579,6 +580,7 @@ function showQuestions({ req, res, url }) {
     res,
     layout({
       title: 'Two seconds each',
+      nav: devNav(req),
       body: `
         ${problem ? `<p class="banner banner--bad">${escape(problem)}</p>` : ''}
         <p>Answer these and you are in. Don't think about them — every single one is a game
@@ -696,15 +698,44 @@ function afterOnboarding(req, res, team) {
  * `gameHasEnded()` and not `gameIsFrozen()`. The gap between them is the hour in which the
  * hosts finish the queue, and a guest whose bar had already sprouted `league` during it would be
  * one tap from an ending nobody has read out yet.
+ *
+ * **`IS_DEV` is the third input** (#96), and it is a build fact rather than a request fact --
+ * which is why it is read here, next to the other two, instead of being threaded down from the
+ * routes. It is also the whole of what is left of the dev build's chrome: `devBar()` is deleted
+ * and `navbar()` draws this bar yellow instead.
  */
 function navFor(req, here) {
   const items = chrome.menuFor({
     admin: isAdmin(req),
     ended: gameHasEnded(),
+    dev: IS_DEV,
   });
 
   return navbar(items.map((item) => ({ ...item, here: item.href === here })));
 }
+
+/**
+ * The bar on the two pages that have never had one -- `/welcome` and `/questions` -- and only on a
+ * dev build (#96).
+ *
+ * The front door is bare by design and stays bare on the night: a page whose entire job is "type
+ * two names" offers nowhere else to be, and a team that has not registered has no surface to
+ * navigate to. Nothing here changes that. This is the dev build's badge, and it is on these two
+ * pages for the two reasons the badge exists at all.
+ *
+ * **It says which build this is, on the page a stranger sees first.** `devBar()` was on every page
+ * without asking; the yellow that replaced it rides the menu, and the menu is exactly what these
+ * two pages do not have. #69 put a dev build on `bday.moeriki.com` and nothing took it off by
+ * itself -- `/welcome` is where that build says hello, and it would have been the one page left
+ * with no way to tell.
+ *
+ * **It is the way back in.** `/dev/logout` drops the team cookie and lands here so real onboarding
+ * can be walked, and the toggle that undoes it now lives on `/admin/controls`. Without a bar, the
+ * walk out is one tap and the walk back is typing an admin URL from memory. The admin cookie
+ * survives the logout -- `devAttach()` re-plants it every request -- so the bar this draws is the
+ * host's, `HQ` and all, which is precisely the door back.
+ */
+const devNav = (req) => (IS_DEV ? navFor(req) : '');
 
 // --- dashboard, games, rules ------------------------------------------------------------------
 
@@ -1938,9 +1969,17 @@ function showLeague({ req, res }) {
  *
  * Both gate on the night having ENDED rather than merely being frozen, which is
  * `/league`'s own line (#77) and for its reason: the freeze is not the reveal.
+ *
+ * **A dev build walks through both gates** (#96), and has to, because `menuFor()` now puts both
+ * words in the dev bar. A dev build has no night to be partway through -- `gameHasEnded()` is
+ * false there from the first boot to the last -- so without this the two words the bar just
+ * gained would bounce straight back to `/`, which is the dead link this file's own comment above
+ * says is worse than no link. It is `IS_DEV` and not `isAdmin(req)`: `/league` lets the host in
+ * early because #77's gap is an hour he really lives through, and there is no matching hour in
+ * which anyone should be reading an unbuilt stub on the night.
  */
 function showRecap({ req, res }) {
-  if (!gameHasEnded()) return redirect(res, '/');
+  if (!gameHasEnded() && !IS_DEV) return redirect(res, '/');
 
   return html(
     res,
@@ -1954,7 +1993,7 @@ function showRecap({ req, res }) {
 }
 
 function showShots({ req, res }) {
-  if (!gameHasEnded()) return redirect(res, '/');
+  if (!gameHasEnded() && !IS_DEV) return redirect(res, '/');
 
   return html(
     res,
@@ -2131,6 +2170,41 @@ function adminBoard({ req, res }) {
 }
 
 /**
+ * The dev build's identity switch, at the foot of `/admin/controls` (#96), and empty on the night.
+ *
+ * It is here because this page already exists and already holds every lever with a consequence --
+ * freeze, award, recompute, delete a team, reset the night. Adding a sixth cost no new surface,
+ * and the alternative was keeping a yellow menu at the top of every page to hold two links.
+ *
+ * **Below `the dangerous end`, and deliberately not inside it.** Nothing here destroys anything:
+ * `/dev/logout` drops a cookie this build planted itself and `/dev/login` plants it again. The
+ * heading says which build you are in, which is the other half of what the yellow strip was for.
+ *
+ * One end of the switch, never both. `isTestTeam()` reads the cookie the request already carries,
+ * so the button is always the move you have not made.
+ */
+function devToggle(req) {
+  if (!IS_DEV) return '';
+
+  const out = isTestTeam(currentTeam(req));
+
+  return `
+    <h2 class="hq-heading">dev build</h2>
+    <p>${
+      out
+        ? `You are the seeded test team, with every tile open. Logging out drops that cookie and
+           lands you on the front door so onboarding can be walked for real — it is not a sign-out,
+           this site has none, it is this build dropping a cookie it planted.`
+        : `You are not the test team. Going back abandons whatever team the walk-through made and
+           puts you in the seeded one, with every tile open.`
+    }</p>
+    <a class="btn" href="${out ? '/dev/logout' : '/dev/login'}">${
+      out ? 'log out and walk onboarding' : 'become the test team'
+    }</a>
+  `;
+}
+
+/**
  * Everything with a consequence, on one page, off the menu bar (#79).
  *
  * It exists because HQ refreshes and therefore may not hold a form. That is the mechanical
@@ -2208,6 +2282,8 @@ function adminControls({ req, res }) {
         <h2 class="hq-heading">the dangerous end</h2>
         <a class="btn" href="/admin/delete-team">delete a team</a>
         <a class="btn" href="/admin/reset">reset the whole night</a>
+
+        ${devToggle(req)}
 
         <a class="btn btn--close" href="/admin">back to HQ</a>
       `,

@@ -144,10 +144,23 @@ export const stamp = 'DO NOT LOSE THIS PHONE';
  * copy pass has to be able to find them, and the alternative was six strings inline in a route
  * handler where nobody looking for the site's words would think to look.
  *
- * `who` and `when`, and nothing else -- no request, no database. `navFor()` in `src/app.js` reads
- * the admin cookie and `gameHasEnded()` and hands the two booleans down; `/kit` calls the
+ * `who`, `when` and `which build` -- no request, no database. `navFor()` in `src/app.js` reads the
+ * admin cookie, `gameHasEnded()` and `IS_DEV` and hands the three booleans down; `/kit` calls the
  * same function with them typed by hand, which is what stops the kit demoing a menu the site has
  * never rendered.
+ *
+ * **`dev` opens everything, and that is the whole of it** (#96). A dev build has no night to be
+ * partway through: `gameHasEnded()` is false there from the first boot to the last, so `recap`
+ * and `shots` -- the two words that only exist after the reveal -- were unreachable in the one
+ * build anybody develops against. Dev says yes to both, and `showRecap`/`showShots` say yes with
+ * it, because a link the route redirects away from is a dead word in the bar.
+ *
+ * **`board` is dev-only, and not as a preference.** It is the fourth of `devBar()`'s links and the
+ * one that had to go somewhere (#96). `/` demands a team; a host on the night holds the admin
+ * cookie and no team cookie -- a host is never a team, settled in #76 -- so on a production build
+ * this link would land the host on `/welcome` and invite him to register into his own league. It
+ * works in dev for the one reason it works at all: `devAttach()` plants BOTH cookies, so the
+ * walker is admin and team at once.
  *
  * **`dashboard` is deliberately not a word here.** It was #11's candidate and it meant two
  * different pages depending on who read it -- the host's bird's-eye view, or a guest's tiles. It
@@ -157,8 +170,15 @@ export const stamp = 'DO NOT LOSE THIS PHONE';
  * spend about 8 of those on gaps, so the labels share ~36. The host's five come to 23. #11's own
  * sketch -- `dashboard queue results highlights gallery` -- came to 41 and did not fit, which is
  * how the words got cut rather than the type size.
+ *
+ * The budget is spent by the NIGHT, and dev does not draw on it. The widest thing a guest or a
+ * host can ever hold is still five words and still 23 characters; the six-word bar below exists
+ * only in a build no guest loads, which is what let #96 add a word without cutting one.
  */
-export const menuFor = ({ admin, ended }) => {
+export const menuFor = ({ admin, ended: reallyEnded, dev = false }) => {
+  // A dev build is every hour of the night at once, so it holds the words the reveal unlocks.
+  const ended = reallyEnded || dev;
+
   const ending = ended
     ? [
         { href: '/recap', label: 'recap' },
@@ -172,6 +192,9 @@ export const menuFor = ({ admin, ended }) => {
   // are reading the top three off something.
   if (admin) {
     return [
+      // First, where it sat in the strip this replaced, and because it is the only word here
+      // pointing at the guest side of the site.
+      ...(dev ? [{ href: '/', label: 'board' }] : []),
       { href: '/admin', label: 'HQ' },
       { href: '/admin/court', label: 'court' },
       { href: '/league', label: 'league' },

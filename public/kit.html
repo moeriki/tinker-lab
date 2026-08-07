@@ -544,7 +544,7 @@
         </p>
 
         <h3 class="sect__sub">What a host holds</h3>
-        <div class="stack">
+        <div class="stack navbar-slot">
           <!--@navbar who="host" ended="down" here="HQ"-->
           <!--@navbar who="host" ended="up" here="court"-->
         </div>
@@ -555,21 +555,46 @@
           empty case below is the one a guest lives in for five of the night's five hours. It draws
           no strip rather than an empty one.
         </p>
-        <div class="stack">
+        <div class="stack navbar-slot">
           <!--@navbar who="guest" ended="down" here="games"-->
           <!--@navbar who="guest" ended="up" here="games"-->
+        </div>
+
+        <h3 class="sect__sub">What a dev build holds</h3>
+        <p class="sect__note">
+          Yellow, and it is the <strong>only</strong> thing on screen saying this is not the night
+          — #96 deleted <code>devBar()</code>, the strip that used to say so, because three of its
+          four links had homes and a fourth menu at the top of the screen contradicted the one
+          decision this site's navigation has made. Lime on yellow is unreadable, so the pair
+          inverts: ink on yellow, and the lit block inverts with it. Six words rather than five:
+          <code>board</code> is the strip's surviving link, and it is dev-only because
+          <code>/</code> demands a team and a host on the night is never one. <code>recap</code>
+          and <code>shots</code> show here whatever the clock says, because a dev build has no
+          night to be partway through.
+        </p>
+        <div class="stack navbar-slot">
+          <!--@navbar who="host" build="dev" here="board"-->
+          <!--@navbar who="guest" build="dev" here="games"-->
         </div>
 
         <p class="sect__note">
           The words come from <code>menuFor()</code> in <code>content/chrome.js</code> — the same
           call <code>navFor()</code> makes in <code>src/app.js</code>, so this section cannot show
-          a menu the site does not serve. Each marker types only <em>who</em> and <em>when</em>.
+          a menu the site does not serve. Each marker types only <em>who</em>, <em>when</em> and
+          <em>which build</em>.
         </p>
         <p class="sect__note">
           <strong>The page you are standing on wears the lime block</strong>, and carries
           <code>aria-current="page"</code> with it. Five flat words in a loud room at one in the
           morning are five identical words — but the colour is decoration like every other colour
           here, and each of these pages says its own name in its <code>h1</code>.
+        </p>
+        <p class="sect__note">
+          <strong>Shown narrow here, and wider on a real page.</strong> On the site the bar is
+          <code>position: fixed</code> across the whole viewport — 390px on a phone — and out of
+          flow. A section offers about 327px, so the dev bar's six words scroll sideways in their
+          box here and do not on a page. Measured rather than assumed: 381px of bar against 390px
+          of phone, with room at both ends.
         </p>
         <p class="sect__note">
           <strong>Shown flat here, pinned on a real page.</strong> On the site this sits inside

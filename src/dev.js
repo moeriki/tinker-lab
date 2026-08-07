@@ -36,6 +36,17 @@ const TEST_TEAM_TOKEN = 'dev-test-team';
 const TEST_MEMBERS = ['Dev', 'Tester'];
 
 /**
+ * Which way the toggle on `/admin/controls` is pointing (#96). The two `/dev/*` routes are one
+ * switch with two ends, and the page drawing it has a request in hand -- so it draws the end you
+ * are not standing on rather than both. `devBar()` showed both because `layout()` had no request
+ * to ask; that constraint left with it.
+ *
+ * By token rather than by name: the token is what `devAttach()` plants and what a cookie carries,
+ * and a team that walked real onboarding can never hold this one.
+ */
+export const isTestTeam = (team) => team?.token === TEST_TEAM_TOKEN;
+
+/**
  * Plausible one-word answers, cycled. They exist only so the gate opens and the pages that read
  * profile answers -- Guess Who's deck, Herd Mentality's corpus -- have something to draw rather
  * than a blank. With one team on the board neither game is meaningfully playable anyway; that is

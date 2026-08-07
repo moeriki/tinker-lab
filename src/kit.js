@@ -277,11 +277,20 @@ const RENDERERS = {
   // `here` names a LABEL rather than an href, because the label is what a reader of this page
   // sees; naming the route would mean checking the section against the route table to know which
   // word is meant to be lit.
+  // `build="dev"` draws the yellow one (#96). The kit is the only place both colourways are on
+  // screen together, and it has to be: a dev build is the one a walker looks at, so the black bar
+  // is now the shape nobody develops against. Demoing only the working shape is exactly how a
+  // `<a class="btn">` shipped as a raw blue link site-wide.
   navbar: (a) =>
     navbar(
       chrome
-        .menuFor({ admin: a.who === 'host', ended: a.ended === 'up' })
+        .menuFor({
+          admin: a.who === 'host',
+          ended: a.ended === 'up',
+          dev: a.build === 'dev',
+        })
         .map((item) => ({ ...item, here: item.label === a.here })),
+      { dev: a.build === 'dev' },
     ),
 
   starburst: () => starburst(chrome.starburst),
