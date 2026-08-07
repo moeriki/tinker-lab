@@ -1,6 +1,21 @@
 # The local test env: one always-on dev build of this site, so "does it look right?" is a tab that
 # is already open rather than a deploy you wait for. See docs/agents/dev-server.md.
 #
+#   cp pitchfork.toml.example pitchfork.toml   # in the SHARED CHECKOUT, and only there
+#
+# Copied rather than committed, and the reason is this repo's layout. pitchfork merges every
+# pitchfork.toml between the current directory and the root, and our worktrees live INSIDE the
+# checkout at .claude/worktrees/. A tracked config would therefore be checked out again in every
+# worktree, two configs would claim the namespace below, and pitchfork would refuse -- not just
+# here, but for every daemon on this laptop:
+#
+#   Error: namespace collision: '.../bday-games/pitchfork.toml' and
+#   '.../bday-games/.claude/worktrees/ticket-N-slug/pitchfork.toml' both resolve to 'bday'
+#
+# `pitchfork ls` then answers that instead of a list, from inside any worktree. Measured, not
+# feared -- it is what the first version of this file did. Same shape as .env/.env.example next
+# door, for a different reason.
+#
 # `pitchfork activate fish | source` is in ~/.config/fish/config.fish, so `auto = ["start"]` means
 # cd'ing into this repo starts it. It is not in the `auto` list for stop, so leaving the directory
 # leaves it running -- that is the whole point.
@@ -29,8 +44,7 @@ watch = ["pnpm-lock.yaml"]
 # URL you actually use is http://bday.localhost:8080; the port underneath it is plumbing.
 #
 # `bump` is only for a port held by something that is NOT this daemon -- a stray `pnpm dev`, say.
-# It is not how two copies coexist: the id `bday/dev` is global, so starting it from a second
-# directory answers "already running, use --force" and no second port is ever asked for. Which is
-# the intended shape; see docs/agents/dev-server.md on pointing the one daemon at a worktree.
+# There is never a second copy of this daemon to collide with: `bday/dev` is a machine-wide id, and
+# only the shared checkout has the file that defines it.
 expect = [3041]
 bump = true

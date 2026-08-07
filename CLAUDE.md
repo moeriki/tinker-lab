@@ -69,13 +69,14 @@ want of a way to look at it. See `docs/agents/screenshots.md`.
 
 ### The local dev server
 
-**A dev build of this site is always up at <http://bday.localhost:8080>**, supervised by pitchfork
-(`pitchfork.toml`), running `pnpm dev` from the shared checkout on port 3041 with a database that
-persists. `pf ls`, `pf logs bday/dev`, `pf restart bday/dev`.
+**A dev build of this site is always up at <http://bday.localhost:8080>**, supervised by pitchfork,
+running `pnpm dev` from the shared checkout on port 3041 with a database that persists. `pf ls`,
+`pf logs bday/dev`, `pf restart bday/dev`.
 
-It is a browser tab for a human, not a verification tool for you: it is one shared daemon, so
-`pf start dev -f` from a worktree silently repoints everyone's URL at your branch. Prefer the
-screenshot scripts, which are isolated and disposable. See `docs/agents/dev-server.md`.
+Its `pitchfork.toml` is gitignored and belongs to the shared checkout alone — **never copy it into
+a worktree**, because two configs claiming one namespace make every `pitchfork` command fail from
+in there. To look at your branch, use the screenshot scripts, or `PORT=3042 pnpm dev`. See
+`docs/agents/dev-server.md`.
 
 ### Containers
 

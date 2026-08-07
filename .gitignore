@@ -10,6 +10,11 @@ backups/
 # Holds ADMIN_SECRET and the Home Assistant webhook id. .env.example is committed; this is not.
 .env
 
+# The always-on dev daemon. Tracked, it would be checked out again in every worktree under
+# .claude/worktrees/, and two configs claiming one namespace break `pitchfork` everywhere. The
+# committed pitchfork.toml.example says the rest.
+pitchfork.toml
+
 # ~/.gitignore ignores .claude/ globally, which is what keeps .claude/worktrees/ from showing up as
 # untracked in every session. A repo .gitignore outranks the global one, so these three lines carve
 # out the single file we do want tracked: git will not descend into an ignored directory, so the
