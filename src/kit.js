@@ -195,7 +195,14 @@ const RENDERERS = {
    * both words with no field to drive them would be showing a component in the one shape that
    * cannot fail.
    *
-   * The field inside it is a real `field()` call rather than typed markup here, for the reason this
+   * **`field` takes a `|`-separated LIST, and #117 is the whole reason it has to** -- the captain
+   * screen carries two name fields now, and one watched field is the exactly-wrong number to demo.
+   * The bug that ticket fixed was a selector asking "is some watched field empty" where it meant
+   * "are they all empty": indistinguishable with one field, wrong with two. So a kit drawing this
+   * screen with a single field is a kit drawing the one arrangement in which the defect cannot
+   * appear, which is #66's `<a class="btn">` again in a different costume.
+   *
+   * The fields inside it are real `field()` calls rather than typed markup here, for the reason this
    * whole file exists: a component's markup lives in one place.
    */
   door: (a) =>
@@ -210,11 +217,16 @@ const RENDERERS = {
       forward: a.forward ?? 'carry on',
       forwardAlt: a.alt ?? '',
       body: a.field
-        ? fieldFrom({
-            label: a.field,
-            name: 'k-door',
-            ...(a.watch ? { placeholder: ' ', 'data-watch': true } : {}),
-          })
+        ? a.field
+            .split('|')
+            .map((label, index) =>
+              fieldFrom({
+                label: label.trim(),
+                name: `k-door-${index}`,
+                ...(a.watch ? { placeholder: ' ', 'data-watch': true } : {}),
+              }),
+            )
+            .join('')
         : '',
       extra: a.extra
         ? `<button class="btn btn--tertiary" type="button">${escape(a.extra)}</button>`

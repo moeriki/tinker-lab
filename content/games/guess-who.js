@@ -8,12 +8,16 @@
 // ask. The cards are the excuse, the conversations are the product, and the points are what makes
 // anyone bother. Every decision below falls out of that and not out of puzzle design.
 //
-// TEN CARDS, NOT THE WHOLE HOUSE. With ~25 guests the corpus is ~23 answers once your own two are
-// out, and 10 points do not divide 23 ways without fractions or bands -- against the rule that the
+// TEN CARDS, NOT THE WHOLE HOUSE. With ~25 guests the corpus is ~22 answers once your own are
+// out, and 10 points do not divide 22 ways without fractions or bands -- against the rule that the
 // board has to be arithmetic a guest can do in their head (#8). Ten cards is one point each,
 // exactly the tile budget, no completion bonus and no remainder. It also dissolves the growing
 // corpus rather than managing it: teams arrive all night (#7), and a hand is ten whenever you open
 // it, where a whole-corpus form would keep growing under you.
+//
+// THIS TILE COUNTS GUESTS, NOT TEAMS, which is why #117 went past it without touching anything. Cards
+// are dealt per member, so a house of teams of three has the same corpus as a house of pairs and a
+// team of three merely holds one more of its own answers back. Ten cards either way.
 //
 // The hand TOPS UP rather than freezing, so the first team through the door is not capped at
 // however few guests had onboarded when they opened the tile -- see src/deals.js.

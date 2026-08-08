@@ -1222,13 +1222,19 @@ export const paper = (paragraphs = []) =>
  * required field still empty.
  *
  * **The counter is honest rather than equal**, which was the third of the ticket's open questions.
- * A solo captain genuinely walks one screen fewer than a pair, so either two teams standing beside
- * each other see different totals or N is a fixed lie. Different totals, then -- nobody compares
- * counters in a hallway, and a pair reaching "8 of 8" with a screen still to go is the kind of
- * small dishonesty that makes people distrust the rest of the page. Before the second name is
- * settled the total assumes a pair, because teams of two are the locked constraint and the solo
- * case is the exception; a solo sees the total tick down by one when they skip, which is the moment
- * it becomes knowable.
+ * A team walks one screen per member, so either two teams standing beside each other see different
+ * totals or N is a fixed lie. Different totals, then -- nobody compares counters in a hallway, and a
+ * team reaching "8 of 8" with a screen still to go is the kind of small dishonesty that makes people
+ * distrust the rest of the page.
+ *
+ * Before the other names are settled the total **guesses two**, and #117 is why that is still the
+ * right guess for a different reason than it used to be. It used to be that teams of two were the
+ * locked constraint and anything else was the exception. Teams are now one, two or three, so two is
+ * no longer the rule -- it is merely the likeliest of three, and it is also the middle one, which
+ * caps the lie at a single screen in either direction. Screens 1 and 2 cannot know the answer:
+ * screen 2 is where the other names get typed. From screen 3 on the counter stops guessing and
+ * counts what it was handed, so a team of one sees the total tick down and a team of three sees it
+ * tick up -- both at the moment it becomes knowable.
  *
  * `back` is optional -- screen one has nothing behind it but the front door.
  *
@@ -1242,12 +1248,14 @@ export const paper = (paragraphs = []) =>
  * end-aligned, so the way on is the button under your thumb.
  *
  * `forwardAlt` is the forward button's OTHER word, and it is why step 2 no longer carries three
- * buttons (#107). That screen asks for a second name and used to offer `on my own` beside back, in
- * the identical look, so the press that goes on without a mate and the press that throws away your
- * typing were the same button. One button says both things now: `watch` names an input, and while
- * that input is empty the forward reads `forwardAlt` instead of `forward`. Pure CSS in `app.css`,
- * no script, and the server renders both words -- see `.door__fw-alt` there for why that is not the
- * site's no-self-updating rule being broken.
+ * buttons (#107). That screen asks for the other names and used to offer `on my own` beside back, in
+ * the identical look, so the press that goes on alone and the press that throws away your typing
+ * were the same button. One button says both things now: `watch` marks the inputs, and while **every
+ * one of them** is empty the forward reads `forwardAlt` instead of `forward`. Since #117 that screen
+ * carries two fields rather than one, so *every* is the load-bearing word -- see `.door__fw-alt` in
+ * `app.css`, where the selector had to be turned inside out to ask it. Pure CSS, no script, and the
+ * server renders both words either way, which is why this is not the site's no-self-updating rule
+ * being broken.
  */
 export function doorStep({
   step,

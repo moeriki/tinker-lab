@@ -25,7 +25,7 @@ what games exist. See [ADR-game-content-lives-on-disk](docs/adr/game-content-liv
 
 ### Team
 
-The unit of play and of scoring. 20–30 guests in teams of **2**, so ~10–15 teams.
+The unit of play and of scoring. 20–30 guests in teams of **1–3**, most of them 2, so ~7–15 teams.
 
 **The cookie is the team.** One phone per team carries `team=<token>`; there are no accounts,
 passwords or join codes — and no way back out either. There is no sign-out, no rejoin and no
@@ -33,8 +33,14 @@ recovery, because there is nothing to sign out of: one phone, carried by whichev
 volunteers, and a charger in the hall.
 
 A team has **members** — named explicitly during onboarding, because member-scoped questions need
-subjects to be asked about. Two name fields, the second optional: a solo arrival is a legal team
-of one, and a trio enters two.
+subjects to be asked about. **Three name fields, the last two optional** ([#117](https://github.com/moeriki/tinker-lab/issues/117)):
+the captain's on the first screen, two more on the second. A solo arrival is a legal team of one, and
+a trio is a legal team of three — it used to have to enter as two.
+
+> **Nothing declares a team's size but its names.** There is no size field, no flag and no column:
+> `TEAM_MAX` in `src/app.js` caps how many the door will take, and everything downstream counts
+> `members` rows. So the step counter, the lines that say *the three of you*, and the number of
+> question screens cannot disagree about how big a team is — they are all reading the same fact.
 
 **The name is dealt, not typed.** Onboarding hands out a word from `content/team-names.js` — TEAM
 BADGER — with a reroll. That word is the team's display name *and* the **handle** a stranger types

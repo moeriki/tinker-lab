@@ -414,10 +414,39 @@ async function handleScan({ req, res, params }) {
 const MEMBER_NAME_MAX = 24;
 
 /**
+ * The most people one team may be, and the ONE place that number lives (#117).
+ *
+ * It is three because the door asks for three names -- the captain's, then two more -- and how many
+ * of them arrive filled IS the team size. There is no separate declaration of size anywhere: no
+ * field, no flag, no column. Count the names.
+ *
+ * The database never knew about two and does not know about three either: `members` is a table with
+ * a `position`, so the cap is a decision about the hallway rather than about storage.
+ */
+const TEAM_MAX = 3;
+
+/**
+ * One of three lines, picked by how many people are on the team (#117).
+ *
+ * The door's whole personality is that it knows how many of you there are -- `one more` against
+ * `good enough`, `on my own` against `carry on`, a step counter that adds a screen per member. A
+ * size-neutral sentence sitting beside a counter that adapts would be the one line on the screen
+ * that stopped paying attention, so the lines count too, and they count three ways now rather than
+ * two.
+ *
+ * It takes all three variants at the call site on purpose. These are the highest-traffic strings on
+ * the site -- every team reads them once, standing up, with their coats on -- and whoever rewrites
+ * one wants the other two in front of them, not in a table somewhere else.
+ */
+const counting = (memberCount, [alone, two, three]) =>
+  memberCount > 2 ? three : memberCount > 1 ? two : alone;
+
+/**
  * THE DOOR IS A WIZARD (#97). It used to be two forms carrying nine fields between them, met by
  * twenty-five people in a hallway with their coats on -- the single biggest friction point of the
- * night by #9's own reckoning. Same nine fields, one or two at a time, each on a screen with a
- * title and a step counter, drawn as the house alert box.
+ * night by #9's own reckoning. The same fields, one or two at a time, each on a screen with a title
+ * and a step counter, drawn as the house alert box. Nine of them for a pair, and seven or eleven at
+ * the ends of the range since #117 -- see `content/questions.js` for that count.
  *
  * The spine, and the forward word each screen carries:
  *
@@ -425,9 +454,15 @@ const MEMBER_NAME_MAX = 24;
  *   2  you're the captain now. anyone else?  carry on
  *   3  TEAM BADGER                           now what
  *   4a their Guess Who question              one more   (good enough, if solo)
- *   4b the second member's                   good enough
- *   4c the five herd words, as a team        that's that
+ *   4b the second member's                   one more   (good enough, if there is no third)
+ *   4c the third member's                    good enough
+ *   4d the five herd words, as a team        that's that
  *   5  the rules, one per screen             Okay?
+ *
+ * **Screen 2 carries TWO name fields, so a team is one, two or three** (#117). Nothing counts the
+ * team but the names themselves -- `4a`-`4c` are one screen per member, `doorTotal()` adds one per
+ * member, and the forward word falls out of whether another member's screen follows. So the spine
+ * above stretches and shrinks with the team and no screen has to be told how many of them there are.
  *
  * Step 6 of the spine -- "what you've unlocked" -- is deliberately NOT a screen. See `openedBox()`.
  *
@@ -443,12 +478,20 @@ const MEMBER_NAME_MAX = 24;
  * `/questions` until it does.
  */
 
-/** The names typed so far, in order, with blanks dropped. The wizard's whole state before screen 3. */
+/**
+ * The names typed so far, in order, with blanks dropped. The wizard's whole state before screen 3.
+ *
+ * Capped at `TEAM_MAX` here rather than at the screen that happens to notice (#117). The names ride
+ * in the query string, so a hand-edited URL can carry any number of them and every screen reads them
+ * through this one function -- capping at the read means the step counter, the intro that counts you
+ * and the row insert cannot disagree about how big the team is.
+ */
 const carriedNames = (url) =>
   url.searchParams
     .getAll('member')
     .map((value) => String(value).slice(0, MEMBER_NAME_MAX).trim())
-    .filter(Boolean);
+    .filter(Boolean)
+    .slice(0, TEAM_MAX);
 
 /** Re-emits the carried names as hidden fields, so a later screen's form still carries them. */
 const carryNames = (names) =>
@@ -460,9 +503,9 @@ const doorRules = () => rulesCopy.rules.filter((rule) => rule.onboarding);
 /**
  * How many screens this team walks, given how many people are on it.
  *
- * Three identity screens, one per member, one for the herd words, one per door rule. A pair walks
- * one more than a solo captain and the counter says so -- see `doorStep()` for why that is the
- * honest answer rather than a fixed N.
+ * Three identity screens, one per member, one for the herd words, one per door rule. A bigger team
+ * walks more screens than a smaller one and the counter says so -- see `doorStep()` for why that is
+ * the honest answer rather than a fixed N.
  */
 const doorTotal = (memberCount) => 3 + Math.max(1, memberCount) + 1 + doorRules().length;
 
@@ -523,6 +566,12 @@ function showWelcome({ req, res, url }) {
  * Which also retires the `solo=1` flag. The next screen counts the names it was handed, and an
  * empty field carries none -- so "did they say they were alone" and "is there a second name" stop
  * being two facts that could disagree.
+ *
+ * **TWO fields, not one** (#117), which is what makes a team one, two or three. The same reasoning
+ * scales without a new mechanism: both are optional, both are watched, and the forward reads
+ * `on my own` only while BOTH are empty -- see `app.css` for why that needed the selector inverted.
+ * Blanks are dropped on the way out, so a captain who fills only the second field gets a team of two
+ * rather than a hole at position 1.
  */
 function showMate({ req, res, url }) {
   const existing = currentTeam(req);
@@ -531,7 +580,7 @@ function showMate({ req, res, url }) {
   const names = carriedNames(url);
   if (!names.length) return redirect(res, '/welcome');
 
-  const [first, second = ''] = names;
+  const [first, ...rest] = names;
 
   return html(
     res,
@@ -551,19 +600,25 @@ function showMate({ req, res, url }) {
         forwardAlt: 'on my own',
         body: `
           <input type="hidden" name="member" value="${escape(first)}">
-          ${field({
-            label: 'Their name',
-            name: 'member',
-            value: second,
-            // `data-watch` is what the forward button reads, and the placeholder is a single space
-            // so `:placeholder-shown` has something to match on a field that shows nothing.
-            attrs: {
-              maxlength: MEMBER_NAME_MAX,
-              autocomplete: 'off',
-              placeholder: ' ',
-              'data-watch': true,
-            },
-          })}
+          ${['Their name', 'And theirs']
+            .map((label, index) =>
+              field({
+                label,
+                name: 'member',
+                value: rest[index] ?? '',
+                // `data-watch` is what the forward button reads, and the placeholder is a single
+                // space so `:placeholder-shown` has something to match on a field that shows
+                // nothing. BOTH fields wear it: the selector asks whether any watched field is
+                // filled, so a third field here would need no CSS change either.
+                attrs: {
+                  maxlength: MEMBER_NAME_MAX,
+                  autocomplete: 'off',
+                  placeholder: ' ',
+                  'data-watch': true,
+                },
+              }),
+            )
+            .join('')}
         `,
       }),
     }),
@@ -578,7 +633,7 @@ function showMate({ req, res, url }) {
  * error that would otherwise live on the first screen of the night, and hands every team something
  * better than they would have typed with their coat still on.
  *
- * **It moved to after both names** (#97). The reroll now arrives on a pair who have just introduced
+ * **It moved to after the names** (#97). The reroll now arrives on a team who have just introduced
  * themselves rather than on a stranger who has typed nothing.
  *
  * Reroll costs no client JS and loses nothing: the button carries `formmethod=get`, so it
@@ -593,8 +648,10 @@ function showTeamName({ req, res, url }) {
   // How many names arrived IS how many people there are (#107). There used to be a `solo=1` flag
   // as well, set by the second screen's `on my own` button, and two facts that can disagree about
   // the same thing is one more than this needs -- `carriedNames` already drops blanks, so a captain
-  // who left the field empty carries one name and a captain who filled it carries two.
-  const names = carriedNames(url).slice(0, 2);
+  // who left both fields empty carries one name and a captain who filled both carries three. The
+  // cap lives in `carriedNames` now (#117) rather than in a `.slice()` here, so it is one number in
+  // one place instead of a number every screen has to remember.
+  const names = carriedNames(url);
   if (!names.length) return redirect(res, '/welcome');
 
   const offered = dealTeamName(url.searchParams.get('word'));
@@ -609,10 +666,11 @@ function showTeamName({ req, res, url }) {
         step: 3,
         of: doorTotal(names.length),
         title: `TEAM ${offered}`,
-        intro:
-          names.length > 1
-            ? 'That is you two, all night. It is also what strangers will write down about you.'
-            : 'That is you, all night. It is also what strangers will write down about you.',
+        intro: counting(names.length, [
+          'That is you, all night. It is also what strangers will write down about you.',
+          'That is you two, all night. It is also what strangers will write down about you.',
+          'That is the three of you, all night. It is also what strangers will write down about you.',
+        ]),
         action: '/welcome',
         method: 'post',
         back: '/welcome/mate',
@@ -642,13 +700,19 @@ async function createTeamFromForm({ req, res }) {
   const offered = form.get('word');
   const name = isDealtName(offered) ? offered : dealTeamName();
 
-  // Blanks are dropped here rather than stored, because the wizard's solo path carries one name and
-  // its pair path carries two -- an empty second member would otherwise become a real row that
-  // every member-scoped question then asks a screen about (#97).
+  // Blanks are dropped here rather than stored, because the wizard's screen 2 carries two optional
+  // fields and a captain may fill neither, one or both -- an empty member would otherwise become a
+  // real row that every member-scoped question then asks a screen about (#97).
+  //
+  // Capped at `TEAM_MAX` for the same reason `carriedNames` is (#117): this is the one press that
+  // writes rows, and it reads a form rather than the query string, so a hand-built POST is the one
+  // way a team of nine could ever reach the database. Nine `members` rows is nine Guess Who cards in
+  // everybody else's deck, which is a change to other teams' tiles rather than to this one's.
   const memberNames = form
     .getAll('member')
     .map((value) => String(value).slice(0, MEMBER_NAME_MAX).trim())
-    .filter(Boolean);
+    .filter(Boolean)
+    .slice(0, TEAM_MAX);
 
   if (!memberNames.length) return redirect(res, '/welcome');
 
@@ -818,7 +882,17 @@ function showQuestions({ req, res, url, params = {} }) {
   const nextIsMember = !isLast && screens[screenIndex + 1].member;
   const forward = isLast ? "that's that" : nextIsMember ? 'one more' : 'good enough';
 
-  const title = screen.member ? screen.member.name : 'Now the two of you together';
+  // The herd screen's title counted nobody until #117, and read `Now the two of you together` to
+  // every team including a captain standing there on their own -- a live defect the whole time the
+  // solo path has existed, and the one string on the door that never asked how many people it was
+  // talking to.
+  const title = screen.member
+    ? screen.member.name
+    : counting(memberCount, [
+        'Just you now',
+        'Now the two of you together',
+        'Now the three of you together',
+      ]);
   const intro = screen.member
     ? 'One question. The honest answer is the funny one, and somebody will be guessing it later.'
     : 'Five words. Not sentences — words. Other teams will be trying to guess what you put.';

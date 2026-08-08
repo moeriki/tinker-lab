@@ -193,6 +193,28 @@ function makePage(cdp, { base, outDir, overflow, width }) {
     has: async (selector) =>
       Boolean(await evaluate(`return !!document.querySelector(${JSON.stringify(selector)})`)),
 
+    /**
+     * Whether the first match is actually being DRAWN -- present in the document and not hidden by
+     * the cascade. `has()` cannot answer this: the door renders both of the forward button's words
+     * every time and CSS shows one of them (#107), so `has('.door__fw')` is true no matter which
+     * word the guest is looking at.
+     *
+     * It asks the browser rather than re-stating the selector, and that distinction is the whole
+     * point of it. #117 turned `.door__fw-alt`'s rule inside out because the old one asked "is some
+     * watched field empty" where it meant "are they all empty" -- identical while there was one
+     * field, wrong the moment there were two. A check written as a second copy of the selector would
+     * have agreed with the bug. `getComputedStyle` agrees only with the page.
+     */
+    visible: async (selector) =>
+      Boolean(
+        await evaluate(
+          `const el = document.querySelector(${JSON.stringify(selector)});
+           if (!el) return false;
+           const style = getComputedStyle(el);
+           return style.display !== 'none' && style.visibility !== 'hidden' && !!el.getClientRects().length;`,
+        ),
+      ),
+
     count: (selector) =>
       evaluate(`return document.querySelectorAll(${JSON.stringify(selector)}).length`),
 
@@ -233,13 +255,24 @@ function makePage(cdp, { base, outDir, overflow, width }) {
 
           // An override may be an array, spent one entry per control of that name -- which is how
           // the door's two \`member\` fields get two different people in them.
+          //
+          // AN ARRAY THAT RUNS OUT MEANS "LEAVE THE REST EMPTY", and #117 is where that mattered.
+          // A short array used to fall through to the filler word below, so passing one name to the
+          // door's two name fields typed a stranger into the second one: the walk asked for a team
+          // of two, got a team of three, and every check about how many screens a pair walks started
+          // failing with nothing wrong with the site. An array is a statement about every control of
+          // that name, not just the ones it has entries for.
           if (el.name in overrides) {
             const given = overrides[el.name];
-            const value = Array.isArray(given)
-              ? given[(used[el.name] = (used[el.name] ?? -1) + 1)]
-              : given;
-            if (value !== undefined) {
+            if (Array.isArray(given)) {
+              const value = given[(used[el.name] = (used[el.name] ?? -1) + 1)];
+              if (value === undefined) continue;
               el.value = String(value);
+              filled.push(el.name);
+              continue;
+            }
+            if (given !== undefined) {
+              el.value = String(given);
               filled.push(el.name);
               continue;
             }

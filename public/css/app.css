@@ -1260,21 +1260,29 @@ ol.stack {
   margin-top: 0.2rem;
 }
 
-/* The forward button that reads the field beside it (#107).
-   Door step 2 asks for a second name and used to carry a THIRD button, `on my own`, to skip it.
-   One button says both things instead: type a name and it reads `Carry on`, leave it blank and it
+/* The forward button that reads the fields beside it (#107).
+   Door step 2 asks for the other names and used to carry a THIRD button, `on my own`, to skip them.
+   One button says both things instead: type a name and it reads `Carry on`, leave them blank and it
    reads `On my own`. The button now announces what it is about to do, which is strictly more than
    a separate escape hatch did.
 
-   Pure CSS, no script. `:has()` on the form, `:placeholder-shown` on the input wearing
-   `data-watch` -- which is why that input carries a placeholder of a single space it never shows.
+   Pure CSS, no script. `:has()` on the form, `:placeholder-shown` on the inputs wearing
+   `data-watch` -- which is why those inputs carry a placeholder of a single space they never show.
    The site's rule is that nothing a guest sees updates itself; this is not that. It is direct
    feedback on the guest's own typing, the same class of thing as a focus ring, and the server
-   renders both words either way. A phone too old for `:has()` gets the `forward` word and a name
-   field that is simply optional, which is the pre-#107 behaviour minus a button. */
+   renders both words either way. A phone too old for `:has()` gets the `forward` word and name
+   fields that are simply optional, which is the pre-#107 behaviour minus a button.
+
+   THE SELECTOR ASKS THE POSITIVE QUESTION, and #117 is why. It used to read
+   `:has([data-watch]:placeholder-shown)` -- "some watched field is empty" -- which is the same
+   question as "every watched field is empty" only while there is exactly one of them. Step 2 now
+   carries TWO fields, so on the old selector a captain who typed one name still read `On my own`:
+   the second field was empty, the button believed the form was. Asking whether ANY watched field is
+   filled and negating it is the question that was always meant, and it holds for one field, two, or
+   a third if the door ever grows one. */
 .door__fw-alt { display: none; }
-.door:has([data-watch]:placeholder-shown) .door__fw { display: none; }
-.door:has([data-watch]:placeholder-shown) .door__fw-alt { display: inline; }
+.door:not(:has([data-watch]:not(:placeholder-shown))) .door__fw { display: none; }
+.door:not(:has([data-watch]:not(:placeholder-shown))) .door__fw-alt { display: inline; }
 
 /* ------------------------------ decoration --------------------------------- */
 /* Load-bearing. Do not remove. */

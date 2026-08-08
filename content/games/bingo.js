@@ -21,11 +21,11 @@
 // keeps the hallway at nine boxes (#9, #52) at the cost of them being guesses about the room
 // rather than facts from it. That trade is revisited below.
 //
-// EITHER MEMBER SATISFIES A TRAIT. A team is two people and a trait is usually one person's, so
-// "have either of you ever been on the radio?" is the question, and one yes is enough. The
-// alternative halves every hit rate exactly where the low end can least afford it, and turns a
-// friendly question into a two-person interrogation where one no kills the square and the pair
-// you just met have nothing left to say to you.
+// ANY MEMBER SATISFIES A TRAIT. A team is one, two or three people (#117) and a trait is usually
+// one person's, so "has any of you ever been on the radio?" is the question, and one yes is enough.
+// The alternative divides every hit rate by the size of the team exactly where the low end can least
+// afford it, and turns a friendly question into an interrogation where one no kills the square and
+// the team you just met have nothing left to say to you.
 //
 // ONE SIGNATURE PER TEAM, ACROSS THE WHOLE CARD. The classic rule, and here it is load-bearing
 // twice over: it is what forces a line to cost three separate conversations, and it quietly makes
@@ -43,9 +43,17 @@
 //   there by being about a past nobody wears.
 //
 //   BROAD. A trait matching two teams out of twelve is a dead square at the low end -- and the low
-//   end is real, since 20-30 guests in pairs is 10-15 teams. These are aimed at roughly a third to
-//   a half of teams once BOTH members count, so you usually find a match within two or three
-//   approaches and rarely from whoever is standing nearest.
+//   end is real, since 20-30 guests in teams of one to three is 7-15 teams (#117). These are aimed
+//   at roughly a third to a half of teams once EVERY member counts, so you usually find a match
+//   within two or three approaches and rarely from whoever is standing nearest.
+//
+//   #117 pushed both ends of that at once and the nine did not need retuning. Bigger teams mean more
+//   people per trait, so every hit rate goes UP; fewer teams mean fewer handles to collect, so the
+//   card gets harder to FILL. At the bottom of the range -- 20 guests in threes, 7 teams -- a card
+//   can never hold more than six signatures, because nobody signs their own. That sounds fatal and
+//   is not: this tile has never paid for a full card. A line pays the whole ten and a line needs
+//   three signatures, so seven teams is still more than twice what winning costs. What would
+//   genuinely break it is a room with three teams in it, and that is not a party.
 //
 //   Then: answerable in one word by the person being asked, and worth a follow-up question. A
 //   trait that ends the conversation the moment it is answered has done half a job.
@@ -111,11 +119,13 @@ export default {
   //
   // THIS IS NOT ANTI-CHEAT, and the distinction matters because "no anti-cheat" is a locked
   // constraint. Nothing here verifies a trait; Joris's jellyfish is still between you and Joris.
-  // What it prices is FORGING A SIGNATURE. content/team-names.js holds 38 words and about a dozen
-  // are in play on the night, so roughly one guess in three lands -- and a line needs only three.
-  // Left open, the fastest ten points on the board are available from the sofa, talking to nobody,
-  // in about nine guesses. At half an hour a miss that becomes about three hours, which is not a
-  // strategy any more.
+  // What it prices is FORGING A SIGNATURE. content/team-names.js holds 38 words and 7-15 of them are
+  // in play on the night (#117), so somewhere between one guess in three and one in five lands --
+  // and a line needs only three. Left open, the fastest ten points on the board are available from
+  // the sofa, talking to nobody, in about nine guesses. At half an hour a miss that becomes about
+  // three hours, which is not a strategy any more. Note which way #117 moved this: fewer, bigger
+  // teams means fewer real words, so forging got HARDER and the lock is under less strain than the
+  // number it was tuned against.
   //
   // It catches an honest mishearing too -- MARZIPAN heard as MARSHMALLOW is a real word that
   // nobody holds -- and that is the honest cost of the above. It cannot be designed away without

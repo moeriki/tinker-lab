@@ -815,20 +815,32 @@
       <!-- ============================== DOOR ================================ -->
       <section class="sect" id="door">
         <h2 class="sect__h">19. The door — one question at a time</h2>
-        <p class="sect__note">Onboarding is a wizard (#97). Eight or nine screens depending on how many of you there are, each one a title, at most a couple of fields, and a way on. It wears the alert box's <em>look</em> and is not one: no scrim, nothing fixed, nothing to dismiss — which is why its buttons are allowed their own words where a real modal's two answers are only ever <code>No?</code> and <code>Okay?</code> (§12).</p>
+        <p class="sect__note">Onboarding is a wizard (#97). Eight to ten screens depending on how many of you there are, each one a title, at most a couple of fields, and a way on. It wears the alert box's <em>look</em> and is not one: no scrim, nothing fixed, nothing to dismiss — which is why its buttons are allowed their own words where a real modal's two answers are only ever <code>No?</code> and <code>Okay?</code> (§12).</p>
 
         <h3 class="sect__sub">The two shapes it ships in</h3>
         <p class="sect__note">Screen one has no back and no alternative press; every screen after it has a back, and several have an alternative. Both are drawn here on purpose — a component demoed only in its loaded shape is how <code>&lt;a class="btn"&gt;</code> shipped as a raw blue link across the whole site (#66).</p>
 
-        <!--@door step="1" of="9" title="What's your name?" intro="One phone per team. Whoever is holding it is carrying the team all night." field="Your name" forward="noted"-->
+        <!--@door step="1" of="10" title="What's your name?" intro="One phone per team. Whoever is holding it is carrying the team all night." field="Your name" forward="noted"-->
 
-        <!--@door step="2" of="9" title="You're the captain now." intro="Anyone with you?" field="Their name" watch="1" back="#door" forward="carry on" alt="on my own"-->
+        <!--@door step="2" of="10" title="You're the captain now." intro="Anyone with you?" field="Their name | And theirs" watch="1" back="#door" forward="carry on" alt="on my own"-->
 
         <p class="sect__note">
-          <strong>The counter is honest, not equal.</strong> A solo captain walks eight screens and
-          a pair walks nine, and the counter says so rather than showing everyone a fixed N. Before
-          the second name is settled it assumes a pair, because teams of two is the locked
-          constraint — so the only team that ever sees the total change is the one it changed for.
+          <strong>Type into either field above and the forward button changes its word.</strong> That
+          is the real mechanism, not a picture of it — and it is drawn with <em>two</em> watched
+          fields on purpose (#117). The captain screen carries two, because a team is one, two or
+          three people and how many names arrive is the only thing that says which. With a single
+          field a selector asking <em>is some watched field empty</em> behaves identically to one
+          asking <em>are they all empty</em>; with two it does not, and the button told a captain who
+          had just typed their mate's name that it would take them on alone. So one field here would
+          be a demo of the one arrangement in which that cannot happen.
+        </p>
+        <p class="sect__note">
+          <strong>The counter is honest, not equal.</strong> A team walks one screen per member — a
+          solo captain eight, a pair nine, a trio ten — and the counter says so rather than showing
+          everyone a fixed N. Before the other names are settled it guesses two: no longer because
+          two is the rule, but because it is the likeliest of the three and the middle one, which
+          caps the guess at a single screen either way. From the dealt-name screen on it stops
+          guessing and counts.
         </p>
         <p class="sect__note">
           <strong>Back is a GET submission, not a link.</strong> Every screen is one form; back
@@ -841,15 +853,15 @@
           <strong>The forward word changes every screen</strong> — <code>noted</code>,
           <code>carry on</code>, <code>now what</code>, <code>one more</code>, <code>good
           enough</code>, <code>that's that</code>, <code>Okay?</code> — and <code>one more</code>
-          only appears when a second member's screen actually follows. They land as written — the
+          only appears when another member's screen actually follows. They land as written — the
           primary stopped shouting in #107 (§9).
         </p>
         <p class="sect__note">
-          <strong>Step 2's forward word changes with the field beside it</strong> (#107):
-          <code>carry on</code> while a second name is typed, <code>on my own</code> while it is
-          empty. That screen used to carry a third button, <code>on my own</code>, sitting beside
-          back in the identical look — so the press that goes on alone and the press that throws
-          away your typing were indistinguishable at a glance, on a screen every team walks
+          <strong>Step 2's forward word changes with the fields beside it</strong> (#107):
+          <code>carry on</code> once any name is typed, <code>on my own</code> while every one of
+          them is empty. That screen used to carry a third button, <code>on my own</code>, sitting
+          beside back in the identical look — so the press that goes on alone and the press that
+          throws away your typing were indistinguishable at a glance, on a screen every team walks
           standing up. One button says both things now, in CSS, with no script and both words
           server-rendered.
         </p>

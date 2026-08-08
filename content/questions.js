@@ -3,8 +3,10 @@
 // it is funny. Settled in #9; the roster that named the consumers is #7; the Guess Who ladder
 // below is #22.
 //
-// Nine fields is the door: a dealt team name (not typed), two member names, one Guess Who answer
-// per member, and five one-word answers. It is the single biggest friction point of the night and
+// Nine fields is the door for a pair: a dealt team name (not typed), two member names, one Guess Who
+// answer per member, and five one-word answers. Seven for a captain alone, eleven for a trio, since
+// #117 made a team one, two or three people -- two of the fields are the optional names and one is
+// the third member's own question. It is the single biggest friction point of the night and
 // every addition here is paid for by twenty-five people standing in a hallway with their coats on.
 // Nothing polices that total -- each question is justified on its own and the sum is nobody's job
 // -- which is why #52 exists to count it once every game has declared what it needs.

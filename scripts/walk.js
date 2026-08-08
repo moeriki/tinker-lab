@@ -112,17 +112,19 @@ function recorder() {
  * Through the front door for real: the wizard, one screen at a time (#97). Used by every flow that
  * needs to be somebody, and walked end to end as a flow of its own.
  *
- * Eight or nine screens depending on how many of you there are -- your name, the captain line and
- * the second name, the dealt team name, one question per member, the five herd words, then the
- * house rules one per screen. It always starts by dropping the cookie, so a flow that runs after
- * another arrives as a stranger rather than inheriting the last team.
+ * Eight to ten screens depending on how many of you there are -- your name, the captain line and the
+ * other names, the dealt team name, one question per member, the five herd words, then the house
+ * rules one per screen. It always starts by dropping the cookie, so a flow that runs after another
+ * arrives as a stranger rather than inheriting the last team.
  *
- * The two-people case is the one that is walked by default, because teams of two is the locked
- * constraint; `members: ['Solo']` walks the shorter path, and the counter difference between the
- * two is the thing that would break silently if the wizard ever started lying about its total.
+ * The two-people case is the one that is walked by default, because two is still the likeliest team
+ * even now that one and three are legal (#117). `members: ['Solo']` walks the shortest path and a
+ * third name walks the longest, and the counter difference between them is the thing that would
+ * break silently if the wizard ever started lying about its total -- so all three sizes are walked,
+ * and the door flow below is where the two ends of the range are checked against each other.
  */
 async function onboard(page, { members = ['Dieter', 'Anna'], shoot = null, check = null, guest = null } = {}) {
-  const [captain, mate] = members;
+  const [captain, ...others] = members;
 
   await page.clearCookies();
   await page.goto('/');
@@ -144,9 +146,14 @@ async function onboard(page, { members = ['Dieter', 'Anna'], shoot = null, check
   if (shoot) await shoot('door-captain');
 
   // --- screen 2: anyone with you?
-  // Solo is the SAME press as a pair, with the field left empty (#107). It used to be its own
-  // `on my own` button; the forward button reads the field and says `On my own` instead.
-  if (mate) await page.fillForm({ member: mate });
+  // Solo is the SAME press as a bigger team, with the fields left empty (#107). It used to be its own
+  // `on my own` button; the forward button reads the fields and says `On my own` instead.
+  //
+  // TWO fields here since #117, and the override is an ARRAY spent one entry per control -- so a
+  // trio fills both, a pair fills the first and leaves the second, and a solo captain fills neither.
+  // Which is also the reason this passes `others` rather than a name: a walker that filled only the
+  // first field could never catch the forward button reading the wrong one of the two.
+  if (others.length) await page.fillForm({ member: others });
   await page.submit();
 
   check?.('the second screen leads to the dealt name', (await page.url()).startsWith('/welcome/team'));
@@ -175,9 +182,22 @@ async function onboard(page, { members = ['Dieter', 'Anna'], shoot = null, check
   // "the room has a shape". Without one every field takes a distinct filler word, which is right
   // for a flow that only needs to be somebody -- and wrong for the three tiles that read the whole
   // house, because a corpus of unrelated words has nothing to cluster and nothing to separate.
+  // The herd screen's title is the one string on the door that counts you and is not on a screen of
+  // its own, so it is checked here rather than in a flow -- which also means every size gets it. It
+  // counted NOBODY until #117 and read "Now the two of you together" to a solo captain, for as long
+  // as the solo path had existed. `door-solo` walking past it silently is exactly how it survived.
+  const HERD_TITLE = ['Just you now', 'Now the two of you together', 'Now the three of you together'];
+
   for (let screen = 0; screen < members.length + 1; screen += 1) {
     if (shoot && screen === 0) await shoot('door-question');
     if (shoot && screen === members.length) await shoot('door-herd');
+    if (screen === members.length) {
+      const herd = await page.text('.door__title');
+      check?.(
+        `the herd screen counts ${members.length} of you (${herd})`,
+        herd === HERD_TITLE[members.length - 1],
+      );
+    }
     await page.fillForm(guest ? await answersFor(page, guest, screen) : {});
     await page.submit();
   }
@@ -294,6 +314,86 @@ const FLOWS = [
   },
 
   {
+    name: 'door-trio',
+    what: 'walk the door as three, and check every string and counter that counts you',
+    async run({ page, shoot, check }) {
+      // The far end of the range (#117). `door-solo` walks the short path and `onboard`'s default
+      // walks the middle one; this is the only flow that fills BOTH of screen 2's fields, which is
+      // where every one of this ticket's failure modes lives.
+      await page.clearCookies();
+      await page.goto('/welcome');
+
+      // The forward word, on the screen where it can now be wrong. This has to be read off the drawn
+      // page rather than off the markup: the server renders both words every time and the cascade
+      // picks one, so `has()` is true either way. See `page.visible()`.
+      await page.fillForm({ member: 'Ada' });
+      await page.submit();
+
+      check(
+        'with both fields empty the forward offers to go on alone',
+        await page.visible('.door__fw-alt'),
+      );
+      check('and does not also say "carry on"', !(await page.visible('.door__fw')));
+
+      // ONE of two fields filled. This is the case the old selector got wrong -- it asked whether
+      // some watched field was empty, and the second one still was, so a captain who had just typed
+      // their mate's name was told the button would take them on alone.
+      await page.fillForm({ member: ['Grace'] });
+      check('one name in is enough to make it "carry on"', await page.visible('.door__fw'));
+      check('and it stops offering to go on alone', !(await page.visible('.door__fw-alt')));
+
+      // Both fields. Same word, and the check is here because "any" and "every" agree on this case
+      // -- so passing it proves nothing on its own and only means something beside the one above.
+      await page.fillForm({ member: ['Grace', 'Katherine'] });
+      check('and both names in is still "carry on"', await page.visible('.door__fw'));
+      check('the second field is a real name field', (await page.count('input[name="member"]')) === 3);
+
+      await shoot('door-trio-captain');
+      await page.submit();
+
+      const intro = await page.text('.door__intro');
+      check(`the dealt name counts three of you (${intro})`, /the three of you/.test(intro ?? ''));
+      await shoot('door-trio-team');
+
+      const total = Number((await page.text('.door__count'))?.match(/of (\d+)/)?.[1] ?? 0);
+      check(`a trio is told it walks ${total} screens`, total === 3 + 3 + 1 + 3);
+
+      await page.submit();
+
+      // Three question screens, one per member, each titled with that member's name -- the wizard's
+      // hand-off between three people holding one phone. Then the herd screen, which is the string
+      // that counted nobody at all until this ticket and read "the two of you" to a solo captain.
+      for (const name of ['Ada', 'Grace', 'Katherine']) {
+        check(`a screen of their own for ${name}`, (await page.text('.door__title')) === name);
+        await page.fillForm({});
+        await page.submit();
+      }
+
+      const herd = await page.text('.door__title');
+      check(`the herd screen counts three of you (${herd})`, /the three of you/.test(herd ?? ''));
+      await shoot('door-trio-herd');
+
+      await page.fillForm({});
+      await page.submit();
+
+      while ((await page.url()).startsWith('/questions/rules')) await page.submit();
+
+      // That three members exist is already proven above, by three question screens each titled with
+      // one of their names -- `questionScreens()` builds those from the `members` rows, so a name on
+      // a screen IS a row in the database. A second count off some list on a page would be a softer
+      // check wearing a harder look.
+      // `/?opened=…` rather than a bare `/` -- the board carries the "here is what you have
+      // unlocked" banner once, straight out of the door (#97), and it says so in the query string.
+      const landed = await page.url();
+      check(
+        `a trio lands on the board like anyone else (${landed})`,
+        landed === '/' || landed.startsWith('/?'),
+      );
+      await shoot('board-trio');
+    },
+  },
+
+  {
     name: 'door-back',
     what: 'press "undo that" and check what you typed came back with you',
     async run({ page, shoot, check }) {
@@ -309,7 +409,10 @@ const FLOWS = [
         'the captain screen is where back is first offered',
         await page.has('.door__actions .btn--secondary'),
       );
-      await page.fillForm({ member: 'Bartholomew' });
+      // An ARRAY, so this stays a pair. The captain screen has two name fields since #117 and a
+      // scalar override fills every control of its name -- which would seat Bartholomew twice and
+      // make this a team of three.
+      await page.fillForm({ member: ['Bartholomew'] });
 
       // Forward to the dealt name, then straight back. Back is addressed by its `formaction` and
       // not by its class: the dealt-name screen carries a second quiet button -- `deal us another`
@@ -342,7 +445,9 @@ const FLOWS = [
       await page.goto('/welcome');
       await page.fillForm({ member: 'Wilhelmina' });
       await page.submit();
-      await page.fillForm({ member: 'Bartholomew' });
+      // A pair, so the count below is `rules + 2` and not `rules + 3` -- see the note on the other
+      // captain screen above for why this is an array.
+      await page.fillForm({ member: ['Bartholomew'] });
       await page.submit();
       await page.submit();
 
