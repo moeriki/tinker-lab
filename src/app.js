@@ -1210,8 +1210,18 @@ function showDashboard({ req, res, url }) {
         ${justArrived ? openedBox({ tiles: tiles.filter((entry) => entry.unlocked).length }) : ''}
         ${standing({ band: standingBand(team.id), text: standingsMessage(team.id) })}
         <div class="tiles">${grid}</div>
-        <a class="btn" href="/rules">the rules</a>
-        ${boredButton()}
+
+        <!-- The only button group a guest meets, and the two are not a pair: one is the rules and
+             one is a joke that changes nothing. Packed side by side they would read as a choice
+             between two related things, and stacked they were a two-step staircase under a grid
+             whose whole charm is that it lines up. One at each end instead (#106) -- they bracket
+             the board rather than queue under it, and the row lands the same width as the tiles.
+             \`I'm bored\` ships \`hidden\` and JS reveals it (#95), so a phone with JS off sees
+             \`the rules\` alone at the left, which is exactly where a lone button already sits. -->
+        <div class="btnrow btnrow--split">
+          <a class="btn" href="/rules">the rules</a>
+          ${boredButton()}
+        </div>
       `,
     }),
   );
@@ -2849,10 +2859,12 @@ function adminControls({ req, res }) {
   } else if (gameIsFrozen()) {
     ending = `<p class="banner"><strong>Frozen. The numbers are final and nobody has seen
         them.</strong> This is the gap: hand out anything you owe, then end the night.</p>
-      <a class="btn btn--primary" href="/admin/end">end the night</a>
-      <form method="post" action="/admin/unfreeze">
-        <button class="btn">unfreeze</button>
-      </form>`;
+      <div class="btnrow btnrow--end">
+        <form method="post" action="/admin/unfreeze">
+          <button class="btn">unfreeze</button>
+        </form>
+        <a class="btn btn--primary" href="/admin/end">end the night</a>
+      </div>`;
   } else {
     ending = `<p>Freezing stops every team submitting and scores the games that only resolve at
         the end. It is a toggle and it costs nothing to undo.</p>
@@ -2894,8 +2906,16 @@ function adminControls({ req, res }) {
         </form>
 
         <h2 class="hq-heading">the dangerous end</h2>
-        <a class="btn" href="/admin/delete-team">delete a team</a>
-        <a class="btn" href="/admin/reset">reset the whole night</a>
+        <!-- Two peers under one heading, and the pair that made the case for \`.btncol\` (#106).
+             \`delete a team\` and \`reset the whole night\` will not share a row on a 390px phone --
+             together they are wider than the column -- and snug-to-their-own-words left them as a
+             two-step staircase, which is a ragged way to draw the two most destructive links on
+             the site. Matched to each other they read as one menu; the group is still snug,
+             because the column is only as wide as the longer label. -->
+        <div class="btncol">
+          <a class="btn" href="/admin/delete-team">delete a team</a>
+          <a class="btn" href="/admin/reset">reset the whole night</a>
+        </div>
 
         ${devToggle(req)}
 
@@ -3033,13 +3053,16 @@ function deleteTeamConfirmation({ req, res, url }) {
           bag of names.</p>
         <!-- Quietest first, then the primary, the way a door screen and a dialog both read (#107).
              \`keep them\` is the other ANSWER to this question, not a way out of the page, so it is
-             the secondary -- the same tier and the same look as a dialog's \`No?\`. Laying the two
-             out on one row is #106's, which owns rows and widths. -->
-        <a class="btn btn--secondary" href="/admin/delete-team">keep them</a>
-        <form method="post" action="/admin/delete-team">
-          <input type="hidden" name="team" value="${team.id}">
-          <button class="btn btn--primary" type="submit">delete ${escape(team.name)}</button>
-        </form>
+             the secondary -- the same tier and the same look as a dialog's \`No?\`. On one row now
+             (#106): this page asks exactly what a dialog asks, so it is laid out the way a dialog
+             lays it out. -->
+        <div class="btnrow btnrow--end">
+          <a class="btn btn--secondary" href="/admin/delete-team">keep them</a>
+          <form method="post" action="/admin/delete-team">
+            <input type="hidden" name="team" value="${team.id}">
+            <button class="btn btn--primary" type="submit">delete ${escape(team.name)}</button>
+          </form>
+        </div>
       `,
     }),
   );
@@ -3348,10 +3371,12 @@ function adminEndPage({ req, res }) {
           <li>Have you read the top three out?</li>
         </ul>
         <p>Do that first. The button publishes; the announcement is yours.</p>
-        <form method="post" action="/admin/end">
-          <button class="btn btn--primary" type="submit">end the night</button>
-        </form>
-        <a class="btn btn--tertiary" href="/admin/controls">back to controls</a>
+        <div class="btnrow btnrow--end">
+          <a class="btn btn--tertiary" href="/admin/controls">back to controls</a>
+          <form method="post" action="/admin/end">
+            <button class="btn btn--primary" type="submit">end the night</button>
+          </form>
+        </div>
       `,
     }),
   );
@@ -3505,10 +3530,12 @@ function adminReset({ req, res, url }) {
         <p>Nothing is deleted. The database is snapshotted and the photographs are moved into
           <code>data/resets/</code> first, so a mistake here is recoverable &mdash; see
           <code>MM-HANDOFF.md</code>.</p>
-        <form method="post" action="/admin/reset">
-          <button class="btn btn--primary" type="submit">reset the game</button>
-        </form>
-        <a class="btn btn--tertiary" href="/admin">back to HQ</a>
+        <div class="btnrow btnrow--end">
+          <a class="btn btn--tertiary" href="/admin">back to HQ</a>
+          <form method="post" action="/admin/reset">
+            <button class="btn btn--primary" type="submit">reset the game</button>
+          </form>
+        </div>
       `,
     }),
   );

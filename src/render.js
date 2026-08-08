@@ -516,7 +516,7 @@ export function modalActions({
   confirmHref,
   confirmAttrs = {},
 }) {
-  return `<div class="modal__actions">
+  return `<div class="btnrow btnrow--end modal__actions">
         ${aside}
         ${denyHref ? `<a class="btn btn--secondary" href="${escape(denyHref)}"${attrsHtml(denyAttrs)}>${MODAL_NO}</a>` : ''}
         <a class="btn btn--primary" href="${escape(confirmHref)}"${attrsHtml(confirmAttrs)}>${MODAL_YES}</a>
@@ -1261,7 +1261,7 @@ export function doorStep({
     <h1 class="door__title">${escape(title)}</h1>
     ${intro ? `<p class="door__intro">${escape(intro)}</p>` : ''}
     ${body}
-    <div class="door__actions">
+    <div class="btnrow btnrow--end door__actions">
       ${extra}
       ${
         back

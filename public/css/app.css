@@ -736,11 +736,64 @@ ol.stack {
 
 /* --------------------------------- buttons --------------------------------- */
 
+/* GROUPING. #107 made every button snug to its own words and handed the rest here: "a row that
+   genuinely wants to fill the width says so at the row". This is that row -- and the answer turned
+   out to be that snugness is a property of a GROUP, not of a button.
+
+   A lone button is snug to its own words and that is the whole rule for it (#107). Two or more
+   buttons that belong together are a group, and a group says which of three shapes it is:
+
+     .btnrow            side by side, packed to the start
+     .btnrow--split     side by side, one at each end -- for two buttons that are NOT a pair
+     .btnrow--end       side by side, packed to the end -- the dialog's shape, for a confirm
+                        and the way out of it
+     .btncol            stacked, every button as wide as the widest of them
+
+   `.btncol` is the one that is not obvious, and it is what the ragged bottom of `/admin/controls`
+   asked for: `delete a team` and `reset the whole night` are peers under one heading, too wide to
+   share a row on a 390px phone, and snug-to-their-own-words left them as a staircase of two
+   different lengths. Matching them to each other keeps the group snug -- the grid is only as wide
+   as its widest child -- without either button going full bleed. `max-content` is what does it:
+   one column, sized to the longest label, and every child stretches to fill it.
+
+   THIS CLASS ALREADY EXISTED AND HAD NO CALLERS, which is what the ticket was about. It turned out
+   not to be unused so much as re-written three times: `.modal__actions`, `.door__actions` and
+   `.judge` were each a private flex row with the same gap. The first two are callers now and keep
+   only what is genuinely theirs (where the row sits, how it is pinned). `.judge` stays its own
+   thing -- it is the one row on the site that deliberately FILLS, two verdict buttons splitting a
+   gallery card down the middle, which is the opposite of snug and not a shape any page wants. */
 .btnrow {
   display: flex;
   flex-wrap: wrap;
   gap: 0.6rem;
   max-width: 100%;
+}
+
+.btnrow--split { justify-content: space-between; }
+.btnrow--end { justify-content: flex-end; }
+
+.btncol {
+  display: grid;
+  grid-template-columns: max-content;
+  gap: 0.6rem;
+  max-width: 100%;
+}
+
+/* A `<form>` around a single button is how half these buttons reach the page -- a POST needs one.
+   Left alone it becomes the flex item and the button inside it stops being one, so the button
+   keeps its own height while its neighbours stretch and the row comes out uneven. Making the form
+   a flex container hands its button the row's full height and costs nothing else; `display:
+   contents` would do the same by deleting the form's box, but it also deletes the form from the
+   accessibility tree, which is a real price for a cosmetic gain. */
+.btnrow > form,
+.btncol > form {
+  display: flex;
+  margin: 0;
+}
+
+.btnrow > form > .btn,
+.btncol > form > .btn {
+  flex: 1;
 }
 
 /* Half the buttons on this site are anchors -- `close`, `the rules`, the modal's two, the
@@ -1029,12 +1082,11 @@ ol.stack {
    the deeper shadow are the hierarchy now, and the words carry the rest.
 
    Wrap stays on. Three buttons is possible -- the hint modal's aside sits beside the pair -- and a
-   row that overflows 22rem on a phone is a real defect, not a style. */
+   row that overflows 22rem on a phone is a real defect, not a style.
+
+   Side by side, end-packed and wrapping is `.btnrow--end` now (#106) and the markup says so, so
+   what is left here is only what is true of THIS row: where it sits and how far it hangs. */
 .modal__actions {
-  display: flex;
-  gap: 0.6rem;
-  flex-wrap: wrap;
-  justify-content: flex-end;
   margin-top: 1.1rem;
   transform: translateY(50%);
 }
@@ -1124,12 +1176,11 @@ ol.stack {
    The forward button used to take a full row of its own here. It no longer does: nothing on this
    site is full width by default, and a snug primary beside a snug secondary is the whole reason
    the tiers had to be named -- on the door, `on my own` and `actually, no` had been the same
-   button while one went forward and one threw your typing away. */
+   button while one went forward and one threw your typing away.
+
+   The row itself is `.btnrow--end` (#106) -- the same three declarations the dialog was carrying
+   privately. All that is left here is the space above it. */
 .door__actions {
-  display: flex;
-  gap: 0.6rem;
-  flex-wrap: wrap;
-  justify-content: flex-end;
   margin-top: 0.2rem;
 }
 

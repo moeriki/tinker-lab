@@ -349,6 +349,39 @@
         </div>
 
         <p class="sect__note">Settled in <strong>#107</strong>, which found <em>one</em> class saying <code>close</code>, <code>actually, no</code>, <code>keep them</code> and <code>back to the controls</code> — six words and four unrelated jobs on one look. The visible cost was on the door: <code>on my own</code> and <code>actually, no</code> came out identical while one went forward and one threw away your typing. Same ticket took <code>text-transform: uppercase</code> off the primary, so buttons now say what was written rather than shouting it.</p>
+
+        <h3 class="sect__sub" id="grouping">Grouping — snug is a property of the group, not the button</h3>
+        <p class="sect__note">A <strong>lone</strong> button is snug to its own words and needs no container — that is the whole rule for it. <strong>Two or more</strong> buttons that belong together are a group, and the group says which of four shapes it is. Nothing below is full width; a group that wants the whole column says so here, at the row.</p>
+
+        <h3 class="sect__sub"><code>.btnrow</code> — side by side, packed to the start</h3>
+        <p class="sect__note">The default. Wraps when it runs out of room, which on a 390px phone it will.</p>
+        <div class="btnrow">
+          <button class="btn btn--tertiary" type="button">close</button>
+          <button class="btn btn--tertiary" type="button">deal us another</button>
+        </div>
+
+        <h3 class="sect__sub"><code>.btnrow--split</code> — one at each end</h3>
+        <p class="sect__note">For two buttons that are <em>not</em> a pair. The team dashboard is the only caller, and the only button group a guest ever meets: the rules, and a joke that changes nothing. Packed together they would read as a choice between two related things.</p>
+        <div class="btnrow btnrow--split">
+          <button class="btn" type="button">the rules</button>
+          <button class="btn" type="button">I'm bored</button>
+        </div>
+
+        <h3 class="sect__sub"><code>.btnrow--end</code> — packed to the end</h3>
+        <p class="sect__note">A confirm and the way out of it, quietest first so it reads left to right as the stakes rise and the primary lands under your thumb. This is the shape a dialog (§11) and a door screen already use — <code>.modal__actions</code> and <code>.door__actions</code> are callers of this class now, not private rows of their own. <strong>The three full-page confirmations use it too</strong> (<code>/admin/reset</code>, <code>/admin/end</code>, <code>/admin/delete-team</code>): a whole page asking <em>are you sure</em> is the same act as a box asking it, so it is laid out the same way.</p>
+        <div class="btnrow btnrow--end">
+          <button class="btn btn--secondary" type="button">keep them</button>
+          <button class="btn btn--primary" type="button">delete them</button>
+        </div>
+
+        <h3 class="sect__sub"><code>.btncol</code> — stacked, matched to the widest</h3>
+        <p class="sect__note">For peers too wide to share a row. Snug left them as a two-step staircase — the shape the bottom of <code>/admin/controls</code> had. The group is still snug: the column is only as wide as the longer label, and neither button goes full bleed.</p>
+        <div class="btncol">
+          <button class="btn" type="button">delete a team</button>
+          <button class="btn" type="button">reset the whole night</button>
+        </div>
+
+        <p class="sect__note">Settled in <strong>#106</strong>. <code>.btnrow</code> had lived in the stylesheet since this kit was built with <strong>zero callers on the site</strong> — the kit demoing a shape no page had, which is §0's trap running backwards. It turned out not to be unused so much as re-written three times: the dialog, the door and the judging row were each a private flex row with the same gap. Two of them are callers now. The judging row (admin only) stays its own thing, because it is the one row here that deliberately <em>fills</em> — two verdict buttons splitting a gallery card — which is the opposite of snug.</p>
       </section>
 
       <!-- ============================== FORMS ============================== -->
