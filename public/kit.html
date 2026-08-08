@@ -136,6 +136,29 @@
           class instead of fighting a margin it did not write.
         </p>
 
+        <h3 class="sect__sub">The ramp — seven steps, and nothing between them</h3>
+        <p class="sect__note">
+          Every gap, every padding, every inset on this site is one of these seven. Pick a
+          <em>step</em>, never a number — the same contract <code>--edge-1/2/3</code> has for border
+          weights. Before #103 this file made 101 spacing declarations out of 28 different values;
+          <code>0.45rem</code>, <code>0.48rem</code> and <code>0.5rem</code> all appeared, and no
+          eye has ever told them apart.
+        </p>
+        <ul class="ramp">
+          <li class="ramp__row"><span class="ramp__bar" style="--step: var(--space-1)"></span><code>--space-1</code> <span class="ramp__use">inside a badge or a chip</span></li>
+          <li class="ramp__row"><span class="ramp__bar" style="--step: var(--space-2)"></span><code>--space-2</code> <span class="ramp__use">parts of one component</span></li>
+          <li class="ramp__row"><span class="ramp__bar" style="--step: var(--space-3)"></span><code>--space-3</code> <span class="ramp__use">padding in a box or a button</span></li>
+          <li class="ramp__row"><span class="ramp__bar" style="--step: var(--space-4)"></span><code>--space-4</code> <span class="ramp__use">one thing, then the next thing</span></li>
+          <li class="ramp__row"><span class="ramp__bar" style="--step: var(--space-5)"></span><code>--space-5</code> <span class="ramp__use">a new thought starts here</span></li>
+          <li class="ramp__row"><span class="ramp__bar" style="--step: var(--space-6)"></span><code>--space-6</code> <span class="ramp__use">a deliberate hole in the page</span></li>
+          <li class="ramp__row"><span class="ramp__bar" style="--step: var(--space-7)"></span><code>--space-7</code> <span class="ramp__use">the page's own breathing room</span></li>
+        </ul>
+        <p class="sect__note">
+          What is <em>not</em> on the ramp: sizes — a tile's <code>min-height</code>, a thumbnail's
+          <code>4.5rem</code> — and the two clearances the pinned foot and the viewer's close button
+          owe the page. Those are measured against a thing, not chosen from a scale.
+        </p>
+
         <h3 class="sect__sub">No stack — what "no outer margin" looks like</h3>
         <p class="sect__note">
           Two real fields, as direct children of a plain block. Nothing is broken here: there is
@@ -147,24 +170,51 @@
           <!--@field label="SECOND" name="k-gap-b" value="nothing below"-->
         </div>
 
-        <h3 class="sect__sub"><code>.stack</code> — 1rem</h3>
+        <h3 class="sect__sub"><code>.stack</code> — <code>--space-4</code></h3>
         <p class="sect__note">
           A flex column with a gap, and the default answer. Every form on this site is one, and so
           is most of what sits under a hero.
         </p>
         <div class="gapdemo stack">
-          <!--@field label="FIRST" name="k-gap-c" value="1rem apart"-->
-          <!--@field label="SECOND" name="k-gap-d" value="1rem apart"-->
+          <!--@field label="FIRST" name="k-gap-c" value="one step 4 apart"-->
+          <!--@field label="SECOND" name="k-gap-d" value="one step 4 apart"-->
         </div>
 
-        <h3 class="sect__sub"><code>.stack--tight</code> — 0.4rem</h3>
+        <h3 class="sect__sub"><code>.stack--tight</code> — <code>--space-2</code></h3>
         <p class="sect__note">
           For things that belong to each other rather than a sequence of separate asks — the camera
           form, and the list of hints on a game page.
         </p>
         <div class="gapdemo stack stack--tight">
-          <!--@field label="FIRST" name="k-gap-e" value="0.4rem apart"-->
-          <!--@field label="SECOND" name="k-gap-f" value="0.4rem apart"-->
+          <!--@field label="FIRST" name="k-gap-e" value="one step 2 apart"-->
+          <!--@field label="SECOND" name="k-gap-f" value="one step 2 apart"-->
+        </div>
+
+        <h3 class="sect__sub"><code>.stack--frame</code> — <code>--space-5</code>, and only one page uses it</h3>
+        <p class="sect__note">
+          The page frame, emitted by <code>layout()</code> and never by a page: the score header,
+          the title, <em>the page</em>, and the way out. It exists because those four used to be
+          siblings of everything a body emitted — one flat column on one gap — so the distance from
+          a paragraph to the next paragraph and from the last thing on a page to the button that
+          leaves it were the same number by construction. The body now gets a <code>.stack</code>
+          of its own inside this one, which is what lets the two disagree: the frame separates its
+          parts at <code>--space-5</code>, the page separates its own at <code>--space-4</code>.
+        </p>
+        <p class="sect__note">
+          Drawn whole below, because the decision only shows up as a <em>comparison</em>: the four
+          outer seams are one step wider than the two inner ones, and the exit is wider still. The
+          title is an <code>&lt;h3&gt;</code> rather than the real <code>&lt;h1&gt;</code> so this
+          page keeps one top-level heading — the type is a shade smaller than the site's, and every
+          distance around it is exactly the site's.
+        </p>
+        <div class="gapdemo stack stack--frame">
+          <!--@scorebar name="BADGER" score="47" open="7" total="10"-->
+          <h3 class="shout">A page title</h3>
+          <div class="stack">
+            <!--@field label="FIRST" name="k-frame-a" value="the page, one step 4"-->
+            <!--@field label="SECOND" name="k-frame-b" value="the page, one step 4"-->
+          </div>
+          <a class="btn btn--tertiary" href="#stack">close</a>
         </div>
 
         <p class="sect__note">

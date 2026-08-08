@@ -6,12 +6,12 @@
    ========================================================================== */
 
 .kit-head {
-  padding: 1.5rem 0 0.5rem;
+  padding: var(--space-5) 0 var(--space-2);
   text-align: center;
 }
 
 .kit-foot {
-  margin: 2rem 0 1rem;
+  margin: var(--space-6) 0 var(--space-4);
   text-align: center;
 }
 
@@ -20,7 +20,7 @@
   background: var(--c-paper);
   border: var(--edge-1) solid var(--c-ink);
   box-shadow: var(--shadow-1);
-  padding: 0.5rem 0.7rem;
+  padding: var(--space-2) var(--space-3);
   font-size: 0.9rem;
 }
 
@@ -31,8 +31,8 @@
   border: var(--edge-2) solid var(--c-ink);
   box-shadow: var(--shadow-2);
   border-radius: var(--radius);
-  padding: 1rem 0.9rem 1.2rem;
-  margin: 1.6rem 0;
+  padding: var(--space-4) var(--space-4) var(--space-4);
+  margin: var(--space-5) 0;
 }
 
 /* every other one leans the other way, like a pile of printouts */
@@ -40,25 +40,25 @@
 .sect:nth-of-type(even) { transform: rotate(0.35deg); }
 
 .sect__h {
-  margin: 0 0 0.4rem;
+  margin: 0 0 var(--space-2);
   font-family: var(--font-shout);
   font-size: 1.15rem;
   text-transform: uppercase;
   background: var(--c-yellow);
   border: var(--edge-1) solid var(--c-ink);
   box-shadow: var(--shadow-1);
-  padding: 0.3rem 0.5rem;
+  padding: var(--space-1) var(--space-2);
 }
 
 .sect__note {
-  margin: 0.5rem 0 1rem;
+  margin: var(--space-2) 0 var(--space-4);
   font-size: 0.92rem;
 }
 
 /* A section that ships more than one component needs to say which is which. Kit chrome, like
    .sect__h -- it is not a primitive and no page renders one. */
 .sect__sub {
-  margin: 1.4rem 0 0;
+  margin: var(--space-5) 0 0;
   font-family: var(--font-mono);
   font-size: 0.8rem;
   font-weight: 700;
@@ -75,14 +75,14 @@
   padding: 0;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(7.5rem, 1fr));
-  gap: 0.5rem;
+  gap: var(--space-2);
   max-width: 100%;
 }
 
 .swatch {
   display: flex;
   align-items: center;
-  gap: 0.45rem;
+  gap: var(--space-2);
   font-family: var(--font-mono);
   font-size: 0.7rem;
 }
@@ -98,7 +98,7 @@
 
 .gradbar {
   height: 3rem;
-  margin-top: 1rem;
+  margin-top: var(--space-4);
   background: var(--grad-party);
   border: var(--edge-2) solid var(--c-ink);
   box-shadow: var(--shadow-1);
@@ -108,13 +108,13 @@
 
 .typespec {
   border-bottom: 1px dashed var(--c-ink);
-  padding: 0.6rem 0;
+  padding: var(--space-2) 0;
 }
 
 .typespec:last-child { border-bottom: 0; }
 
 .type-demo {
-  margin: 0 0 0.3rem;
+  margin: 0 0 var(--space-1);
   font-size: 1.15rem;
 }
 
@@ -129,7 +129,7 @@
 
 .edgerow {
   display: flex;
-  gap: 1.1rem;
+  gap: var(--space-4);
   flex-wrap: wrap;
 }
 
@@ -157,7 +157,46 @@
    Kit chrome, like .sect__h and .sect__sub: no page renders one. */
 .gapdemo {
   outline: var(--edge-1) dashed var(--c-ink);
-  outline-offset: 0.35rem;
+  outline-offset: var(--space-1);
+}
+
+/* -------------------------------- the ramp --------------------------------- */
+
+/* §4's spacing ladder (#103). A step is only legible next to the steps either side of it, so this
+   draws all seven at once as bars of their own length -- the one demo on this page whose subject
+   is a distance rather than a component. Kit chrome; no page renders one. */
+.ramp {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.ramp__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+}
+
+/* The bar IS the step: `width: var(--step)` set per row, so what you are looking at is the value
+   itself at real size rather than a drawing of it. A demo that hardcoded these lengths could drift
+   from the token, which is the whole failure mode this page exists to catch. */
+.ramp__bar {
+  flex: none;
+  width: var(--step);
+  height: 1.1rem;
+  background: var(--c-magenta);
+  border: var(--edge-1) solid var(--c-ink);
+}
+
+.ramp__use {
+  font-family: var(--font-aside);
+  font-weight: 700;
+  color: #6b6b6b;
 }
 
 /* -------------------------- the party backdrop ----------------------------- */
@@ -190,12 +229,12 @@
    months, across four hand-typed copies (#55). */
 .owed {
   display: inline-block;
-  margin: 0 0 0.4rem;
+  margin: 0 0 var(--space-2);
   background: var(--c-red);
   color: var(--c-paper);
   border: var(--edge-1) solid var(--c-ink);
   box-shadow: var(--shadow-1);
-  padding: 0.15rem 0.4rem;
+  padding: var(--space-1) var(--space-2);
   font-family: var(--font-mono);
   font-size: 0.62rem;
   font-weight: 700;
@@ -209,7 +248,7 @@
 .owed-slot {
   max-width: 42rem;
   margin: 0 auto;
-  padding: 0.5rem 0.85rem 0;
+  padding: var(--space-2) var(--space-3) 0;
   text-align: center;
 }
 
@@ -248,7 +287,7 @@
 .nonsense {
   display: flex;
   flex-direction: column;
-  gap: 1.2rem;
+  gap: var(--space-4);
   align-items: flex-start;
 }
 
@@ -264,19 +303,19 @@
 .animrow {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
-  gap: 0.9rem;
+  gap: var(--space-4);
   max-width: 100%;
 }
 
 .animdemo {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: var(--space-2);
 }
 
 .animdemo .btn {
   font-size: 0.7rem;
-  padding: 0.4rem 0.5rem;
+  padding: var(--space-2);
   min-height: 2.2rem;
 }
 
@@ -285,7 +324,7 @@
   display: grid;
   place-items: center;
   text-align: center;
-  padding: 0.5rem;
+  padding: var(--space-2);
   background: var(--grad-party);
   border: var(--edge-2) solid var(--c-ink);
   box-shadow: var(--shadow-2);

@@ -96,6 +96,14 @@ import { escape } from './http.js';
  * `doorStep()` passes it (#97): the wizard's title belongs inside its box, in the box's own display
  * face, and an `<h1>` above the box repeating it would be the title twice. The body still has to
  * carry a real `<h1>` -- this is a relocation, not a removal, and every door screen has one.
+ *
+ * **`${body}` gets a stack of its own, and that one wrapper is most of #103.** The body is
+ * interpolated as raw markup, so without it every element a page emits is a direct sibling of the
+ * score header, the title and the close button -- one flat column, one gap, and therefore no way
+ * for the page to say that a paragraph following a paragraph is a different kind of seam from the
+ * exit following the page. The outer stack is the FRAME and spaces its four parts at `--space-5`;
+ * this inner one is the PAGE and spaces its own contents at `--space-4`. Pages emit exactly what
+ * they emitted before; what changed is that the two columns can now disagree.
  */
 export function layout({
   title,
@@ -125,10 +133,10 @@ export function layout({
   ${modal}
   ${still ? '' : marquee()}
   <div class="app${still ? '' : ' anim-page'}">
-    <div class="stack">
+    <div class="stack stack--frame">
       ${bar}
       ${heading ? `<h1 class="shout">${escape(title)}</h1>` : ''}
-      ${body}
+      <div class="stack">${body}</div>
       ${showClose ? '<a class="btn btn--tertiary" href="/">close</a>' : ''}
     </div>
   </div>

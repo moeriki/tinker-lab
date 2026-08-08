@@ -88,6 +88,38 @@
   --shadow-2: 6px 6px 0 var(--c-ink);
   --shadow-3: 10px 10px 0 var(--c-ink);
 
+  /*
+   * Space — one ramp, numbered like the edges above, and for the same reason: a component picks a
+   * STEP, never a number. Before #103 this file made 101 spacing declarations out of 28 different
+   * values -- 0.45rem, 0.48rem and 0.5rem all appear, and no eye has ever told them apart. Every
+   * one of those rounded onto a step below, so the site moved by at most a few pixels; what
+   * changed is that there is no longer a value left to invent.
+   *
+   * Four-pixel grid, doubling to start and then widening, which is the shape that survives being
+   * used: the small steps are where components live and need fine control, the big ones separate
+   * whole things and need to be obviously different from each other.
+   *
+   *   1  4px   inside a badge, a chip, a tag -- the smallest gap that still reads as a gap
+   *   2  8px   parts of one component: a label and its box, a row's own columns
+   *   3 12px   padding inside a box or a button, and the gap between sibling controls
+   *   4 16px   one thing, then the next thing -- the default, and what `.stack` gives you
+   *   5 24px   a new thought starts here, and what separates the frame's parts
+   *   6 32px   a deliberate hole in the page
+   *   7 48px   the page's own breathing room, top and bottom
+   *
+   * What is NOT on this ramp: sizes (a tile's `min-height`, a thumbnail's 4.5rem), the marquee's
+   * `--cell` and `--gap` (derived from font metrics next door, and arithmetic depends on them),
+   * and the two clearances the fixed foot and the viewer's close button owe the page -- those are
+   * measured against a thing, not chosen from a scale.
+   */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+
   --radius: 6px;
   --tap: 3rem; /* minimum thumb target — everyone is holding a drink */
 }
@@ -98,6 +130,39 @@
 *::before,
 *::after {
   box-sizing: border-box;
+}
+
+/*
+ * The rule this file has claimed since 126369b -- "primitives carry no outer margin, stacking is
+ * the caller's job" -- applied to the primitives the BROWSER ships, which is where it had never
+ * been applied at all (#103).
+ *
+ * It matters here more than it would on most sites because of one line in `layout()`: a page's
+ * body is interpolated as raw markup straight into a flex column, so every `<h1>`, `<h2>` and
+ * `<p>` a page emits is a direct flex item of `.stack` -- and margins on flex items DO NOT
+ * COLLAPSE. So the UA's `0.67em` on an `<h1>` and `1em` on a `<p>` landed on top of the gap the
+ * stack had already paid, and every gap on the site was the sum of two numbers, one of which
+ * nobody had chosen.
+ *
+ * Measured on /rules before this: 39px under the page title, 54px between HOW POINTS WORK and its
+ * own first line, and 50px between paragraphs of one passage -- against 16px between the last
+ * thing on the page and the way out of it. The page gave more air to two sentences of one thought
+ * than to leaving, which is the ordering exactly inverted, and no rule in this file had ever said
+ * otherwise.
+ *
+ * `.display`, `.door__title`, `.modal__title` and a dozen others already said `margin: 0` by
+ * hand. That is the same fix, written fourteen times, on the fourteen elements somebody happened
+ * to look at. This is it written once, for all of them.
+ *
+ * `li` is deliberately absent: it carries no UA margin, and `.rules li` sets its own.
+ */
+h1, h2, h3, h4, h5, h6,
+p,
+ul, ol, dl,
+figure,
+blockquote,
+pre {
+  margin: 0;
 }
 
 /*
@@ -163,7 +228,7 @@ code {
   font-size: 0.72rem;
   background: var(--c-lime);
   border: 1px solid var(--c-ink);
-  padding: 0 0.25rem;
+  padding: 0 var(--space-1);
 }
 
 /* --------------------------------- the page -------------------------------- */
@@ -215,14 +280,22 @@ code {
  * sideways to take a photograph, and the column would run under the cutout. Both insets are `0px`
  * in portrait, which is how this site is held for all but a few seconds of the night.
  */
+/*
+ * The top pad is #103's, and it is the smallest fix on this map with the most obvious symptom: it
+ * was `0`, so the score header's own 6px shadow-slab met the marquee's black bar with no seam and
+ * the two read as one object -- the board arrived looking like the bar had grown a second storey.
+ * Nothing chose that; the frame simply started at the top of the page. It is `--space-5` rather
+ * than `--space-4` because the marquee is a full-bleed black strip and the header under it carries
+ * a shadow, so the two need more air between them than two things inside the column do.
+ */
 .app {
   max-width: 42rem;
   margin: 0 auto;
   padding:
-    0
-    calc(0.85rem + env(safe-area-inset-right))
-    3rem
-    calc(0.85rem + env(safe-area-inset-left));
+    var(--space-5)
+    calc(var(--space-3) + env(safe-area-inset-right))
+    var(--space-7)
+    calc(var(--space-3) + env(safe-area-inset-left));
 }
 
 /* --------------------------------- marquee --------------------------------- */
@@ -231,7 +304,7 @@ code {
   overflow: hidden;
   background: var(--c-ink);
   border-bottom: var(--edge-2) solid var(--c-ink);
-  padding: 0.4rem 0;
+  padding: var(--space-2) 0;
 
   /*
    * One monospace character at `.marquee__item`'s size, and the gap of exactly one more that the
@@ -304,7 +377,9 @@ code {
 
 .banner {
   display: inline-block;
-  margin: 0.9rem auto 0;
+  /* `auto` for the centring only -- the top margin went with #103, since every banner on this site
+     is emitted into a stack that has already paid for the gap above it. */
+  margin: 0 auto;
   font-family: var(--font-shout);
   font-size: 0.8rem;
   letter-spacing: 0.02em;
@@ -313,7 +388,7 @@ code {
   background: var(--c-paper);
   border: var(--edge-2) solid var(--c-ink);
   box-shadow: var(--shadow-1);
-  padding: 0.4rem 0.7rem;
+  padding: var(--space-2) var(--space-3);
 }
 
 /* --------------------------------- layout ---------------------------------- */
@@ -325,8 +400,61 @@ code {
 .stack {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: var(--space-4);
 }
+
+/*
+ * THE PAGE FRAME, and the reason `layout()` wraps a page's body in a stack of its own (#103).
+ *
+ * Before this, the frame WAS the content stack: the score header, the page title, every element a
+ * page's body emitted, and the way out were all siblings in one flat column sharing one gap. So
+ * the distance from the header to the title, from one paragraph to the next, and from the last
+ * thing on the page to the button that leaves it were the same number BY CONSTRUCTION -- there was
+ * no way to say that an exit is not simply the next paragraph, because no element in the markup
+ * distinguished the two.
+ *
+ * Four children now: the header, the title, the page, the way out. `--space-5` between them
+ * against the `--space-4` the body uses inside itself, so the frame reads as a frame -- a title
+ * sits nearer the words it names than the bar above it, because those words are one level in.
+ */
+.stack--frame { gap: var(--space-5); }
+
+/*
+ * The exit gets more air than any other seam on the page, and this is the CALLER paying for it
+ * rather than the button carrying an outer margin: the frame is what knows this particular button
+ * is the way out, and `.btn` does not -- the same component sits mid-page elsewhere. Before #103
+ * this was the tightest gap on `/rules`, 16px, against 50px between two sentences of one passage.
+ * The page separated a thought from itself harder than it separated itself from the door.
+ *
+ * `--space-2` on top of the column's own gap: `--space-6` when the FRAME owns the exit (three
+ * pages pass `showClose`), `--space-5` when a page emits its own last (every game page, and every
+ * admin page's way back). Both land on a step, both are the widest seam in their own column, and
+ * the difference is honest -- an exit the frame owns ends the whole page.
+ *
+ * **Scoped to a direct child of a `.stack`, and that is what makes it mean "exit" rather than
+ * "tertiary".** #107 gave the tier two jobs -- leaving a screen sideways (`close`, `back to HQ`)
+ * and reloading it (`deal us another`, `ask me something else`) -- and only the first ever appears
+ * as an item in a column. The reloads live in `.door__actions` and in button rows, where they are
+ * one of a pair and want the row's own gap rather than a hole above them.
+ */
+.app .stack > .btn--tertiary { margin-top: var(--space-2); }
+
+/*
+ * The one asymmetry in this file, and the oldest rule in typesetting: A HEADING BELONGS TO WHAT
+ * FOLLOWS IT, so it takes more air above than below. Without this every heading on the site sat
+ * exactly halfway between the passage it ended and the passage it began -- on `/rules`, HOW POINTS
+ * WORK had 16px on both sides and read as a caption for the window above it rather than as the
+ * title of the paragraphs below.
+ *
+ * `--space-2` on top of the stack's own `--space-4` comes to `--space-5`, which is the step this
+ * ramp calls "a new thought starts here". The sum landing on a step is the point: this is the
+ * caller widening one seam by a named amount, not a component inventing a number -- the thing the
+ * reset at the top of this file exists to stop.
+ *
+ * `<h2>` only, because `<h2>` is the only heading level any page emits into its own body; the
+ * page's `<h1>` is the frame's and is spaced by the frame.
+ */
+.app .stack > h2 { margin-top: var(--space-2); }
 
 /* A `.stack` is sometimes a list: the hint list on a game page is a `<ul>`, which is what the kit
    means in §4 when it names it. A list arrives wearing a marker, a 40px indent and a `1em` block
@@ -348,7 +476,7 @@ ol.stack {
    the whole life of the project. Retired rather than given a use, on #58's rule -- inventing a
    caller to justify a class is the tail wagging the dog. Putting it back is one line, and it
    arrives with a demo, because new design is drawn on /kit first. */
-.stack--tight { gap: 0.4rem; }
+.stack--tight { gap: var(--space-2); }
 
 /* ------------------------------ type utilities ----------------------------- */
 
@@ -363,11 +491,11 @@ ol.stack {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.75rem;
+  gap: var(--space-3);
   background: var(--grad-hot);
   border: var(--edge-2) solid var(--c-ink);
   box-shadow: var(--shadow-2);
-  padding: 0.55rem 0.75rem;
+  padding: var(--space-2) var(--space-3);
   color: inherit;
   text-decoration: none;
 }
@@ -422,11 +550,11 @@ ol.stack {
   flex: none;
   display: flex;
   align-items: baseline;
-  gap: 0.2rem;
+  gap: var(--space-1);
   background: var(--c-paper);
   border: var(--edge-2) solid var(--c-ink);
   box-shadow: var(--shadow-1);
-  padding: 0.15rem 0.5rem;
+  padding: var(--space-1) var(--space-2);
 }
 
 .scorebar__num {
@@ -441,12 +569,15 @@ ol.stack {
 }
 
 /* the vague standing message — deliberately never a number or a rank */
+/* No outer margin (#103). This is emitted straight into the page's stack, so the 0.4rem it used to
+   carry was added to the gap the stack had already paid -- the same double-count `.field` was
+   caught doing in #59, on the line directly under the board's own title. */
 .standing {
-  margin: 0.4rem 0 0;
+  margin: 0;
   font-family: var(--font-body);
   font-style: italic;
   font-size: 0.95rem;
-  padding-left: 0.2rem;
+  padding-left: var(--space-1);
 }
 
 .standing--top { color: #0a7a0a; }
@@ -458,7 +589,7 @@ ol.stack {
 .tiles {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 0.7rem;
+  gap: var(--space-3);
   max-width: 100%;
 }
 
@@ -467,9 +598,9 @@ ol.stack {
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
-  gap: 0.15rem;
+  gap: var(--space-1);
   min-height: 6.5rem;
-  padding: 0.6rem;
+  padding: var(--space-2);
   text-decoration: none;
   color: var(--c-ink);
   border: var(--edge-2) solid var(--c-ink);
@@ -499,8 +630,8 @@ ol.stack {
 .tile__lock,
 .tile__flag {
   position: absolute;
-  top: 0.35rem;
-  right: 0.45rem;
+  top: var(--space-2);
+  right: var(--space-2);
   font-size: 1.3rem;
   line-height: 1;
 }
@@ -552,19 +683,19 @@ ol.stack {
 .hero {
   border: var(--edge-3) solid var(--c-ink);
   box-shadow: var(--shadow-2);
-  padding: 1rem 0.9rem;
+  padding: var(--space-4);
   background: var(--c-paper);
 }
 
 .hero__kicker {
   display: inline-block;
-  margin: 0 0 0.5rem;
+  margin: 0 0 var(--space-2);
   font-family: var(--font-mono);
   font-size: 0.68rem;
   letter-spacing: 0.25em;
   background: var(--c-ink);
   color: var(--c-lime);
-  padding: 0.1rem 0.45rem;
+  padding: var(--space-1) var(--space-2);
 }
 
 .hero__body {
@@ -579,7 +710,7 @@ ol.stack {
    new line with nothing between it and the first, which at 1.3 line-height is indistinguishable
    from a wrap. Only BETWEEN paragraphs, so the frame keeps the no-outer-margin rule and a
    one-paragraph hero is untouched. */
-.hero__body + .hero__body { margin-top: 0.7rem; }
+.hero__body + .hero__body { margin-top: var(--space-3); }
 
 /* flavour: words — question, statement, riddle */
 .hero--text { background: var(--grad-tile); }
@@ -635,7 +766,8 @@ ol.stack {
 /* Words underneath an asset hero. The hero itself is words OR a picture, never both, so a game
    that needs a picture AND a sentence says the sentence out here. */
 .blurb {
-  margin: 0.7rem 0 0;
+  /* Sits under an asset hero as the next item in the page's stack, which spaces it (#103). */
+  margin: 0;
   font-family: var(--font-body);
   font-size: 1.15rem;
   line-height: 1.35;
@@ -657,8 +789,8 @@ ol.stack {
 .win__bar {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
-  padding: 0.25rem 0.3rem;
+  gap: var(--space-2);
+  padding: var(--space-1);
   background: linear-gradient(90deg, #0a2a8f, #1c8ad6);
   color: #fff;
 }
@@ -681,7 +813,7 @@ ol.stack {
 
 .win__btns {
   display: flex;
-  gap: 0.15rem;
+  gap: var(--space-1);
   flex: none;
 }
 
@@ -713,21 +845,21 @@ ol.stack {
 }
 
 .win__body {
-  padding: 0.8rem;
+  padding: var(--space-3);
   font-family: var(--font-body);
 }
 
 .rules {
   margin: 0;
-  padding-left: 1.3rem;
+  padding-left: var(--space-5);
 }
 
-.rules li { margin-bottom: 0.3rem; }
+.rules li { margin-bottom: var(--space-1); }
 
 .statusline {
-  margin: 0.8rem 0 0;
+  margin: var(--space-3) 0 0;
   font-size: 0.7rem;
-  padding: 0.2rem 0.4rem;
+  padding: var(--space-1) var(--space-2);
   border: 1px solid #6b6b6b;
   border-top-color: #fff;
   border-left-color: #fff;
@@ -765,7 +897,7 @@ ol.stack {
 .btnrow {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.6rem;
+  gap: var(--space-2);
   max-width: 100%;
 }
 
@@ -775,7 +907,9 @@ ol.stack {
 .btncol {
   display: grid;
   grid-template-columns: max-content;
-  gap: 0.6rem;
+  /* The same step as `.btnrow` above, which is the point of a column version of a row (#106). It
+     landed as `0.6rem` one commit before this ramp existed; matched here rather than rounded. */
+  gap: var(--space-2);
   max-width: 100%;
 }
 
@@ -820,7 +954,7 @@ ol.stack {
 
 .btn {
   min-height: var(--tap);
-  padding: 0.6rem 1rem;
+  padding: var(--space-2) var(--space-4);
   color: var(--c-ink);
   text-align: center;
   text-decoration: none;
@@ -924,7 +1058,7 @@ ol.stack {
   font-family: var(--font-mono);
   font-size: 0.68rem;
   letter-spacing: 0.18em;
-  margin-bottom: 0.25rem;
+  margin-bottom: var(--space-1);
 }
 
 /*
@@ -973,7 +1107,7 @@ ol.stack {
 .input {
   width: 100%;
   min-height: var(--tap);
-  padding: 0.5rem 0.6rem;
+  padding: var(--space-2);
   background: var(--c-paper);
   color: var(--c-ink);
   -webkit-text-fill-color: var(--c-ink);
@@ -1015,7 +1149,7 @@ ol.stack {
 .input--file {
   font-family: var(--font-mono);
   font-size: 0.8rem;
-  padding: 0.7rem 0.6rem;
+  padding: var(--space-3) var(--space-2);
 }
 
 /* ---- a select is a BUTTON, not a box you cannot type in (#104) ----
@@ -1070,7 +1204,8 @@ ol.stack {
   cursor: pointer;
   box-shadow: var(--shadow-1);
   transition: transform 0.06s ease-out, box-shadow 0.06s ease-out;
-  padding-right: 3rem;
+  /* `--space-7` is 3rem exactly, which is the clearance the 2.4rem ink tab needs. */
+  padding-right: var(--space-7);
   background-image:
     linear-gradient(45deg, transparent 50%, var(--c-paper) 50%),
     linear-gradient(135deg, var(--c-paper) 50%, transparent 50%),
@@ -1101,7 +1236,7 @@ ol.stack {
   z-index: 500;
   display: grid;
   place-items: center;
-  padding: 1.2rem;
+  padding: var(--space-4);
   background: rgb(0 0 0 / 55%);
 }
 
@@ -1114,7 +1249,7 @@ ol.stack {
   box-shadow: var(--shadow-3);
   /* No bottom padding: the actions straddle the bottom border and their own half-height is the
      gap. See `.modal__actions` below. */
-  padding: 1.2rem 1rem 0;
+  padding: var(--space-4) var(--space-4) 0;
   animation: modal-pop 0.22s cubic-bezier(0.2, 1.6, 0.4, 1) both;
 }
 
@@ -1138,7 +1273,7 @@ ol.stack {
    an optional element is present is spacing that is missing exactly when the box is at its
    simplest. */
 .modal__body {
-  margin: 0.7rem 0 0;
+  margin: var(--space-3) 0 0;
   font-size: 1.2rem;
 }
 
@@ -1163,7 +1298,7 @@ ol.stack {
    Side by side, end-packed and wrapping is `.btnrow--end` now (#106) and the markup says so, so
    what is left here is only what is true of THIS row: where it sits and how far it hangs. */
 .modal__actions {
-  margin-top: 1.1rem;
+  margin-top: var(--space-4);
   transform: translateY(50%);
 }
 
@@ -1198,7 +1333,7 @@ ol.stack {
   background: var(--c-paper);
   border: var(--edge-3) solid var(--c-ink);
   box-shadow: var(--shadow-3);
-  padding: 1.2rem 1rem;
+  padding: var(--space-4);
 }
 
 /* A sheet is a surface, not a spacer: it owns the gap between its own edge and the words, and the
@@ -1257,7 +1392,7 @@ ol.stack {
    The row itself is `.btnrow--end` (#106) -- the same three declarations the dialog was carrying
    privately. All that is left here is the space above it. */
 .door__actions {
-  margin-top: 0.2rem;
+  margin-top: var(--space-1);
 }
 
 /* The forward button that reads the fields beside it (#107).
@@ -1328,8 +1463,8 @@ ol.stack {
   border: var(--edge-2) solid var(--c-ink);
   border-radius: 14px;
   box-shadow: var(--shadow-2);
-  padding: 0.8rem 0.9rem;
-  margin-left: 1.4rem;
+  padding: var(--space-3) var(--space-4);
+  margin-left: var(--space-5);
 }
 
 .bubble p { margin: 0; font-size: 1.05rem; }
@@ -1337,8 +1472,10 @@ ol.stack {
 .bubble::before {
   content: '';
   position: absolute;
-  left: -1.4rem;
-  top: 1.4rem;
+  /* Matched to `.bubble`'s own `margin-left` -- the tail hangs in exactly the gutter the margin
+     opens, so these two move together or the tail detaches from the bubble. */
+  left: calc(-1 * var(--space-5));
+  top: var(--space-5);
   border: 0.75rem solid transparent;
   border-right-color: var(--c-ink);
   border-left-width: 0.7rem;
@@ -1346,7 +1483,7 @@ ol.stack {
 
 .stamp {
   margin: 0;
-  padding: 0.4rem 1rem;
+  padding: var(--space-2) var(--space-4);
   color: var(--c-red);
   font-family: var(--font-body);
   font-size: 1.2rem;
@@ -1418,10 +1555,10 @@ ol.stack {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 0.4rem 1.2rem;
+  gap: var(--space-2) var(--space-4);
   background: var(--c-ink);
   color: var(--c-paper);
-  padding: 0.6rem 0.8rem;
+  padding: var(--space-2) var(--space-3);
   font-size: 0.68rem;
   letter-spacing: 0.08em;
   text-align: center;
@@ -1475,10 +1612,10 @@ ol.stack {
 .navbar {
   display: flex;
   justify-content: center;
-  gap: 0.15rem;
+  gap: var(--space-1);
   background: var(--c-ink);
   border-top: var(--edge-2) solid var(--c-ink);
-  padding: 0.35rem 0.4rem;
+  padding: var(--space-1) var(--space-2);
 }
 
 /*
@@ -1489,7 +1626,7 @@ ol.stack {
 .navbar__item {
   flex: 0 1 auto;
   min-width: 0;
-  padding: 0.4rem 0.55rem;
+  padding: var(--space-2);
   font-family: var(--font-mono);
   font-size: 0.8rem;
   letter-spacing: 0.1em;
@@ -1552,7 +1689,7 @@ ol.stack {
   align-items: center;
   justify-content: center;
   min-height: calc(var(--tap) * 1.6);
-  padding: 0.5rem 1rem;
+  padding: var(--space-2) var(--space-4);
   border: var(--edge-3) dashed var(--c-ink);
   box-shadow: var(--shadow-2);
   background: var(--grad-hot);
@@ -1576,7 +1713,7 @@ ol.stack {
 .shots {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: var(--space-2);
 }
 
 /* An anchor, so `color` and `text-decoration` have to be said out loud here for the same reason
@@ -1607,7 +1744,7 @@ ol.stack {
 
 /* The fallback tile: a format this browser may refuse, shown as a link rather than a broken img. */
 .shot__none {
-  padding: 0.2rem;
+  padding: var(--space-1);
   font-family: var(--font-mono);
   font-size: 0.55rem;
   text-align: center;
@@ -1626,7 +1763,7 @@ ol.stack {
 .units {
   display: flex;
   flex-direction: column;
-  gap: 0.7rem;
+  gap: var(--space-3);
   list-style: none;
   padding: 0;
 }
@@ -1634,11 +1771,11 @@ ol.stack {
 .unit--box {
   display: flex;
   align-items: flex-start;
-  gap: 0.6rem;
+  gap: var(--space-2);
   border: var(--edge-1) solid var(--c-ink);
   box-shadow: var(--shadow-1);
   background: var(--c-paper);
-  padding: 0.4rem;
+  padding: var(--space-2);
 }
 
 /* Keeps a long prompt or a long quote from shoving the thumbnail out of the row.
@@ -1652,7 +1789,7 @@ ol.stack {
 .unit__said {
   display: flex;
   flex-direction: column;
-  gap: 0.6rem;
+  gap: var(--space-2);
   flex: 1;
   min-width: 0;
 }
@@ -1674,7 +1811,7 @@ ol.stack {
 }
 
 .unit--box .btn {
-  padding: 0.2rem 0.6rem;
+  padding: var(--space-1) var(--space-2);
   font-size: 0.7rem;
 }
 
@@ -1683,7 +1820,7 @@ ol.stack {
 .gallery {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
-  gap: 0.8rem;
+  gap: var(--space-3);
 }
 
 /* One submission, as the host judges it. Called `.card` until #60, when the signature card took
@@ -1693,8 +1830,8 @@ ol.stack {
 .submission {
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
-  padding: 0.5rem;
+  gap: var(--space-2);
+  padding: var(--space-2);
   border: var(--edge-2) solid var(--c-ink);
   box-shadow: var(--shadow-1);
   background: var(--c-paper);
@@ -1726,13 +1863,13 @@ ol.stack {
 
 .judge {
   display: flex;
-  gap: 0.4rem;
+  gap: var(--space-2);
 }
 
 .judge .btn {
   flex: 1;
   min-height: var(--tap);
-  padding: 0.4rem 0.3rem;
+  padding: var(--space-2) var(--space-1);
   font-size: 0.7rem;
 }
 
@@ -1772,7 +1909,7 @@ ol.stack {
 .board th,
 .board td {
   border: 1px solid var(--c-ink);
-  padding: 0.3rem 0.45rem;
+  padding: var(--space-1) var(--space-2);
   text-align: left;
   vertical-align: top;
 }
@@ -1804,15 +1941,15 @@ ol.stack {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
+  gap: var(--space-2);
 }
 
 .league__row {
   display: grid;
   grid-template-columns: 2rem 1fr auto;
   align-items: baseline;
-  gap: 0.7rem;
-  padding: 0.5rem 0.7rem;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
   border: var(--edge-1) solid var(--c-ink);
   background: var(--c-paper);
 }
@@ -1855,9 +1992,9 @@ ol.stack {
    shadow is 6px and the gutter is 13.6px, so nothing here pushes on the page's own width. */
 .league__row--you {
   grid-template-columns: 2.8rem 1fr auto;
-  gap: 0.7rem 0.8rem;
-  padding: 0.85rem 0.8rem;
-  margin: 0.5rem 0;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  margin: var(--space-2) 0;
   border-width: var(--edge-3);
   box-shadow: var(--shadow-2);
   background: var(--grad-tile);
@@ -1898,8 +2035,8 @@ ol.stack {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  gap: 0.75rem;
-  padding: 0.6rem 0.75rem;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
   border: var(--edge-2) solid var(--c-ink);
   box-shadow: var(--shadow-1);
   background: var(--c-paper);
@@ -1934,7 +2071,9 @@ ol.stack {
 .hq-gauges {
   font-size: 0.72rem;
   line-height: 1.8;
-  margin-top: -0.35rem;
+  /* `calc()` and not a bare minus: `-var(...)` does not parse, and an invalid declaration is
+     dropped in silence -- the gauges would simply stop tucking under the row above them. */
+  margin-top: calc(-1 * var(--space-1));
 }
 
 /* The read-only galleries, deliberately the quietest thing on the page: they are for "I answered
@@ -1971,7 +2110,7 @@ ol.stack {
 .card {
   display: grid;
   grid-template-columns: repeat(var(--card-cols, 3), 1fr);
-  gap: 0.35rem;
+  gap: var(--space-1);
   list-style: none;
   padding: 0;
 }
@@ -1983,9 +2122,9 @@ ol.stack {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  gap: 0.3rem;
+  gap: var(--space-1);
   min-height: 5.4rem;
-  padding: 0.35rem;
+  padding: var(--space-1);
   border: var(--edge-1) solid var(--c-ink);
   box-shadow: var(--shadow-1);
   background: var(--c-paper);
@@ -2034,8 +2173,9 @@ ol.stack {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
-  gap: 0.5rem;
-  margin-bottom: 0.8rem;
+  gap: var(--space-2);
+  /* No bottom margin (#103): the filter bar is an item in `/shots`' own stack and the wall below it
+     is the next one, so the gap between them is the stack's to pay. */
 }
 
 .filters .field {
@@ -2055,7 +2195,7 @@ ol.stack {
 .wall {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(6.5rem, 1fr));
-  gap: 0.4rem;
+  gap: var(--space-2);
 }
 
 /* The cell is the fragment target, not the <a> — the anchor is `shot()`'s and
@@ -2106,9 +2246,9 @@ ol.stack {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.8rem;
+  gap: var(--space-3);
   margin: 0;
-  padding: 1.5rem 1rem 5rem;
+  padding: var(--space-5) var(--space-4) 5rem;
   scroll-snap-align: center;
   scroll-snap-stop: always; /* a hard flick moves one photograph, not nine */
 }
@@ -2123,7 +2263,7 @@ ol.stack {
 /* HEIC, which Android will not draw. Same bargain as `.shot--dl`: name the
    format and hand over a download, never a broken image. */
 .viewer__dl {
-  padding: 2rem 1.5rem;
+  padding: var(--space-6) var(--space-5);
   font-family: var(--font-mono);
   font-size: 0.9rem;
   text-align: center;
@@ -2137,7 +2277,7 @@ ol.stack {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--space-2);
   max-width: 30rem;
   text-align: center;
 }
@@ -2158,14 +2298,14 @@ ol.stack {
 
 .viewer__close {
   position: fixed;
-  right: 0.8rem;
-  bottom: calc(0.8rem + env(safe-area-inset-bottom));
+  right: var(--space-3);
+  bottom: calc(var(--space-3) + env(safe-area-inset-bottom));
   display: flex;
   align-items: center;
   justify-content: center;
   min-width: var(--tap);
   min-height: var(--tap);
-  padding: 0 1rem;
+  padding: 0 var(--space-4);
   font-family: var(--font-shout);
   font-size: 0.85rem;
   text-transform: uppercase;

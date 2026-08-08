@@ -996,6 +996,20 @@ A piece of markup the design system ships: a tile, a hero, a form field, the sco
 modal. The styles are shared by construction — `public/css/app.css` is linked by every page and by
 `/kit`, so appearance cannot drift. The markup is what had to be settled.
 
+**Space is a ramp of seven steps**, `--space-1` … `--space-7`, numbered like `--edge-1/2/3` and
+named by relationship rather than by size — *parts of one component*, *one thing then the next
+thing*, *a new thought starts here*. A component picks a **step**, never a number. `/kit` §4 draws
+all seven at their real widths.
+
+**The frame is not the page**, and they are two different columns. `layout()` emits a
+`.stack--frame` holding four things — the score header, the title, *the page*, the way out — and
+the page's own body goes inside a `.stack` of its own. The frame separates its parts at
+`--space-5`, the page separates its contents at `--space-4`, and that is the only reason the site
+can say that an exit is a different kind of seam from a paragraph. Block elements arrive with
+**no** outer margin: the browser's own are reset, because a page body is interpolated raw into a
+flex column and margins on flex items do not collapse.
+See [ADR-the-frame-is-not-the-page](docs/adr/the-frame-is-not-the-page.md).
+
 > **A component's markup exists in exactly one place** ([ADR-a-component-has-one-markup](docs/adr/a-component-has-one-markup.md)).
 
 Where the app renders a component, that place is a function in `src/render.js`, and `/kit` calls it
