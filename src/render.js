@@ -70,6 +70,13 @@ import { escape } from './http.js';
  * paints above `.app` whatever the tree order says. Slot is empty on every page but a hint reveal,
  * so this costs the rest of the site nothing.
  *
+ * `viewport-fit=cover` is what makes `env(safe-area-inset-*)` report anything at all. Without it
+ * every one of those insets is `0px`, and the menu bar -- `position: fixed; bottom: 0` -- lands in
+ * the strip iPadOS draws its home indicator across: a centred pill over a centred bar, in the
+ * gesture region that swallows the tap before the page sees it. `/shots` had the flag from the
+ * start for the notch; the rest of the site has it now for the foot, which pays the inset back as
+ * padding in `app.css`.
+ *
  * `theme-color` is here for the phones it still works on, and it is NOT what makes this work on an
  * iPhone. Safari 26 dropped the tag -- it parses it and ignores it -- and takes its bar colours
  * from CSS instead, which `.shell` in `app.css` explains at the declaration that feeds it. Android
@@ -99,7 +106,7 @@ export function layout({
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#000">
   ${refresh ? `<noscript><meta http-equiv="refresh" content="${refresh}"></noscript>` : ''}
   <title>${escape(title)}</title>

@@ -638,7 +638,10 @@
           with the status bar underneath it, and <code>.shell--nav</code> pays the page the
           clearance that costs. Drawing those here would pin a bar over this documentation for its
           whole length, which is §13's reason for replaying motion inside its own box rather than
-          on the page.
+          on the page. <code>.foot</code> also pays <code>env(safe-area-inset-bottom)</code> as
+          padding, which is <code>0px</code> on every phone and about 20px on an iPad, where the
+          home indicator otherwise sits across these words and takes the tap before the page gets
+          it. Nothing here can show that either: the inset is the device's, not the page's.
         </p>
         <p class="sect__note">
           <strong>Width is a budget.</strong> At 390px the strip holds roughly 44 characters

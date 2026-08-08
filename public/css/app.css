@@ -207,11 +207,22 @@ code {
  * and the arrival stamp both sat directly on the bar, and the stamp's `rotate(-8deg)` put its
  * corner over the strip's own words. Here the gap is where it was always meant to be, between
  * the last thing a page says and the frame around it.
+ *
+ * The horizontal insets are `viewport-fit=cover` paying its own way. The flag went on for the foot
+ * -- it is the only thing that makes `env(safe-area-inset-bottom)` non-zero, and without it the
+ * menu bar sits under iPadOS' home indicator -- but it also stops Safari letterboxing a landscape
+ * phone away from its notch, which nothing else here was asking for. A guest turns the phone
+ * sideways to take a photograph, and the column would run under the cutout. Both insets are `0px`
+ * in portrait, which is how this site is held for all but a few seconds of the night.
  */
 .app {
   max-width: 42rem;
   margin: 0 auto;
-  padding: 0 0.85rem 3rem;
+  padding:
+    0
+    calc(0.85rem + env(safe-area-inset-right))
+    3rem
+    calc(0.85rem + env(safe-area-inset-left));
 }
 
 /* --------------------------------- marquee --------------------------------- */
@@ -1204,6 +1215,19 @@ ol.stack {
  * scrolling and the point of this bar is that it is reachable without. The pair is pinned
  * together, with the menu on top, so the frame still ends in the same black strip it always did
  * and iOS keeps sampling `<body>`'s background-color for its own bottom bar rather than this.
+ *
+ * The `env(safe-area-inset-bottom)` padding is the iPad fix. `bottom: 0` is the bottom of the
+ * *screen*, and iPadOS parks its home indicator there -- a centred pill across a centred menu, in
+ * the edge band the system keeps for the home gesture, so the words are both hard to read and hard
+ * to press. The inset is exactly the height that band claims, so paying it as padding lifts the
+ * three words clear while the bar itself still runs to the physical bottom. It reads `0px` on
+ * every device with nothing down there, which is every phone the guests bring, so nothing about
+ * the night's frame moves. It reports that `0px` only because `layout()` sets `viewport-fit=cover`
+ * -- without the flag the whole mechanism is silently off.
+ *
+ * The `background` is what stops the padding being a gap. `.navbar` and `.statusbar` carry their
+ * own ink, and until now `.foot` was a bare wrapper; padding on a transparent box would have shown
+ * a strip of gradient under the bar rather than more black.
  */
 .foot {
   position: fixed;
@@ -1211,6 +1235,8 @@ ol.stack {
   left: 0;
   right: 0;
   z-index: 60;
+  background: var(--c-ink);
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 /*
