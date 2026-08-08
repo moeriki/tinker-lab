@@ -1126,8 +1126,8 @@ const FLOWS = [
       await page.goto('/league');
       check('a guest is bounced off the rankings mid-party', (await page.url()) === '/');
 
-      // The host, who has a bar from the first minute -- three words, because `league` is not
-      // gated and `recap` and `shots` are.
+      // The host, who has a bar from the first minute -- two words mid-party, because `league` is
+      // not gated and `recap` and `shots` are.
       await page.goto(`/admin/key/${ADMIN_SECRET}`);
       await page.goto('/admin');
       check('the host has a menu bar all night', await page.has('.navbar'));
@@ -1137,11 +1137,22 @@ const FLOWS = [
         await page.has('.navbar__item[href="/league"]'),
       );
       check('recap waits for the end', !(await page.has('.navbar__item[href="/recap"]')));
-      await shoot('host-playing');
 
-      await page.goto('/admin/court');
-      check('court is a real page', (await page.url()) === '/admin/court');
-      await shoot('host-court');
+      // `court` was a third word here and #83 cut it along with the surface: there is no judging
+      // queue, because every photograph pays on submit and no verdict is ever owed. Asserting the
+      // absence rather than deleting the check -- a stub route left standing after its ticket
+      // decided against it is exactly the kind of thing that survives by nobody looking.
+      check('court is gone from the bar', !(await page.has('.navbar__item[href="/admin/court"]')));
+
+      // The STATUS, not the page. This site's 404 is a real page wearing the site's chrome, so
+      // "did I land somewhere that looks like the site" is true of a route that no longer exists --
+      // which is how `/admin/game/teddy` stayed a 500 for weeks. Ask the one question the error
+      // page answers differently.
+      const gone = await page.evaluate(`
+        return fetch('/admin/court').then((r) => String(r.status))
+      `);
+      check(`and the route with it (${gone})`, gone === '404');
+      await shoot('host-playing');
 
       // The rankings, mid-party, for the one person allowed to read them.
       await page.goto('/league');
@@ -1225,7 +1236,7 @@ const FLOWS = [
 
   {
     name: 'shots',
-    what: 'shoot two games, end the night, and walk the wall and the fullscreen viewer',
+    what: 'shoot two games, end the night, walk the wall and the viewer, and veto a photograph',
     async run({ page, shoot, check }) {
       // The wall is the one page on this site that is made of OTHER pages' output, so it can only
       // be walked by a team that has actually photographed something. The menu flow above proves
@@ -1241,6 +1252,23 @@ const FLOWS = [
       await page.setFile('input[type="file"]', A_REAL_IMAGE);
       await page.submit('input[type="file"]');
       check('the scavenger took a photograph', (await page.count('.shot img')) > 0);
+      check('and a paid photo says nothing about it', !(await page.has('.banner')));
+
+      // And the SAME prompt again -- a retake, which stores a second photograph and pays nothing,
+      // because the ledger keys on the unit rather than on the submission. It is here for the veto
+      // below: two photographs against one unit is the case where deleting one must NOT take the
+      // point, since the prompt is still answered. Nothing else on the walk produces that shape.
+      //
+      // The BANNER is what says it landed, not a second thumbnail: the tile's checklist keys its
+      // thumbnails on the unit, so a retake redraws one row rather than adding one. And not the
+      // URL either -- `app.js` spends the `moment` param out of it on arrival, so a check reading
+      // `location.search` passes or fails on whether a script ran. The sentence a team reads is the
+      // thing itself: a paid photograph gets no banner, a spare gets the one that says so.
+      await page.goto(`/q/${scavenger}`);
+      await page.setFile('input[type="file"]', A_REAL_IMAGE);
+      await page.submit('input[type="file"]');
+      const retake = String(await page.text('.banner'));
+      check(`the same prompt again is a spare (${retake})`, retake.startsWith('Kept.'));
 
       // One anonymous unit WITH a quote, which is the only photograph on the site that carries a
       // sentence -- and the one thing the viewer's caption has to get right.
@@ -1262,7 +1290,7 @@ const FLOWS = [
 
       await page.goto('/shots');
       const cells = await page.count('.wall__cell');
-      check(`the wall holds both photographs (${cells})`, cells === 2);
+      check(`the wall holds all three photographs (${cells})`, cells === 3);
       check('and both selects are on it', (await page.count('.filters select')) === 2);
       await shoot('shots-wall');
 
@@ -1291,6 +1319,57 @@ const FLOWS = [
       check('the sentence stays off the wall, for the recap', !(await page.has('.bubble')));
       check('and there is a way back to the wall', await page.has('.viewer__close'));
       await shoot('shots-viewer');
+
+      // ---- the veto (#83) ----------------------------------------------------------------
+      // The host's only control over a photograph, and the reason there is no judging queue on this
+      // site: every photograph pays the instant it lands, so nothing is ever waiting and this is an
+      // exception rather than a pass. Walked here because the wall is the only place it exists.
+      //
+      // Three photographs, TWO points -- the retake paid nothing. That gap is the whole test below.
+      const before = (await readBoard(page)).find((row) => row.score > 0);
+      check(`three photographs, two points (${before?.score})`, before?.score === 2);
+
+      // Filtered to the scavenger's one prompt, so the two panels in here are the pair that share a
+      // unit and the walk knows which photograph it is deleting.
+      await page.goto('/shots?prompt=scavenger:0');
+      const pair = String(await page.attr('.wall__cell a', 'href'));
+      await page.goto(pair.replace(/#.*$/, ''));
+      check('the retake and its original are one filter', (await page.count('.viewer__panel')) === 2);
+      check('the host gets a delete under each', (await page.count('.viewer__del')) === 2);
+      check('and no confirm until one is asked for', !(await page.has('#delete-shot')));
+
+      // Saying no changes nothing, which is the half of a confirm nobody ever checks.
+      const ask = String(await page.attr('.viewer__del', 'href'));
+      await page.goto(ask.replace(/#.*$/, ''));
+      check('pressing delete asks first', await page.has('#delete-shot'));
+      await shoot('shots-veto');
+      await page.press('#delete-shot .btn--secondary');
+      check('saying no leaves the confirm behind', !(await page.has('#delete-shot')));
+      check('and the photograph where it was', (await page.count('.viewer__panel')) === 2);
+
+      // Delete ONE of the pair. The prompt is still answered by the other, so the point stays --
+      // undoing it here would take a point the team is still owed, and nothing on any page would
+      // ever say so.
+      await page.goto(ask.replace(/#.*$/, ''));
+      await page.submit('#delete-shot .modal__confirm');
+      check('saying yes lands back on the wall', (await page.url()).startsWith('/shots'));
+      const left = (await readBoard(page)).find((row) => row.id === before.id);
+      check(`deleting one of a pair keeps the point (${left?.score})`, left?.score === 2);
+
+      // Now the other one, which IS the last photograph of that prompt. This time the point goes,
+      // silently -- no line on the tile, no record anywhere. That is the decision, and the board is
+      // the only place it can be seen happening.
+      await page.goto('/shots?prompt=scavenger:0');
+      check('one of the pair is gone from the wall', (await page.count('.wall__cell')) === 1);
+      const last = String(await page.attr('.wall__cell a', 'href'));
+      await page.goto(last.replace(/#.*$/, ''));
+      await page.goto(String(await page.attr('.viewer__del', 'href')).replace(/#.*$/, ''));
+      await page.submit('#delete-shot .modal__confirm');
+
+      const after = (await readBoard(page)).find((row) => row.id === before.id);
+      check(`deleting the last one takes the point (2 -> ${after?.score})`, after?.score === 1);
+      await page.goto('/shots');
+      check('and the wall is down to the portrait', (await page.count('.wall__cell')) === 1);
     },
   },
 

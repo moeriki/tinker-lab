@@ -1,6 +1,13 @@
 # A photograph pays on approval, and a prompt pays once
 
-**Status:** accepted · **Date:** 2026-08-07 · **Ticket:** [Nothing has checked the points economy against the whole roster at once](https://github.com/moeriki/tinker-lab/issues/84)
+**Status:** superseded by [ADR-a-photograph-pays-on-submit-and-the-host-may-veto-it](a-photograph-pays-on-submit-and-the-host-may-veto-it.md) · **Date:** 2026-08-07 · **Ticket:** [Nothing has checked the points economy against the whole roster at once](https://github.com/moeriki/tinker-lab/issues/84)
+
+> **Superseded 8 Aug.** Every decision below rests on a premise that turned out to be false: that
+> [#83](https://github.com/moeriki/tinker-lab/issues/83) would keep photographs host-judged. It
+> reversed that instead — photographs stay `trust`, they pay on submit, there is no queue, and the
+> host's only control is a delete. Nothing here is implemented and nothing here should be. It is
+> kept because the *reasoning* about a second debit is still the best statement of what the veto
+> costs, and because the alternative it rejected is the one the site now ships.
 
 ## Context
 

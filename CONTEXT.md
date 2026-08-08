@@ -610,14 +610,14 @@ Four modes. Two are *derived* from the presence of a function; two are *declared
 - **`trust`** — points land on submit, unjudged. One point per **unit**, no host involved. A trust
   game must declare `points`, and the gallery deliberately gives it **no buttons**: the points
   are already banked and a second press would double-pay.
-- **`manual`** — the host judges in the admin gallery: award or reject. A verdict is per
-  submission, but on a game with **units** the *value* is per unit, exactly as under `trust`: a
-  prompt is worth one point if **any** photograph for it has been approved, and nothing otherwise.
-  That equivalence is the cap, and it is currently **only implemented on the trust path** — the
-  gallery still writes one award per submission, so a unit game switched to `manual` today would
-  pay per photograph and overspend its tile. Nothing exercises it yet because no unit game is
-  host-judged; [#83](https://github.com/moeriki/tinker-lab/issues/83) is what lands on it. See
-  [ADR-a-photograph-pays-on-approval](docs/adr/a-photograph-pays-on-approval.md).
+- **`manual`** — the host judges in the admin gallery: award or reject. **No game on this roster
+  declares it**, and [#83](https://github.com/moeriki/tinker-lab/issues/83) settled that none will:
+  there is no judging queue on this site and nothing ever waits on a verdict. The mode survives
+  because the gallery reads it from content, so a game declaring it gets buttons with no code
+  change — but the gallery writes **one award per submission**, so a game with **units** switched
+  to `manual` would pay per photograph and overspend its tile. That is a real gap for whoever adds
+  one, not a latent bug in anything shipping. See
+  [ADR-a-photograph-pays-on-submit-and-the-host-may-veto-it](docs/adr/a-photograph-pays-on-submit-and-the-host-may-veto-it.md).
 
 **The default is `manual`**, deliberately: a game that forgot to say gets a human looking at it,
 never silent free points.
@@ -707,8 +707,9 @@ needs is a sentence in front of it, not a harder gate.
 > card locks for 30 minutes and Teddy is in a lockbox, and one word cannot mean three things.
 
 **The gap is where the hosts work.** Between the two presses the numbers are final and nobody has
-seen them: that is when they empty the queue, hand out anything they owe with the freehand award,
-and read the top three off `/league` — which the admin cookie has reached all night.
+seen them: that is when they hand out anything they owe with the freehand award and read the top
+three off `/league` — which the admin cookie has reached all night. There is no queue to empty
+(#83); every photograph paid the moment it landed.
 
 **The announcement has no trigger.** The hosts read the top three whenever they like; the button
 only publishes.
@@ -786,6 +787,33 @@ nothing to repoint it at. Dieter's steer covers it — *"in the end it's their c
 other teams then we should accept that."* At the door there are no signatures anyway.
 
 `src/removal.js`, walked by `node scripts/walk.js delete`.
+
+### The veto
+
+The host's only control over a **photo**, and the reason there is no judging queue anywhere on this
+site. Every photograph is `trust` and pays the instant it lands, so nothing is ever waiting on a
+verdict and no surface counts what has not been looked at. What is left is a **delete**, and it is
+an exception rather than a pass: a picture of a radiator taken to farm a point, and somebody asking
+you to take theirs down.
+
+It lives **in the fullscreen viewer on `/shots`**, admin-only, one under each photograph — not on
+the wall's thumbnails, where three across at real density puts a face at about 5mm. It asks first,
+using the house confirm modal.
+
+A veto is a **true delete**: the submission row goes, the file is unlinked from `data/uploads`, and
+the **award** goes with it *if it was the last photograph answering that unit*. A retake writes a
+second submission against one unit and upserts one award, so deleting one of a pair takes nothing —
+the prompt is still answered.
+
+**The team is told nothing.** The slot reopens, the tile's count drops, and there is no line
+anywhere saying why. Silence is the decision, not a gap: the veto is rare, and the
+please-take-that-down case actively wants it.
+
+> Not "reject", and not a **verdict**. A verdict is something a host owes; nobody owes this one.
+
+`deletePhotograph` in `src/removal.js`, beside the team delete, walked by
+`node scripts/walk.js shots`. See
+[ADR-a-photograph-pays-on-submit-and-the-host-may-veto-it](docs/adr/a-photograph-pays-on-submit-and-the-host-may-veto-it.md).
 
 ### Profile answer
 
@@ -903,13 +931,13 @@ Admin, all behind one cookie gate
 | method | route | what |
 | --- | --- | --- |
 | GET | `/admin/key/:secret` | set the admin cookie, redirect to `/admin` |
-| GET | `/admin` | **HQ**: the host's dashboard. Team count, how long the night has run, the progress percent, the three code numbers, the half-hour pulse, and what is waiting on a human. Refreshes itself, which is why it holds no form |
+| GET | `/admin` | **HQ**: the host's dashboard. Team count, how long the night has run, the progress percent, the three code numbers, the half-hour pulse, and who is holding Teddy. Refreshes itself, which is why it holds no form |
 | GET | `/admin/live` | the fragments HQ and the host's league poll every 10s. The site's one non-page endpoint; admin-gated, because it hands back the whole board in one request |
 | GET | `/admin/controls` | everything with a consequence, on one page and off the menu bar: freeze/unfreeze, end, hand out points, recompute, delete a team, reset |
 | GET | `/admin/delete-team` | the teams, each with its two members' names and what it has done; `?team=<id>` is the confirmation in front of the press — see **Removing a team** |
 | POST | `/admin/delete-team` | remove one team, its photographs, and the dead cards it leaves in other hands |
-| GET | `/admin/court` | everything waiting on a human verdict, across all games, in one list. Honest stub, owned by #83 |
 | GET | `/admin/game/:gameId` | the gallery: every submission for one game, with the actions its judging mode calls for — or, for a `trophy`, the team list with one button each |
+| POST | `/admin/photo/delete` | the veto: one photograph off the wall and off the disk, and its point with it if it was the last one answering that unit — see **The veto** |
 | POST | `/admin/judge` | verdict + award on one submission; rejecting writes a zero rather than deleting, so re-judging upserts |
 | POST | `/admin/trophy` | hand a trophy over, or take it back (which writes a zero) |
 | POST | `/admin/award` | manual points to a team |
@@ -956,7 +984,7 @@ with nine onboarding fields and nineteen slugs tapped out of `/admin/codes`
 - the **admin cookie**, so `/admin` and `/` link to each other from the menu bar rather than
   through a secret URL;
 - a **yellow menu bar** instead of the black one, which is the only thing on screen saying this is
-  not the night, and which holds **every link there is** — `board HQ court league recap shots`.
+  not the night, and which holds **every link there is** — `board HQ league recap shots`.
   `board` is dev-only because `/` demands a team and a host on the night is never one; `recap` and
   `shots` show whatever the clock says, because a dev build has no night to be partway through, and
   both routes let a dev build through the gate that bounces production;

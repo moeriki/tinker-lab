@@ -241,7 +241,7 @@ export function statusbar(items = sample(chrome.status, chrome.STATUS_SLOTS)) {
 
 /**
  * The menu bar, pinned to the bottom of the screen above the small print (#76). Two audiences and
- * one list: a host holds `HQ court league recap shots`, a guest after the reveal holds
+ * one list: a host holds `HQ league recap shots`, a guest after the reveal holds
  * `games league recap shots`, and the three words in the middle are the same words on both.
  *
  * **It is a slot, not something this file decides.** Which links a request gets depends on the
@@ -516,6 +516,21 @@ export const MODAL_NO = 'No?';
  * `.btn--primary` was `text-transform: uppercase` site-wide and shouted a line reaching for
  * deadpan; the map had carried that as an open copy complaint since #90. #107 took the uppercase
  * off every button at once, which was always the correct blast radius for it.
+ *
+ * **`confirmForm` is the destructive shape** (#83), and it exists because a link cannot delete
+ * anything. The house rule is that a state change POSTs and redirects, so a modal guarding one
+ * needs its confirm to be a submit button rather than an anchor -- `{ action, fields }`, the fields
+ * going in as hidden inputs. Everything else holds: the word is still `MODAL_YES`, the order is
+ * still deny-then-confirm, and the deny is still a link, because saying no changes nothing.
+ *
+ * The form is a wrapper, so it becomes the flex child the confirm used to be -- and it costs no CSS
+ * at all, because `.btnrow > form` (#106) already exists for exactly this: half the buttons on this
+ * site reach the page wrapped in a form, since a POST needs one. `.modal__confirm` is a hook with
+ * no rule behind it. That is worth saying out loud, because a rule was written here first and only
+ * a rebase found the one already doing the job.
+ *
+ * The two confirm shapes are mutually exclusive and the form wins where both are passed, which is
+ * a caller bug rather than a supported combination.
  */
 export function modalActions({
   aside = '',
@@ -523,33 +538,46 @@ export function modalActions({
   denyAttrs = {},
   confirmHref,
   confirmAttrs = {},
+  confirmForm,
 }) {
+  const confirm = confirmForm
+    ? `<form class="modal__confirm" method="post" action="${escape(confirmForm.action)}">
+          ${Object.entries(confirmForm.fields ?? {})
+            .map(
+              ([name, value]) =>
+                `<input type="hidden" name="${escape(name)}" value="${escape(String(value))}">`,
+            )
+            .join('')}
+          <button class="btn btn--primary" type="submit">${MODAL_YES}</button>
+        </form>`
+    : `<a class="btn btn--primary" href="${escape(confirmHref)}"${attrsHtml(confirmAttrs)}>${MODAL_YES}</a>`;
+
   return `<div class="btnrow btnrow--end modal__actions">
         ${aside}
         ${denyHref ? `<a class="btn btn--secondary" href="${escape(denyHref)}"${attrsHtml(denyAttrs)}>${MODAL_NO}</a>` : ''}
-        <a class="btn btn--primary" href="${escape(confirmHref)}"${attrsHtml(confirmAttrs)}>${MODAL_YES}</a>
+        ${confirm}
       </div>`;
 }
 
 /**
  * A modal that **asks**, rather than announcing: the two-answer shape, `No?` beside `Okay?`.
  *
- * No page renders one yet — the first will be the delete-team confirm (#87) — and that is the
- * whole reason this function exists rather than waiting. `/kit` calls it, so the deny ships as a
- * button somebody has looked at, drawn beside a real confirm, at phone width. The kit showing a
- * component only in the shape that already worked is how `<a class="btn">` rendered as a raw blue
- * link site-wide, and the map says so out loud.
+ * The first real caller is the photograph veto in the fullscreen viewer (#83); #87's delete-team
+ * confirm went to a whole page instead, for reasons that page states. `/kit` draws both shapes, so
+ * the deny and the POST confirm ship as buttons somebody has looked at, at phone width. The kit
+ * showing a component only in the shape that already worked is how `<a class="btn">` rendered as a
+ * raw blue link site-wide, and the map says so out loud.
  *
  * `title` and `body` are the caller's, because what is being asked differs every time. The two
  * answers are not the caller's: they come from `modalActions()` and there is no argument for
  * overriding them.
  */
-export function askModal({ id = 'ask-modal', title, body, denyHref, confirmHref }) {
+export function askModal({ id = 'ask-modal', title, body, denyHref, confirmHref, confirmForm }) {
   return `<div class="modal" id="${escape(id)}">
     <div class="modal__box">
       <p class="modal__title">${escape(title)}</p>
       <p class="modal__body">${escape(body)}</p>
-      ${modalActions({ denyHref, confirmHref })}
+      ${modalActions({ denyHref, confirmHref, confirmForm })}
     </div>
   </div>`;
 }
@@ -1009,8 +1037,13 @@ export function wall(cells = [], { filters = '', empty = 'No photographs yet.' }
  * `shot-open`, the wall names the thumbnail you tapped the same thing, and the browser morphs one
  * into the other -- see `public/js/app.js` for the outbound half and `app.css` for the pair of
  * rules. A browser without view transitions cuts, which is what every browser did before.
+ *
+ * **`modal` is a slot, empty on every guest's copy of this page.** It is the veto confirm (#83),
+ * and it is out here beside the track rather than inside a panel for the same reason `layout()`
+ * keeps its own modal outside `.app`: `.modal` is `position: fixed`, and a fixed box nested in a
+ * horizontally-scrolling snap track would ride along with the photograph instead of holding still.
  */
-export function viewer({ panels, back, title = 'Shots' }) {
+export function viewer({ panels, back, title = 'Shots', modal = '' }) {
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -1023,6 +1056,7 @@ export function viewer({ panels, back, title = 'Shots' }) {
 <body class="viewer">
   <div class="viewer__track">${panels}</div>
   <a class="viewer__close" href="${escape(back)}" aria-label="Back to the wall">close</a>
+  ${modal}
 </body>
 </html>`;
 }
@@ -1044,8 +1078,27 @@ export function viewer({ panels, back, title = 'Shots' }) {
  * (#25, CONTEXT.md): the photograph is the identity. A caption that quietly names the subject
  * would be inventing the one field the tile refuses to store. Two words fix it, and they are true
  * of every photograph on the wall rather than a special case for one game.
+ *
+ * **`del` is the host's veto** (#83), and it is *in the panel* rather than fixed to a corner the way
+ * `close` is. That is forced rather than chosen: the track is a snap scroller and the server never
+ * learns which photograph you have flicked to, so a fixed button could not know what it would be
+ * deleting. Riding in the caption, it deletes the picture it is sitting under and there is nothing
+ * to be wrong about.
+ *
+ * It is drawn deliberately quieter than `close` -- an outline where close is a filled white chip --
+ * because the hierarchy is the whole safety argument. `close` is pressed on every photograph and
+ * this is pressed on almost none of them.
  */
-export function viewerPanel({ id, src, href, label = 'file', who, what = '', eager = false }) {
+export function viewerPanel({
+  id,
+  src,
+  href,
+  label = 'file',
+  who,
+  what = '',
+  eager = false,
+  del = '',
+}) {
   const picture = src
     ? `<img class="viewer__img" src="${escape(src)}" alt=""${eager ? '' : ' loading="lazy"'}>`
     : `<a class="viewer__dl" href="${escape(href)}" download>${escape(label)}<br>tap to open</a>`;
@@ -1055,6 +1108,7 @@ export function viewerPanel({ id, src, href, label = 'file', who, what = '', eag
       <figcaption class="viewer__cap">
         <span class="viewer__who">shot by ${escape(who)}</span>
         ${what ? `<span class="viewer__what">${escape(what)}</span>` : ''}
+        ${del ? `<a class="viewer__del" href="${escape(del)}">delete</a>` : ''}
       </figcaption>
     </figure>`;
 }

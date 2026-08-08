@@ -248,7 +248,6 @@ export const menuFor = ({ admin, ended: reallyEnded, dev = false }) => {
       // pointing at the guest side of the site.
       ...(dev ? [{ href: '/', label: 'board' }] : []),
       { href: '/admin', label: 'HQ' },
-      { href: '/admin/court', label: 'court' },
       { href: '/league', label: 'league' },
       ...ending,
     ];

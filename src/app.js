@@ -117,10 +117,11 @@ import {
   submissionsFor,
   teamScore,
 } from './scoring.js';
-import { deleteTeam, removableTeams, whatTeamHasDone } from './removal.js';
+import { deletePhotograph, deleteTeam, removableTeams, whatTeamHasDone } from './removal.js';
 import { resetGame, whatWouldBeCleared } from './reset.js';
 import { fireWebhook } from './webhooks.js';
 import {
+  askModal,
   blurb,
   boredButton,
   boredModal,
@@ -1145,7 +1146,8 @@ function afterOnboarding(req, res, team) {
  * Server-rendered on every page load and nothing else: no counts, no badges, nothing that could be
  * stale by the time it is read. A count on `court` was the obvious candidate and lost, and it
  * still loses now that two pages refresh themselves (#79): the bar is on every page including the
- * eleven that do not, so a number in it would be stale on nine of them.
+ * eleven that do not, so a number in it would be stale on nine of them. #83 then removed the word
+ * as well as the number -- there is no queue, so the host's bar is `HQ league` all night.
  *
  * **A host is never a team.** Settled while resolving #76: one host runs the admin and does not
  * play, the other plays and is an ordinary guest. So the two bars never appear on one device and
@@ -2198,9 +2200,18 @@ async function submitToGame({ req, res, params }) {
       }
       paid = !alreadySent.some((row) => row.unit === unit);
     } else {
-      // Anonymous units take the next ordinal, which is simply how many this team has sent. Past
-      // the last slot the ordinal runs off the end and the photograph is a spare.
-      unit = alreadySent.length;
+      // Anonymous units take the LOWEST FREE ordinal. It used to be `alreadySent.length` -- the
+      // count -- which was the same number right up until #83 gave the host a delete, and then
+      // stopped being: a team holding units 0,1,3,4 with 2 vetoed counts four, so their next
+      // portrait would claim ordinal 4, collide with the one they already banked, upsert its award
+      // and pay nothing. A point lost forever, silently, on the tile that just lost one.
+      //
+      // Filling the gap rather than taking `max + 1` also keeps the tile worth its ten: a vetoed
+      // portrait costs the point it was worth and not the slot as well.
+      const taken = new Set(alreadySent.map((row) => row.unit));
+      unit = 0;
+      while (taken.has(unit)) unit += 1;
+      // Past the last slot the ordinal runs off the end and the photograph is a spare.
       paid = unit < units;
     }
   }
@@ -2653,6 +2664,15 @@ function showShots({ req, res, url }) {
  * never sees it -- `#p42` is not sent to the server. That is why `at` is a query param as well:
  * the panel it names is the one rendered `eager`, because a `loading="lazy"` image that has not
  * been fetched yet has nothing for the view transition to morph into.
+ *
+ * **This is also where the host's veto lives** (#83), and the choice of surface is the decision:
+ * there is no judging queue anywhere on this site, because every photograph pays the instant it
+ * lands and no verdict is ever owed. What is left is a delete, and it belongs on the page the host
+ * already opens for pleasure rather than on one that would exist to make him feel behind.
+ *
+ * Not on the wall's thumbnails, either. Three across at real density puts a face at about 5mm, and
+ * a destructive control on a cell that size at 01:00 is a mis-tap generator. In here the photograph
+ * is the screen, you opened this one on purpose, and the confirm still asks.
  */
 function showShotsOpen({ req, res, url }) {
   if (!maySeeShots(req)) return redirect(res, '/');
@@ -2664,15 +2684,58 @@ function showShotsOpen({ req, res, url }) {
 
   if (!photos.length) return redirect(res, `/shots${shotsQuery({ team, prompt })}`);
 
+  const query = shotsQuery({ team, prompt });
+  const mayDelete = isAdmin(req);
+
+  // Where a panel's `delete` link goes: this same viewer, still filtered, still opened at this
+  // photograph -- plus the param that draws the confirm over it. A link that changes nothing, which
+  // is the whole point of it being a link.
+  const viewerAt = (id, extra = '') =>
+    `/shots/open${query ? `${query}&` : '?'}at=${id}${extra}#p${id}`;
+
   const panels = photos
-    .map((photo) => viewerPanel({ ...photo, href: photo.bytes, eager: photo.id === at }))
+    .map((photo) =>
+      viewerPanel({
+        ...photo,
+        href: photo.bytes,
+        eager: photo.id === at,
+        del: mayDelete ? viewerAt(photo.id, `&delete=${photo.id}`) : '',
+      }),
+    )
     .join('');
 
   // Back to the photograph you opened rather than the top of a seven-screen wall -- and, on a
   // browser with view transitions, that fragment is also what the reverse morph targets.
   const anchor = photos.some((photo) => photo.id === at) ? `#p${at}` : '';
 
-  return html(res, viewer({ panels, back: `/shots${shotsQuery({ team, prompt })}${anchor}` }));
+  const asked = Number(url.searchParams.get('delete'));
+  const doomed = mayDelete ? photos.find((photo) => photo.id === asked) : undefined;
+
+  return html(
+    res,
+    viewer({
+      panels,
+      back: `/shots${query}${anchor}`,
+      modal: doomed
+        ? askModal({
+            id: 'delete-shot',
+            title: 'Delete this photograph?',
+            // What actually happens, in the order it happens, including the part nobody sees. The
+            // silence is the design (#83) and the modal is the only place it is ever stated, so it
+            // is stated rather than implied.
+            body: `Shot by ${doomed.who}. The picture goes, the point goes with it, and their tile
+              opens that slot again without saying why.`,
+            denyHref: viewerAt(doomed.id),
+            confirmForm: {
+              action: '/admin/photo/delete',
+              // `back` rides along so the redirect lands on the wall this host was filtered to,
+              // rather than on all of it.
+              fields: { submission: doomed.id, back: `/shots${query}` },
+            },
+          })
+        : '',
+    }),
+  );
 }
 
 // --- admin ------------------------------------------------------------------------------------
@@ -2701,27 +2764,6 @@ function nightSoFar() {
   return hours ? `${hours}h${String(minutes % 60).padStart(2, '0')} in` : `${minutes} min in`;
 }
 
-/**
- * Submissions sitting on a verdict a human owes. Only `manual` games can hold one: a `trust`
- * submission is already paid, and `check`/`resolve` games write their own verdicts.
- *
- * Today this is ALWAYS ZERO -- nothing in the roster declares `manual`, which is #83's finding
- * and the reason the queue is empty all night until it flips the two photo tiles over. Counting
- * it honestly now means the number is right on the day #83 lands rather than a week later.
- */
-const awaitingVerdict = () =>
-  listGames()
-    .filter((game) => judgingMode(game) === 'manual')
-    .reduce(
-      (total, game) =>
-        total +
-        get(
-          "select count(*) as count from submissions where game_id = ? and verdict = 'pending'",
-          game.id,
-        ).count,
-      0,
-    );
-
 /** One row of HQ: a label, a fact, and somewhere to go. */
 const hqRow = (href, label, note) =>
   `<a class="hq-row" href="${href}"><span>${label}</span><span class="mono">${note}</span></a>`;
@@ -2744,7 +2786,6 @@ function liveFragments() {
   const teams = get('select count(*) as count from teams').count;
   const elapsed = nightSoFar();
   const codes = codeCounts();
-  const waiting = awaitingVerdict();
 
   const teddy = listGames().find((game) => game.kind === 'trophy');
   const teddyHolders = teddy
@@ -2754,10 +2795,14 @@ function liveFragments() {
       ).count
     : 0;
 
-  // Both of these are jobs, so both vanish when there is no job. Teddy stays visible once handed
-  // over -- who is holding it is a fact worth a glance, and it is one row.
+  // Jobs vanish when there is no job. Teddy stays visible once handed over -- who is holding it is
+  // a fact worth a glance, and it is one row.
+  //
+  // There was a second row here, `court -- N waiting`, and #83 removed it along with the surface it
+  // pointed at. Nothing on this site ever waits on a verdict now: every photograph pays the instant
+  // it lands, and the host's only control is a delete on `/shots`. A row counting the unjudged
+  // would have been counting something the host is not on the hook for.
   const jobs = [
-    waiting ? hqRow('/admin/court', 'court', `${waiting} waiting`) : '',
     teddy
       ? hqRow(
           `/admin/game/${escape(teddy.id)}`,
@@ -3185,6 +3230,26 @@ async function adminDeleteTeamConfirmed({ req, res }) {
 }
 
 /**
+ * The veto (#83). Lands on the wall rather than back in the viewer, and that is the honest place to
+ * put someone: the photograph they were looking at does not exist any more, so there is nothing to
+ * come back to. The filter rides through so they land where they were looking.
+ *
+ * `back` is checked rather than trusted. It is a field on a form that only an admin can post, so
+ * the threat is thin -- but it is a string from a request that becomes a `Location` header, and
+ * that shape is an open redirect wherever it is not pinned down. Anything that is not this site's
+ * own wall falls back to the whole wall.
+ */
+async function adminDeletePhoto({ req, res }) {
+  if (!requireAdmin(req, res)) return undefined;
+
+  const form = await readForm(req);
+  deletePhotograph(Number(form.get('submission')));
+
+  const back = String(form.get('back') ?? '');
+  return redirect(res, /^\/shots(\?|$)/.test(back) ? back : '/shots');
+}
+
+/**
  * A trophy's admin surface. There is no gallery, because a trophy holds no submissions: it is an
  * object in the house, and the only question is who is holding it. So this is the team list, one
  * button each, and the current holder said out loud.
@@ -3248,28 +3313,12 @@ function trophyPanel(req, res, game) {
  * The gallery, per game. What a photo can have done to it comes from the game's judging mode in
  * content, never from a hardcoded list -- so locking the roster needs no change here. A trophy
  * has no submissions to gallery, and hands off above.
+ *
+ * Every game on the roster is `trust`, `check` or `resolve` and #83 settled that none of them will
+ * ever be `manual`, so the `manual` branch below has no caller on this roster. It stays because the
+ * mode is read from content: a game declaring `manual` gets buttons here without touching this
+ * file, which is the whole point of not hardcoding the list.
  */
-/**
- * `court` in the host's menu bar (#76): one queue across every game, rather than the per-game
- * galleries `HQ` already links. It is in the bar from the first minute of the night because it is
- * the only surface a host opens repeatedly -- and it is a stub because what a queue holds is
- * #83's decision, not this ticket's.
- */
-function adminCourt({ req, res }) {
-  if (!requireAdmin(req, res)) return undefined;
-
-  return html(
-    res,
-    stub({
-      title: 'Court',
-      nav: navFor(req, '/admin/court'),
-      owner: 'Photographs are trusted, and nobody has decided what the queue holds',
-      does: 'Everything waiting on a human verdict, across all games, in one list.',
-      still: true, // admin surface
-    }),
-  );
-}
-
 function adminGame({ req, res, params }) {
   if (!requireAdmin(req, res)) return undefined;
 
@@ -3315,9 +3364,14 @@ function adminGame({ req, res, params }) {
     })
     .join('');
 
+  // `trust` says where the one control is, because it is not here. Since #83 a photograph can be
+  // deleted, and only from the viewer on the wall -- so "nothing to press", which was true when
+  // this line was written, would now be the page quietly hiding the host's only move.
   const explainer = {
     manual: 'You judge these. Award or reject each one.',
-    trust: 'Judged on trust — points landed when they submitted. Nothing to press.',
+    trust: takesPhoto(game)
+      ? 'Judged on trust — points landed when they submitted. Nothing to press here; a photograph can be deleted from the wall.'
+      : 'Judged on trust — points landed when they submitted. Nothing to press.',
     check: 'Judged automatically on submit. Read-only.',
     resolve: 'Judged across every team at game end. Read-only until then.',
   }[mode];
@@ -3767,8 +3821,8 @@ const routes = [
   route('GET', '/admin/controls', adminControls),
   route('GET', '/admin/delete-team', adminDeleteTeam),
   route('POST', '/admin/delete-team', adminDeleteTeamConfirmed),
-  route('GET', '/admin/court', adminCourt),
   route('GET', '/admin/game/:gameId', adminGame),
+  route('POST', '/admin/photo/delete', adminDeletePhoto),
   route('POST', '/admin/judge', adminJudge),
   route('POST', '/admin/trophy', adminTrophy),
   route('POST', '/admin/award', adminAward),

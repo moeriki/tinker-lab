@@ -523,8 +523,11 @@
         <p class="sect__note">The third slot is <strong>neither answer</strong>. The hint box's <code>What?</code> is a link to the rules, not a refusal, so it keeps its own words and sits outside the pair. Two buttons fit one row at 390px; three has never been drawn, because no modal has yet wanted an aside <em>and</em> a deny.</p>
         <p class="sect__note">The pair now lands <strong>as written</strong> — <code>No?</code> beside <code>Okay?</code>. It used to land as <code>NO?</code> and <code>OKAY?</code>, because <code>.btn--primary</code> was <code>text-transform: uppercase</code> site-wide and shouted a line reaching for deadpan; the map carried that as an open copy complaint from #90 until <strong>#107</strong> took the uppercase off every button at once, which was always the right blast radius for it.</p>
         <p class="sect__note"><strong>The answers sit on the box's bottom border</strong> (#107) — end-aligned, side by side, snug, half inside and half out, with their hard shadows falling onto whatever is behind the box. Three treatments were drawn at phone width first: flush inside the edge read as forgotten padding, and hanging fully below lost the connection to the box. They used to stack, with the confirm spanning a row of its own, and that was a deliberate guard — with equal widths the hierarchy rested on fill colour alone, on the one control people press without reading. Snug reopens it on purpose: nothing on this site is full width by default, so fill and the deeper shadow carry the hierarchy and the words carry the rest.</p>
-        <p class="sect__note">Below is the two-answer shape, from <code>askModal()</code>. No page ships one yet — the first will be the delete-team confirm (#87) — and it is demoed here <em>before</em> that, so <code>No?</code> reaches a page as a button somebody has looked at. A component demoed only in the shape that already worked is how <code>&lt;a class="btn"&gt;</code> rendered as a raw blue link site-wide.</p>
+        <p class="sect__note">Below is the two-answer shape, from <code>askModal()</code>. The first page to ship one is the photograph veto in the fullscreen viewer (#83); #87's delete-team confirm went to a whole page instead. It was demoed here <em>before</em> either existed, so <code>No?</code> reached a page as a button somebody had looked at. A component demoed only in the shape that already worked is how <code>&lt;a class="btn"&gt;</code> rendered as a raw blue link site-wide.</p>
         <button class="btn btn--hint" type="button" data-open-modal="ask-modal">Open the asking one</button>
+
+        <p class="sect__note"><strong>And the destructive shape, which is a different component in one respect that matters</strong> (#83): a link cannot delete anything, so its confirm is a <code>&lt;button type="submit"&gt;</code> inside a form that POSTs, and the deny stays a link because saying no changes nothing. The words, the order and the snug pair above are identical, and it costs no CSS at all: <code>.btnrow &gt; form</code> (#106) already exists because half the buttons on this site reach the page wrapped in a form. Demoed because this <em>is</em> the shape the site actually deletes with, and the link one it does not: drawing only the safe half of a pair is the same mistake in a new place.</p>
+        <button class="btn btn--hint" type="button" data-open-modal="delete-shot">Open the deleting one</button>
 
         <h3 class="sect__sub">Nothing to do — <code>I'm bored</code></h3>
         <p class="sect__note">The dashboard's escape hatch (#95), and the <strong>first real consumer of the two words</strong>: both of its answers close the box and do nothing else. No points, no record, no route. The site suggests something and has no follow-through — that is the joke, and it is why the deny finally had something to hang on it (<code>denyAttrs</code> on <code>modalActions()</code> exists for this caller).</p>
@@ -733,7 +736,7 @@
         <h3 class="sect__sub">What a host holds</h3>
         <div class="stack navbar-slot">
           <!--@navbar who="host" ended="down" here="HQ"-->
-          <!--@navbar who="host" ended="up" here="court"-->
+          <!--@navbar who="host" ended="up" here="shots"-->
         </div>
 
         <h3 class="sect__sub">What a guest holds</h3>
@@ -983,6 +986,12 @@
          closes this one. (app.js closes any box whose button asks to be closed, by name no
          longer; it just has nothing to bind to here.) -->
     <!--@askmodal-->
+
+    <!-- The destructive shape (#83), which is the one the site actually deletes with: the confirm
+         is a submit button in a form, not an anchor. `post` with no value points it at #modal so
+         pressing it here goes nowhere. Its own id, because two boxes cannot both be #ask-modal and
+         kit.js opens them by name. -->
+    <!--@askmodal id="delete-shot" post="" title="Delete this photograph?" body="Shot by PLATYPUS. The picture goes, the point goes with it, and their tile opens that slot again without saying why."-->
 
     <!-- The bored box, from boredModal(). The only modal here the server already renders shut, so
          kit.js's hide-on-arrival is a no-op for it and the §11 button opens it for real via

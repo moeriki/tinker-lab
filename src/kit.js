@@ -160,12 +160,20 @@ const RENDERERS = {
   // The two-answer shape. It gets its own marker rather than a flag on `hintmodal` because they
   // are two boxes on the page at once -- the point is seeing `No?` drawn beside a real `Okay?`,
   // and one `#hint-modal` cannot be both. Its words come from `modalActions()`, not from here.
+  // `post` draws the DESTRUCTIVE shape (#83), where the confirm is a submit button in a form
+  // because a link cannot delete anything. It is a separate marker rather than a default because
+  // both shapes ship -- the link confirm and the form confirm -- and a kit that only ever drew the
+  // link one would be the `<a class="btn">` mistake again: a component demoed in the shape that
+  // already worked, while the shape the site actually posts with goes unlooked at.
   askmodal: (a) =>
     askModal({
+      id: a.id ?? 'ask-modal',
       title: a.title ?? 'sure?',
       body: a.body ?? 'nothing is being deleted. this is the shape, not a question.',
       denyHref: a.deny ?? '#modal',
-      confirmHref: a.href ?? '#modal',
+      ...(a.post === undefined
+        ? { confirmHref: a.href ?? '#modal' }
+        : { confirmForm: { action: a.post || '#modal', fields: {} } }),
     }),
 
   // The bored box and its button, both REAL and both wired by `app.js` rather than by `kit.js` --

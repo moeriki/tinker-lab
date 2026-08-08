@@ -39,6 +39,7 @@ import { existsSync, unlinkSync } from 'node:fs';
 import { basename, join } from 'node:path';
 
 import { UPLOADS_DIR } from './config.js';
+import { getGame } from './content.js';
 import { all, get, run, transact } from './db.js';
 import { forgetMembers } from './deals.js';
 import { onboardingComplete } from './identity.js';
@@ -140,6 +141,76 @@ export function deleteTeam(teamId) {
   }
 
   return { name: team.name, cards, photos: files.length };
+}
+
+/**
+ * One photograph, vetoed (#83). The site's third destructive control and by far the likeliest to
+ * be pressed, so it is worth being precise about what it is *for*: a picture of a radiator taken to
+ * farm a point, and somebody asking you to take theirs down. It is not a verdict. Nothing waits on
+ * it, no queue counts it, and every photograph is paid and finished the moment it lands.
+ *
+ * **The point only goes if the last photograph of that unit goes.** A retake writes a second
+ * submission against the same unit and upserts one award (src/content.js, `unitCount`), so a team
+ * that shot prompt 3 twice and had one deleted still answered prompt 3. Undoing the award off the
+ * mere existence of a delete would take a point they are still owed. `scripts/walk.js` shoots one
+ * prompt twice for exactly this: it deletes one of the pair and checks the score does not move,
+ * then deletes the other and checks it does.
+ *
+ * **Silence is the design, not an omission.** The team is told nothing: their slot simply reopens
+ * and the tile's count drops. #11 wanted a line on the tile saying take it again, and that was
+ * written when a verdict was owed on every photograph -- when rejection was routine. It is not
+ * routine now, and the please-take-that-down case actively wants silence. Saying it would also mean
+ * keeping a record of the photograph we have just been asked to destroy.
+ *
+ * Files are unlinked AFTER the transaction commits, the same direction and for the same reason as
+ * `deleteTeam` above: it fails towards done.
+ */
+export function deletePhotograph(submissionId) {
+  const shot = get(
+    'select * from submissions where id = ? and photo_path is not null',
+    submissionId,
+  );
+  // A double-tap on a stale viewer finds nothing, which is ordinary rather than an error -- the
+  // caller redirects to the wall either way and the picture is gone from it both times.
+  if (!shot) return null;
+
+  const game = getGame(shot.game_id);
+
+  transact(() => {
+    run('delete from submissions where id = ?', shot.id);
+
+    // What the award was keyed on when the photograph banked: the unit where the game has any, and
+    // the submission's own id where it has none. Mirrors the write in `submitAnswer`.
+    const sourceId = shot.unit === null ? shot.id : shot.unit;
+
+    // Another photograph still standing against this unit means the unit is still answered.
+    const survivors =
+      shot.unit === null
+        ? 0
+        : get(
+            'select count(*) as n from submissions ' +
+              'where team_id = ? and game_id = ? and unit = ? and photo_path is not null',
+            shot.team_id,
+            shot.game_id,
+            shot.unit,
+          ).n;
+
+    if (!survivors) {
+      run(
+        'delete from awards where team_id = ? and game_id = ? and kind = ? ' +
+          'and ifnull(source_id, 0) = ?',
+        shot.team_id,
+        shot.game_id,
+        game?.kind === 'tally' ? 'tally' : 'answer',
+        sourceId,
+      );
+    }
+  });
+
+  discard(shot.photo_path);
+  discard(shot.photo_thumb);
+
+  return { team: shot.team_id, game: shot.game_id };
 }
 
 /**

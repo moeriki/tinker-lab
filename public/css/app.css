@@ -2296,6 +2296,28 @@ ol.stack {
 }
 
 
+/* The host's veto (#83), and everything about how it is drawn is the safety argument. It is an
+   outline where `close` is a filled white chip, it is mono and lowercase where close shouts, and it
+   sits in the caption rather than in a corner — so the one control pressed on every photograph and
+   the one pressed on almost none of them never look alike and never sit adjacent.
+
+   Still a full tap target. Quiet is not the same as fiddly, and a control you have to stab at twice
+   is its own kind of accident. */
+.viewer__del {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--tap);
+  margin-top: 0.4rem;
+  padding: 0 1.2rem;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  text-decoration: none;
+  color: var(--c-paper);
+  background: transparent;
+  border: var(--edge-1) solid var(--c-paper);
+}
+
 .viewer__close {
   position: fixed;
   right: var(--space-3);

@@ -33,14 +33,17 @@ it.** The frame therefore still ends in the same black band it always did, and i
 It exists only on pages that were given one. `layout()` emits the foot strip bare otherwise, so
 every page that had no menu before this ticket lays out exactly as it did.
 
-**Six words, and three of them are the same word in both bars:**
+**Five words, and three of them are the same word in both bars.**
+*Amended [#83](https://github.com/moeriki/tinker-lab/issues/83) — there were six. `court` is gone,
+along with the surface behind it: there is no judging queue, because every photograph pays on
+submit and nothing ever waits on a verdict. The host's bar is two words all night.*
 
 | who | when | bar |
 | --- | --- | --- |
 | guest | until the night has ended | *nothing* |
 | guest | once the night has ended | `games` `league` `recap` `shots` |
-| host | all night | `HQ` `court` `league` |
-| host | once the night has ended | `HQ` `court` `league` `recap` `shots` |
+| host | all night | `HQ` `league` |
+| host | once the night has ended | `HQ` `league` `recap` `shots` |
 
 **The reveal is the end, not the freeze.**
 [#77](https://github.com/moeriki/tinker-lab/issues/77) landed while this was being built and split
@@ -80,6 +83,9 @@ words in a loud room at one in the morning are five identical words.
   [#83](https://github.com/moeriki/tinker-lab/issues/83),
   [#81](https://github.com/moeriki/tinker-lab/issues/81) and
   [#80](https://github.com/moeriki/tinker-lab/issues/80). The words are settled; the pages are not.
+  *Amended [#83](https://github.com/moeriki/tinker-lab/issues/83) — its ticket decided the surface
+  should not exist, so the word and the stub went together rather than the stub being built out.
+  A route reserved for a decision is a route the decision can also delete.*
 - **The door keeps no menu.** `/welcome` and `/questions` stay bare: you are not inside yet.
   *Amended [#96](https://github.com/moeriki/tinker-lab/issues/96) — still true on the night, and no
   longer true on a dev build. See the amendment below.*
@@ -100,7 +106,10 @@ the end of it first, and this bar exists to be reachable without scrolling.
 **A count on `queue`.** Tempting — it is the thing that fills up while nobody is looking. Rejected
 because this site polls nowhere but `/admin`, so a count is only true at page load and a stale
 `court 7` on a page opened ten minutes ago is a small lie in the one place that must not tell them.
-The numbers live on the board, which does poll.
+The numbers live on the board, which does poll. *Amended
+[#83](https://github.com/moeriki/tinker-lab/issues/83) — there is nothing to count. The thing that
+fills up while nobody is looking turned out to be a thing nobody is on the hook for, so the count
+went, then the row on the board went, then the word.*
 
 **No guest bar at all**, with `/league` carrying links onward to the other three. Rejected: the
 four end-of-night surfaces are ones guests move *between*, and a guest deep in the photographs would
