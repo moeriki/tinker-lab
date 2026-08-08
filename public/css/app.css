@@ -751,6 +751,20 @@ ol.stack {
    is a <button>, so the page that exists to catch drift was showing the half of the component
    that already worked. The modifiers below set their own `color` and still win -- they come
    later. */
+/* Snug, everywhere, by default (#107). A `.stack` is a flex column and its items stretch, so every
+   button dropped straight into a page came out spanning the content column whether it wanted to or
+   not -- `back to controls` was as wide as the page it was leaving. Removing `.btn--primary`'s
+   `flex: 1 1 100%` was only half of it; this is the other half.
+
+   Scoped to a stack's own children rather than put on `.btn` itself, because in a ROW -- a
+   `.btnrow`, a door's actions, a dialog's answers -- stretch is what keeps buttons of two
+   different font sizes the same height as each other, and top-aligning them there would look
+   ragged for no gain.
+
+   A row that genuinely wants to fill the width says so at the row. That is #106's, which owns rows
+   and widths; this ticket only stops the button from deciding it alone. */
+.stack > .btn { align-self: start; }
+
 .btn {
   min-height: var(--tap);
   padding: 0.6rem 1rem;
@@ -779,43 +793,57 @@ ol.stack {
   cursor: not-allowed;
 }
 
+/* ---------------------------- the three tiers ------------------------------
+   Settled in #107, which found ONE class doing four unrelated jobs: leaving a page, stepping back
+   in a wizard, offering the lesser way forward, and answering a destructive question. Six words on
+   one look, and on the door two of them -- `on my own` and `actually, no` -- came out identical
+   while one went forward and one threw your typing away.
+
+   PRIMARY   the CTA. The press that advances.
+   SECONDARY the other direction off this same screen: the wizard's back, the other answer to a
+             question. Agrees with the primary on font family so the two read as one pair; differs
+             on fill, which is the whole hierarchy.
+   TERTIARY  ad-hoc. Reloads this screen (`deal us another`, `ask me something else`) or leaves it
+             sideways (`close`, `back to HQ`). Never paired with a primary as its alternative.
+
+   NOTHING IS FULL WIDTH. Buttons are snug to their words; a row that wants to fill says so at the
+   row, not in the button. `.btn--primary { flex: 1 1 100% }` used to live here and reached every
+   surface on the site from one line.
+
+   NOTHING IS UPPERCASE. `text-transform: uppercase` used to live on the primary and drew the
+   modal's polite `Okay?` as a shouted `OKAY?`, which the map had been carrying as an open copy
+   complaint since #90. Removing it here is that fix, and it lands on every button at once. */
 .btn--primary {
-  flex: 1 1 100%;
   background: var(--grad-hot);
-  text-transform: uppercase;
   letter-spacing: 0.03em;
   box-shadow: var(--shadow-2);
   font-size: 1.05rem;
+}
+
+/* Matched to the primary on every axis except fill: same size, same shadow depth, same tracking.
+   That match is the point -- a secondary is the other direction off the SAME screen, so the pair
+   has to read as one pair and then differ on the one thing that carries the hierarchy.
+
+   It has to out-weigh a bare `.btn` too, or the tier means nothing: plenty of ordinary buttons on
+   this site carry no tier at all (`the rules`, `I'm bored`, most of the admin), and until this rule
+   grew a size and a shadow the secondary was a bare button plus 0.03em of tracking. */
+.btn--secondary {
+  background: var(--c-paper);
+  letter-spacing: 0.03em;
+  box-shadow: var(--shadow-2);
+  font-size: 1.05rem;
+}
+
+.btn--tertiary {
+  background: var(--c-paper);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
 }
 
 .btn--hint {
   background: var(--c-yellow);
   font-family: var(--font-aside);
   font-size: 1.05rem;
-}
-
-.btn--close {
-  background: var(--c-paper);
-  font-family: var(--font-mono);
-  font-size: 0.8rem;
-  text-transform: none;
-}
-
-/* A modal ANSWER that is not a confirm -- the `No?` of the pair (#90, #97).
-   It exists because the deny used to borrow `.btn--close`, and `.btn--close` is the site's quiet
-   paper-and-mono "leave this alone" button: it disagreed with the confirm beside it on font family
-   and on letter case at once, so the two halves of one question were set in two different voices.
-   A deny is not a close. It is the other answer, and it should look like it was written by whoever
-   wrote the confirm.
-   It therefore agrees with `.btn--primary` on family, transform and tracking, and disagrees ONLY on
-   fill and on width -- which is exactly the hierarchy the pair is meant to carry. Note this leaves
-   both answers uppercase: the shout is `.btn--primary` being itself site-wide, and a modal opting
-   out of it is the page-level decision `/kit` exists to prevent. */
-.btn--deny {
-  background: var(--c-paper);
-  font-family: var(--font-shout);
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
 }
 
 .btn--what {
@@ -955,7 +983,9 @@ ol.stack {
   background: var(--c-paper);
   border: var(--edge-3) solid var(--c-ink);
   box-shadow: var(--shadow-3);
-  padding: 1.2rem 1rem;
+  /* No bottom padding: the actions straddle the bottom border and their own half-height is the
+     gap. See `.modal__actions` below. */
+  padding: 1.2rem 1rem 0;
   animation: modal-pop 0.22s cubic-bezier(0.2, 1.6, 0.4, 1) both;
 }
 
@@ -983,29 +1013,33 @@ ol.stack {
   font-size: 1.2rem;
 }
 
+/* The answers sit ON the bottom border, half inside the box and half out (#107). Three treatments
+   were drawn at phone width before this one was picked: flush inside the edge read as forgotten
+   padding, and hanging fully below lost the connection to the box at a glance. Straddling reads as
+   deliberate, and the buttons' hard offset shadows fall outside onto the gradient, which is the
+   poster look this site is made of.
+
+   Which means the box owes NO bottom padding: the row's own half-height is the gap. `translateY`
+   rather than a negative margin, so the row still reserves its full height inside the box and the
+   body copy above it cannot be overlapped.
+
+   End-aligned and snug, both of them. The old shape stacked them -- deny on one row, confirm
+   spanning the box below it -- because with equal widths hierarchy rested on fill colour alone on
+   the one control people press without reading. Snug reopens that, deliberately (#107): fill and
+   the deeper shadow are the hierarchy now, and the words carry the rest.
+
+   Wrap stays on. Three buttons is possible -- the hint modal's aside sits beside the pair -- and a
+   row that overflows 22rem on a phone is a real defect, not a style. */
 .modal__actions {
   display: flex;
   gap: 0.6rem;
   flex-wrap: wrap;
+  justify-content: flex-end;
   margin-top: 1.1rem;
+  transform: translateY(50%);
 }
 
-/* The size the two answers share. Both of them: `.btn--primary`'s 1.05rem loses to this, which is
-   deliberate and is why hierarchy inside a box is carried by the row split below and by fill. */
-.modal__actions .btn { flex: 1 1 auto; font-size: 0.85rem; }
-
-/* The confirm takes a row of its own, the way a primary button does on every other surface (#97).
-   `.modal__actions .btn { flex: 1 1 auto }` is 0,2,0 and was out-specifying `.btn--primary`'s
-   0,1,0, so the two answers came out exactly the same width and `No?` was as big a tap target as
-   `Okay?` -- hierarchy carried by fill colour alone, on the one control in the house people press
-   without reading. This line restores the site-wide shape rather than inventing a modal-only one.
-
-   The deny needs the second line, and a screenshot is what said so: with only the rule above, the
-   deny wrapped onto a row of its own and its inherited `flex-grow: 1` then stretched it across the
-   whole box. Two full-width buttons stacked is the same defect standing up -- so it keeps its
-   content width and the confirm is the only thing in the box that spans it. */
-.modal__actions .btn--primary { flex: 1 1 100%; }
-.modal__actions .btn--deny { flex: 0 1 auto; }
+.modal__actions .btn { flex: 0 0 auto; font-size: 0.85rem; }
 
 /* ---------------------------------- door ----------------------------------- */
 
@@ -1047,19 +1081,37 @@ ol.stack {
 
 .door__intro { margin: 0; }
 
-/* Back and forward. Unlike a modal's two answers these are deliberately UNEQUAL on every axis at
-   once -- the forward takes its own full row and its own fill, the back is the site's quiet
-   paper-and-mono button at content width. That is the opposite call from `.modal__actions`, and for
-   the opposite reason: there the two are answers to one question and had to agree, here one of them
-   is the way on and the other is the way back. */
+/* Up to three tiers in one row, end-aligned so the primary is the button under your thumb (#107).
+   Markup order is quietest first -- tertiary, secondary, primary -- so it reads left to right as
+   the stakes rise, and the row is the same shape as a dialog's.
+
+   The forward button used to take a full row of its own here. It no longer does: nothing on this
+   site is full width by default, and a snug primary beside a snug secondary is the whole reason
+   the tiers had to be named -- on the door, `on my own` and `actually, no` had been the same
+   button while one went forward and one threw your typing away. */
 .door__actions {
   display: flex;
   gap: 0.6rem;
   flex-wrap: wrap;
+  justify-content: flex-end;
   margin-top: 0.2rem;
 }
 
-.door__actions .btn--primary { flex: 1 1 100%; }
+/* The forward button that reads the field beside it (#107).
+   Door step 2 asks for a second name and used to carry a THIRD button, `on my own`, to skip it.
+   One button says both things instead: type a name and it reads `Carry on`, leave it blank and it
+   reads `On my own`. The button now announces what it is about to do, which is strictly more than
+   a separate escape hatch did.
+
+   Pure CSS, no script. `:has()` on the form, `:placeholder-shown` on the input wearing
+   `data-watch` -- which is why that input carries a placeholder of a single space it never shows.
+   The site's rule is that nothing a guest sees updates itself; this is not that. It is direct
+   feedback on the guest's own typing, the same class of thing as a focus ring, and the server
+   renders both words either way. A phone too old for `:has()` gets the `forward` word and a name
+   field that is simply optional, which is the pre-#107 behaviour minus a button. */
+.door__fw-alt { display: none; }
+.door:has([data-watch]:placeholder-shown) .door__fw { display: none; }
+.door:has([data-watch]:placeholder-shown) .door__fw-alt { display: inline; }
 
 /* ------------------------------ decoration --------------------------------- */
 /* Load-bearing. Do not remove. */

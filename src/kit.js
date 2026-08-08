@@ -181,11 +181,18 @@ const RENDERERS = {
   /**
    * A screen of the onboarding wizard (#97), drawn in **both** the shapes it ships in.
    *
-   * `back` and `extra` are what vary between the eight or nine screens a team walks -- screen one
-   * has neither, the captain screen has both, the rules screens have back and no extra. Demoing
-   * only the loaded shape is exactly the failure #66 caught, where `/kit` drew every `.btn` on a
-   * `<button>` and `<a class="btn">` shipped as a raw blue link site-wide. So the marker takes the
-   * two optional slots and the section below passes them on one demo and omits them on the other.
+   * `back`, `extra` and `alt` are what vary between the eight or nine screens a team walks --
+   * screen one has none of them, the captain screen has back and an alt, the dealt-name screen has
+   * back and an extra. Demoing only the loaded shape is exactly the failure #66 caught, where
+   * `/kit` drew every `.btn` on a `<button>` and `<a class="btn">` shipped as a raw blue link
+   * site-wide. So the marker takes the optional slots and the section below spreads them across
+   * its demos.
+   *
+   * `watch` is what makes the `alt` demo REAL rather than a picture of itself (#107): it puts
+   * `data-watch` and the placeholder on the field, which is the whole mechanism, so the forward
+   * button on this page relabels as you type into it exactly as the door's does. A kit that drew
+   * both words with no field to drive them would be showing a component in the one shape that
+   * cannot fail.
    *
    * The field inside it is a real `field()` call rather than typed markup here, for the reason this
    * whole file exists: a component's markup lives in one place.
@@ -200,9 +207,16 @@ const RENDERERS = {
       method: 'get',
       back: a.back ?? '',
       forward: a.forward ?? 'carry on',
-      body: a.field ? fieldFrom({ label: a.field, name: 'k-door' }) : '',
+      forwardAlt: a.alt ?? '',
+      body: a.field
+        ? fieldFrom({
+            label: a.field,
+            name: 'k-door',
+            ...(a.watch ? { placeholder: ' ', 'data-watch': true } : {}),
+          })
+        : '',
       extra: a.extra
-        ? `<button class="btn btn--close" type="button">${escape(a.extra)}</button>`
+        ? `<button class="btn btn--tertiary" type="button">${escape(a.extra)}</button>`
         : '',
     }),
 

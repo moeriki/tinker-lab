@@ -129,7 +129,7 @@ export function layout({
       ${bar}
       ${heading ? `<h1 class="shout">${escape(title)}</h1>` : ''}
       ${body}
-      ${showClose ? '<a class="btn btn--close" href="/">close</a>' : ''}
+      ${showClose ? '<a class="btn btn--tertiary" href="/">close</a>' : ''}
     </div>
   </div>
   ${nav ? `<div class="foot">${foot}</div>` : foot}
@@ -494,23 +494,20 @@ export const MODAL_NO = 'No?';
  * carries it on *both*, since there both answers close it and do nothing else. `denyAttrs` was
  * added for that second caller -- until one existed there was nothing to hang on a deny.
  *
- * The deny wears **`.btn--deny`** (#97). It used to borrow `.btn--close`, and that was wrong in a
- * way only visible with the two of them side by side: `.btn--close` is the site's quiet
- * paper-and-mono "leave this alone" button, so the two halves of one question were set in two
- * different voices -- mono against shout, lowercase against uppercase. A deny is not a close; it is
- * the other answer. `.btn--deny` agrees with the confirm on family, transform and tracking and
- * disagrees only on fill and width.
+ * The deny is the site's **secondary** (#107). It briefly had a class of its own, `.btn--deny`,
+ * invented here and used nowhere else; naming the three tiers found that a deny and a wizard's
+ * back are the same act -- the other direction off this screen -- and they now share one look.
  *
- * On layout, `.modal__actions .btn--primary { flex: 1 1 100% }` now restores what
- * `.modal__actions .btn { flex: 1 1 auto }` had been out-specifying (0,2,0 beat 0,1,0): the confirm
- * takes a row of its own the way a primary does on every other surface, with the deny and any aside
- * on the row above it. Before that line the two answers came out exactly the same width, so `No?`
- * was as big a tap target as `Okay?` and hierarchy rested on fill colour alone.
+ * On layout, the pair is **end-aligned, side by side and snug**, straddling the box's bottom
+ * border. It used to stack, with the confirm spanning a row of its own, because equal widths left
+ * hierarchy resting on fill colour alone on the one control people press without reading. #107
+ * reopened that deliberately: nothing on this site is full width by default, so fill and the
+ * deeper shadow are the hierarchy, and the words carry the rest.
  *
- * The pair still lands on screen as `NO?` and `OKAY?`, both shouted. That is `.btn--primary` being
- * itself site-wide, not this modal deciding something -- a modal opting out of it would be exactly
- * the page-level design decision `/kit` exists to prevent. Changing it is one line in `app.css` and
- * it changes every primary button on the site, which is the correct blast radius for that decision.
+ * The pair lands as `No?` and `Okay?` -- as written. It used to land as `NO?` and `OKAY?`, because
+ * `.btn--primary` was `text-transform: uppercase` site-wide and shouted a line reaching for
+ * deadpan; the map had carried that as an open copy complaint since #90. #107 took the uppercase
+ * off every button at once, which was always the correct blast radius for it.
  */
 export function modalActions({
   aside = '',
@@ -521,7 +518,7 @@ export function modalActions({
 }) {
   return `<div class="modal__actions">
         ${aside}
-        ${denyHref ? `<a class="btn btn--deny" href="${escape(denyHref)}"${attrsHtml(denyAttrs)}>${MODAL_NO}</a>` : ''}
+        ${denyHref ? `<a class="btn btn--secondary" href="${escape(denyHref)}"${attrsHtml(denyAttrs)}>${MODAL_NO}</a>` : ''}
         <a class="btn btn--primary" href="${escape(confirmHref)}"${attrsHtml(confirmAttrs)}>${MODAL_YES}</a>
       </div>`;
 }
@@ -1202,11 +1199,22 @@ export const rulesList = (rules = []) =>
  *
  * `back` is optional -- screen one has nothing behind it but the front door.
  *
- * `extra` is a screen's own alternative press -- `on my own`, `deal us another`, `ask me something
- * else` -- and it renders INSIDE the action row, ahead of back. It sat above the row for one draft
- * and a screenshot settled it: a full-width plain button between the field and the nav read as
- * loud as the forward, so a solo captain met two equal-looking ways on. In the row it is one of the
- * quiet choices, and the only full-width thing on the screen is the way forward.
+ * `extra` is a screen's own ad-hoc press -- `deal us another`, `ask me something else` -- and it
+ * renders INSIDE the action row, ahead of back. Both of those RELOAD this same screen with a
+ * different name or a different question rather than advancing it, which is what makes them the
+ * site's **tertiary** and not an alternative to the primary (#107). Back is the **secondary**: the
+ * other direction off this screen, the same act as a dialog's deny, wearing the same look.
+ *
+ * The row reads quietest-first, left to right -- tertiary, secondary, primary -- and is
+ * end-aligned, so the way on is the button under your thumb.
+ *
+ * `forwardAlt` is the forward button's OTHER word, and it is why step 2 no longer carries three
+ * buttons (#107). That screen asks for a second name and used to offer `on my own` beside back, in
+ * the identical look, so the press that goes on without a mate and the press that throws away your
+ * typing were the same button. One button says both things now: `watch` names an input, and while
+ * that input is empty the forward reads `forwardAlt` instead of `forward`. Pure CSS in `app.css`,
+ * no script, and the server renders both words -- see `.door__fw-alt` there for why that is not the
+ * site's no-self-updating rule being broken.
  */
 export function doorStep({
   step,
@@ -1219,6 +1227,7 @@ export function doorStep({
   back = '',
   backWord = 'actually, no',
   forward,
+  forwardAlt = '',
   extra = '',
 }) {
   return `<form class="door stack" method="${escape(method)}" action="${escape(action)}">
@@ -1230,11 +1239,15 @@ export function doorStep({
       ${extra}
       ${
         back
-          ? `<button class="btn btn--close" formmethod="get" formaction="${escape(back)}"
+          ? `<button class="btn btn--secondary" formmethod="get" formaction="${escape(back)}"
                      formnovalidate>${escape(backWord)}</button>`
           : ''
       }
-      <button class="btn btn--primary">${escape(forward)}</button>
+      <button class="btn btn--primary">${
+        forwardAlt
+          ? `<span class="door__fw">${escape(forward)}</span><span class="door__fw-alt">${escape(forwardAlt)}</span>`
+          : escape(forward)
+      }</button>
     </div>
   </form>`;
 }
@@ -1295,7 +1308,7 @@ export function stub({ title, owner, does, data = null, still = false, extra = '
       <p>${escape(does)}</p>
       ${data ? `<pre class="mono">${escape(JSON.stringify(data, null, 2))}</pre>` : ''}
       ${extra}
-      <a class="btn btn--close" href="/">back to the dashboard</a>
+      <a class="btn btn--tertiary" href="/">back to the dashboard</a>
     `,
   });
 }

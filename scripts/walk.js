@@ -144,12 +144,10 @@ async function onboard(page, { members = ['Dieter', 'Anna'], shoot = null, check
   if (shoot) await shoot('door-captain');
 
   // --- screen 2: anyone with you?
-  if (mate) {
-    await page.fillForm({ member: mate });
-    await page.submit();
-  } else {
-    await page.press('form button[name="solo"]');
-  }
+  // Solo is the SAME press as a pair, with the field left empty (#107). It used to be its own
+  // `on my own` button; the forward button reads the field and says `On my own` instead.
+  if (mate) await page.fillForm({ member: mate });
+  await page.submit();
 
   check?.('the second screen leads to the dealt name', (await page.url()).startsWith('/welcome/team'));
 
@@ -249,7 +247,8 @@ async function stopAtTheDoor(page, who) {
   await page.goto('/welcome');
   await page.fillForm({ member: who });
   await page.submit();
-  await page.press('form button[name="solo"]');
+  // The second name left empty is what makes this a solo captain (#107).
+  await page.submit();
   await page.submit();
 }
 
@@ -306,13 +305,17 @@ const FLOWS = [
       await page.fillForm({ member: 'Wilhelmina' });
       await page.submit();
 
-      check('the captain screen is where back is first offered', await page.has('.door__actions .btn--close'));
+      check(
+        'the captain screen is where back is first offered',
+        await page.has('.door__actions .btn--secondary'),
+      );
       await page.fillForm({ member: 'Bartholomew' });
 
       // Forward to the dealt name, then straight back. Back is addressed by its `formaction` and
-      // not by `.btn--close`: the dealt-name screen carries TWO quiet buttons -- `deal us another`
-      // sits beside `actually, no` -- and a class selector picks whichever the box lists first,
+      // not by its class: the dealt-name screen carries a second quiet button -- `deal us another`
+      // sits beside `Actually, no` -- and a class selector picks whichever the box lists first,
       // which is how this check first "passed" while rerolling the team name instead of going back.
+      // Since #107 the two wear different classes, but addressing the action stays the right habit.
       await page.submit();
       check('forward reached the dealt name', (await page.url()).startsWith('/welcome/team'));
       await page.press('button[formaction="/welcome/mate"]');
@@ -375,7 +378,7 @@ const FLOWS = [
       check('"Okay?" closes it', await page.has('#bored-modal[hidden]'));
 
       await page.tap('#bored');
-      await page.tap('#bored-modal .btn--deny');
+      await page.tap('#bored-modal .btn--secondary');
       check('"No?" closes it too', await page.has('#bored-modal[hidden]'));
       check('and neither answer went anywhere', (await page.url()) === before);
     },

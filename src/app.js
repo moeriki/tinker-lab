@@ -512,9 +512,16 @@ function showWelcome({ req, res, url }) {
  * typed. That makes it a consequence of what they just did rather than an instruction about what
  * they are about to do, which was #91's whole question.
  *
- * The second name is optional and the way past it is a real button rather than an empty field --
- * `on my own` submits this form to the next screen with the field left out, so a solo captain never
- * has to work out that blank means solo.
+ * The second name is optional, and **the forward button is what says so** (#107). This screen used
+ * to carry a third button, `on my own`, beside back -- and back wears the same look, so the press
+ * that goes on alone and the press that throws away your typing were indistinguishable at a glance
+ * on the one screen every team walks standing up. Now the field is plainly optional and the
+ * forward reads `Carry on` or `On my own` depending on whether it is filled, so a solo captain
+ * still never has to work out that blank means solo: the button tells them.
+ *
+ * Which also retires the `solo=1` flag. The next screen counts the names it was handed, and an
+ * empty field carries none -- so "did they say they were alone" and "is there a second name" stop
+ * being two facts that could disagree.
  */
 function showMate({ req, res, url }) {
   const existing = currentTeam(req);
@@ -540,19 +547,23 @@ function showMate({ req, res, url }) {
         method: 'get',
         back: '/welcome',
         forward: 'carry on',
+        forwardAlt: 'on my own',
         body: `
           <input type="hidden" name="member" value="${escape(first)}">
           ${field({
             label: 'Their name',
             name: 'member',
             value: second,
-            attrs: { maxlength: MEMBER_NAME_MAX, autocomplete: 'off', required: true },
+            // `data-watch` is what the forward button reads, and the placeholder is a single space
+            // so `:placeholder-shown` has something to match on a field that shows nothing.
+            attrs: {
+              maxlength: MEMBER_NAME_MAX,
+              autocomplete: 'off',
+              placeholder: ' ',
+              'data-watch': true,
+            },
           })}
         `,
-        // Submits this same form as a GET to the next screen carrying only the captain's name, so
-        // the optional field can stay `required` for everyone who does have somebody with them.
-        extra: `<button class="btn btn--close" formmethod="get" formaction="/welcome/team" formnovalidate
-                        name="solo" value="1">on my own</button>`,
       }),
     }),
   );
@@ -578,10 +589,11 @@ function showTeamName({ req, res, url }) {
   const existing = currentTeam(req);
   if (existing) return redirect(res, onboardingComplete(existing.id) ? '/' : '/questions');
 
-  // `solo` is the second screen's "on my own" button. It is only ever present on that press, which
-  // is what stops a captain who typed a second name and then went back being read as solo.
-  const solo = url.searchParams.get('solo') === '1';
-  const names = carriedNames(url).slice(0, solo ? 1 : 2);
+  // How many names arrived IS how many people there are (#107). There used to be a `solo=1` flag
+  // as well, set by the second screen's `on my own` button, and two facts that can disagree about
+  // the same thing is one more than this needs -- `carriedNames` already drops blanks, so a captain
+  // who left the field empty carries one name and a captain who filled it carries two.
+  const names = carriedNames(url).slice(0, 2);
   if (!names.length) return redirect(res, '/welcome');
 
   const offered = dealTeamName(url.searchParams.get('word'));
@@ -611,7 +623,7 @@ function showTeamName({ req, res, url }) {
         // Named, because this screen carries two `formmethod=get` buttons -- this one and the
         // wizard's back -- and "the first GET button in the form" is the kind of selector that
         // silently starts pressing the other one the day somebody reorders the box.
-        extra: `<button class="btn btn--close" formmethod="get" formaction="/welcome/team" formnovalidate
+        extra: `<button class="btn btn--tertiary" formmethod="get" formaction="/welcome/team" formnovalidate
                         name="reroll" value="1">deal us another</button>`,
       }),
     }),
@@ -785,7 +797,7 @@ function showQuestions({ req, res, url, params = {} }) {
       // possession rather than a memory: everybody owns something useless.
       if (index < slot.rungs.length - 1) {
         skips.push(
-          `<button class="btn btn--close" formmethod="get"
+          `<button class="btn btn--tertiary" formmethod="get"
                    formaction="${escape(questionPath(screenIndex))}" formnovalidate
                    name="skip" value="${escape(subject)}">ask me something else</button>`,
         );
@@ -1750,7 +1762,7 @@ function showGame({ req, res, params, url }) {
                </form>`
             : ''
         }
-        <a class="btn btn--close" href="/">close</a>
+        <a class="btn btn--tertiary" href="/">close</a>
       `,
     }),
   );
@@ -2880,7 +2892,7 @@ function adminControls({ req, res }) {
 
         ${devToggle(req)}
 
-        <a class="btn btn--close" href="/admin">back to HQ</a>
+        <a class="btn btn--tertiary" href="/admin">back to HQ</a>
       `,
     }),
   );
@@ -2953,7 +2965,7 @@ function adminDeleteTeam({ req, res, url }) {
             ? `<table class="board"><tbody>${rows}</tbody></table>`
             : '<p>No teams yet.</p>'
         }
-        <a class="btn btn--close" href="/admin/controls">back to controls</a>
+        <a class="btn btn--tertiary" href="/admin/controls">back to controls</a>
       `,
     }),
   );
@@ -3012,11 +3024,15 @@ function deleteTeamConfirmation({ req, res, url }) {
         }
         <p>Their phone starts over at the welcome screen, and ${escape(team.name)} goes back in the
           bag of names.</p>
+        <!-- Quietest first, then the primary, the way a door screen and a dialog both read (#107).
+             \`keep them\` is the other ANSWER to this question, not a way out of the page, so it is
+             the secondary -- the same tier and the same look as a dialog's \`No?\`. Laying the two
+             out on one row is #106's, which owns rows and widths. -->
+        <a class="btn btn--secondary" href="/admin/delete-team">keep them</a>
         <form method="post" action="/admin/delete-team">
           <input type="hidden" name="team" value="${team.id}">
           <button class="btn btn--primary" type="submit">delete ${escape(team.name)}</button>
         </form>
-        <a class="btn btn--close" href="/admin/delete-team">keep them</a>
       `,
     }),
   );
@@ -3094,7 +3110,7 @@ function trophyPanel(req, res, game) {
           <thead><tr><th>team</th><th>state</th><th></th></tr></thead>
           <tbody>${rows || '<tr><td colspan="3">No teams yet.</td></tr>'}</tbody>
         </table>
-        <a class="btn btn--close" href="/admin">back to HQ</a>
+        <a class="btn btn--tertiary" href="/admin">back to HQ</a>
       `,
     }),
   );
@@ -3188,7 +3204,7 @@ function adminGame({ req, res, params }) {
         <p class="statusline">${escape(explainer)}</p>
         <p class="statusline">${submissions.length} submission${submissions.length === 1 ? '' : 's'}</p>
         <div class="gallery">${cards || '<p>Nothing submitted yet.</p>'}</div>
-        <a class="btn btn--close" href="/admin">back to HQ</a>
+        <a class="btn btn--tertiary" href="/admin">back to HQ</a>
       `,
     }),
   );
@@ -3328,7 +3344,7 @@ function adminEndPage({ req, res }) {
         <form method="post" action="/admin/end">
           <button class="btn btn--primary" type="submit">end the night</button>
         </form>
-        <a class="btn btn--close" href="/admin/controls">back to the controls</a>
+        <a class="btn btn--tertiary" href="/admin/controls">back to controls</a>
       `,
     }),
   );
@@ -3408,7 +3424,7 @@ function adminCodes({ req, res }) {
         </table>
         <p class="mono">Print: <code>node scripts/qr-sheet.js</code> &middot;
           reprint one: <code>node scripts/qr-sheet.js --only=&lt;slug&gt;</code></p>
-        <a class="btn btn--close" href="/admin">back to HQ</a>
+        <a class="btn btn--tertiary" href="/admin">back to HQ</a>
       `,
     }),
   );
@@ -3485,7 +3501,7 @@ function adminReset({ req, res, url }) {
         <form method="post" action="/admin/reset">
           <button class="btn btn--primary" type="submit">reset the game</button>
         </form>
-        <a class="btn btn--close" href="/admin">back to HQ</a>
+        <a class="btn btn--tertiary" href="/admin">back to HQ</a>
       `,
     }),
   );

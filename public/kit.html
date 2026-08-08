@@ -315,18 +315,40 @@
       <!-- ============================= BUTTONS ============================= -->
       <section class="sect" id="buttons">
         <h2 class="sect__h">9. Buttons</h2>
-        <p class="sect__note">Four jobs, four looks. Everything is thumb-sized because everyone is holding a drink.</p>
+        <p class="sect__note"><strong>Three tiers, and two specials.</strong> Everything is thumb-sized because everyone is holding a drink, and <strong>nothing is full width</strong> — a button is snug to its words, and a row that wants to fill says so at the row.</p>
+
         <div class="stack">
           <div class="btnrow">
-            <button class="btn btn--primary" type="button">SUBMIT ANSWER</button>
+            <button class="btn btn--primary" type="button">Submit answer</button>
+          </div>
+          <p class="sect__note"><strong>Primary</strong> — the CTA. The press that advances. One per screen.</p>
+
+          <div class="btnrow">
+            <button class="btn btn--secondary" type="button">actually, no</button>
+            <button class="btn btn--secondary" type="button">keep them</button>
+          </div>
+          <p class="sect__note"><strong>Secondary</strong> — the other direction off this same screen: a wizard's back, the other answer to a destructive question, a dialog's <code>No?</code>. Agrees with the primary on font so the two read as one pair; differs on fill, which is the entire hierarchy.</p>
+
+          <div class="btnrow">
+            <button class="btn btn--tertiary" type="button">close</button>
+            <button class="btn btn--tertiary" type="button">deal us another</button>
+            <button class="btn btn--tertiary" type="button">back to HQ</button>
+          </div>
+          <p class="sect__note"><strong>Tertiary</strong> — ad-hoc. Reloads this screen with something different, or leaves it sideways. Never the alternative to a primary, which is what separates <code>deal us another</code> (stays put) from <code>actually, no</code> (goes back).</p>
+
+          <div class="btnrow">
             <button class="btn btn--hint" type="button" data-open-modal>Hint?</button>
-            <button class="btn btn--close" type="button">✕ back to dashboard</button>
             <button class="btn btn--what" type="button">What?</button>
           </div>
+          <p class="sect__note">The two specials, which are not a tier: the hint is the only yellow control on the site and is deliberately loud, and <code>What?</code> is a dialog's aside — neither answer to the question being asked.</p>
+
           <div class="btnrow">
-            <button class="btn btn--primary" type="button" disabled>ALREADY ANSWERED</button>
+            <button class="btn btn--primary" type="button" disabled>Already answered</button>
           </div>
+          <p class="sect__note">Disabled, which any tier can be.</p>
         </div>
+
+        <p class="sect__note">Settled in <strong>#107</strong>, which found <em>one</em> class saying <code>close</code>, <code>actually, no</code>, <code>keep them</code> and <code>back to the controls</code> — six words and four unrelated jobs on one look. The visible cost was on the door: <code>on my own</code> and <code>actually, no</code> came out identical while one went forward and one threw away your typing. Same ticket took <code>text-transform: uppercase</code> off the primary, so buttons now say what was written rather than shouting it.</p>
       </section>
 
       <!-- ============================== FORMS ============================== -->
@@ -372,7 +394,8 @@
         <p class="sect__note"><strong>The order is as fixed as the words</strong>: aside, then deny, then confirm, left to right — and the confirm stays rightmost on a <em>destructive</em> press too. Flipping it there would move the only irreversible button on the site to the place the muscle memory says is safe.</p>
         <p class="sect__note"><strong>The deny is optional.</strong> Plenty of modals will not have one: the hint box above does not, because the hint is already revealed and charged by the time it appears — there is nothing left to say no to. A box that only announces gets one button. What is <em>not</em> optional is the words, which is why they live in <code>modalActions()</code> in <code>src/render.js</code> and not in each caller.</p>
         <p class="sect__note">The third slot is <strong>neither answer</strong>. The hint box's <code>What?</code> is a link to the rules, not a refusal, so it keeps its own words and sits outside the pair. Two buttons fit one row at 390px; three has never been drawn, because no modal has yet wanted an aside <em>and</em> a deny.</p>
-        <p class="sect__note">The pair is <strong>not case-matched on screen</strong>, and that is not a defect to fix here: <code>.btn--primary</code> is <code>text-transform: uppercase</code> site-wide and <code>.btn--close</code> is <code>none</code>, so the words land as <code>No?</code> and <code>OKAY?</code>. That is the primary button being itself. A modal opting out of it would be the page-level design decision this page exists to prevent. Note too that <code>.modal__actions .btn</code> out-specifies <code>.btn--primary</code>'s <code>flex: 1 1 100%</code>, so inside a modal the confirm shares a row instead of taking one.</p>
+        <p class="sect__note">The pair now lands <strong>as written</strong> — <code>No?</code> beside <code>Okay?</code>. It used to land as <code>NO?</code> and <code>OKAY?</code>, because <code>.btn--primary</code> was <code>text-transform: uppercase</code> site-wide and shouted a line reaching for deadpan; the map carried that as an open copy complaint from #90 until <strong>#107</strong> took the uppercase off every button at once, which was always the right blast radius for it.</p>
+        <p class="sect__note"><strong>The answers sit on the box's bottom border</strong> (#107) — end-aligned, side by side, snug, half inside and half out, with their hard shadows falling onto whatever is behind the box. Three treatments were drawn at phone width first: flush inside the edge read as forgotten padding, and hanging fully below lost the connection to the box. They used to stack, with the confirm spanning a row of its own, and that was a deliberate guard — with equal widths the hierarchy rested on fill colour alone, on the one control people press without reading. Snug reopens it on purpose: nothing on this site is full width by default, so fill and the deeper shadow carry the hierarchy and the words carry the rest.</p>
         <p class="sect__note">Below is the two-answer shape, from <code>askModal()</code>. No page ships one yet — the first will be the delete-team confirm (#87) — and it is demoed here <em>before</em> that, so <code>No?</code> reaches a page as a button somebody has looked at. A component demoed only in the shape that already worked is how <code>&lt;a class="btn"&gt;</code> rendered as a raw blue link site-wide.</p>
         <button class="btn btn--hint" type="button" data-open-modal="ask-modal">Open the asking one</button>
 
@@ -721,7 +744,7 @@
 
         <!--@door step="1" of="9" title="What's your name?" intro="One phone per team. Whoever is holding it is carrying the team all night." field="Your name" forward="noted"-->
 
-        <!--@door step="2" of="9" title="You're the captain now." intro="Anyone with you?" field="Their name" back="#door" extra="on my own" forward="carry on"-->
+        <!--@door step="2" of="9" title="You're the captain now." intro="Anyone with you?" field="Their name" watch="1" back="#door" forward="carry on" alt="on my own"-->
 
         <p class="sect__note">
           <strong>The counter is honest, not equal.</strong> A solo captain walks eight screens and
@@ -740,9 +763,17 @@
           <strong>The forward word changes every screen</strong> — <code>noted</code>,
           <code>carry on</code>, <code>now what</code>, <code>one more</code>, <code>good
           enough</code>, <code>that's that</code>, <code>Okay?</code> — and <code>one more</code>
-          only appears when a second member's screen actually follows. They all land shouted,
-          because <code>.btn--primary</code> is <code>text-transform: uppercase</code> site-wide and
-          the door does not get to opt out of that (§9).
+          only appears when a second member's screen actually follows. They land as written — the
+          primary stopped shouting in #107 (§9).
+        </p>
+        <p class="sect__note">
+          <strong>Step 2's forward word changes with the field beside it</strong> (#107):
+          <code>carry on</code> while a second name is typed, <code>on my own</code> while it is
+          empty. That screen used to carry a third button, <code>on my own</code>, sitting beside
+          back in the identical look — so the press that goes on alone and the press that throws
+          away your typing were indistinguishable at a glance, on a screen every team walks
+          standing up. One button says both things now, in CSS, with no script and both words
+          server-rendered.
         </p>
 
         <h3 class="sect__sub">And what it lands on</h3>
