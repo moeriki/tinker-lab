@@ -953,6 +953,23 @@ ol.stack {
  * `color: inherit` on the bare `input` further up is now doing nothing for these, and that is
  * fine -- it still covers the controls that never get `.input`.
  */
+/*
+ * SUNK, and that is the whole affordance (#104). A box you type in and a box you press had been
+ * one shell wearing two fills: same border, same corners, same `--tap`, differing on font and on
+ * whether the shadow fell inside or out. The inside one was `rgb(0 0 0 / 12%)`, which is invisible
+ * on a page whose background is a gradient -- so on every real surface a text box and a button
+ * were the same white slab, and `/shots` stacked three of them.
+ *
+ * `var(--c-gray)` at `--edge-2`'s width is the same shadow saying the same thing out loud: the
+ * paper is cut and this is the hole. Its opposite number is `.btn`'s outset `--shadow-1` -- ink
+ * falling OUT of the box onto the page, which is a thing sitting on top of the paper. So the site
+ * now has one rule with two directions, and it holds without a word of copy:
+ *
+ *   sunk = you fill it        raised = you press it
+ *
+ * Grey rather than black on purpose: at 4px, black reads as a second border and the box gains a
+ * weight it should not have next to a primary. Grey is a shadow.
+ */
 .input {
   width: 100%;
   min-height: var(--tap);
@@ -961,7 +978,7 @@ ol.stack {
   color: var(--c-ink);
   -webkit-text-fill-color: var(--c-ink);
   border: var(--edge-2) solid var(--c-ink);
-  box-shadow: inset 3px 3px 0 rgb(0 0 0 / 12%);
+  box-shadow: inset var(--edge-2) var(--edge-2) 0 var(--c-gray);
   font-family: var(--font-body);
   font-size: 1.05rem;
   border-radius: 0;
@@ -1001,20 +1018,79 @@ ol.stack {
   padding: 0.7rem 0.6rem;
 }
 
-/* A select has to draw its own arrow, because `-webkit-appearance: none` up in `.input` has just
-   taken the native one away -- and a select with no arrow is a text box that refuses to be typed
-   in, which is a worse affordance than either. Two hard-edged gradients rather than an image: no
-   asset to ship, and no blur anywhere ever (#5). */
+/* ---- a select is a BUTTON, not a box you cannot type in (#104) ----
+   It takes `.input`'s class for the border, the tap target and the serif, and then undoes the one
+   thing that class asserts: a select is not sunk. It is RAISED -- snug to its words, `--shadow-1`
+   falling outside it, and it goes down under a thumb like every other pressable thing on this
+   site. What it says is *press me and something happens*, which is true of a select and is not
+   true of anything else wearing `.input`.
+
+   Three treatments were drawn at phone width and looked at before this one (#104's prototype):
+   leaving it a page-wide sunk box with a better arrow, and a snug box that stayed sunk. The first
+   still read as somewhere to type; the second went inert beside a raised `look` and a raised
+   `submit` -- the only control on the page that did nothing when you touched it.
+
+   Only the VALUE stays serif. A select shows content -- a team's name, a jug, a person -- where a
+   button shows a word the site chose, and setting it in Archivo Black would claim the guest's
+   answer was ours.
+
+   `width: auto` is what makes it snug, and `max-width` is what stops it running away -- a select
+   sizes itself to its WIDEST OPTION and cannot wrap, so `what it answers` on `/shots`, whose
+   options are whole prompts, took the page to 454px on a 390px phone the first time this was shot.
+
+   THE CAP HAS TO BE AN ABSOLUTE LENGTH, and both of the obvious alternatives were tried and
+   measured before this one:
+
+   - `max-width: 100%` does nothing. A percentage is ignored while the browser works out how wide
+     the thing WANTS to be, so the widest option still grows every ancestor and the page with it;
+     only the select ends up bounded, inside a page that has already stretched. Shot: 454px.
+   - `max-width: calc(100vw - 3rem)` fixes `/shots` and then breaks `/kit`, at 406px. `100vw` is
+     the initial containing block, which is the thing being stretched -- so the cap grows with the
+     overflow it is supposed to prevent. This is the same trap #102 found in the overflow check
+     itself: on this site the viewport is not a fixed number.
+
+   20rem is 320px, which sits inside the content column of a 390px phone with room to spare and is
+   wider than every option on the site except a prompt. `.filters` is where a prompt lives, and
+   `text-overflow: ellipsis` moved up here from that block when this cap landed: every select can
+   truncate now, so every select says "there is more of this" rather than stopping mid-word.
+   Opening it shows each option in full, which is the browser's job and not ours.
+
+   The arrow is a SLAB OF INK down the right edge with the triangle knocked out in paper, not a
+   12px triangle floating in white. On `/shots` -- two selects and a button, all paper -- the whole
+   affordance used to rest on that triangle; now the control is unmistakable across the room.
+
+   Still gradients rather than an image: no asset to ship, and no blur anywhere ever (#5). Three
+   layers, painted front to back -- the two halves of the triangle, then the tab they sit on. The
+   triangle is centred in the tab: the tab is 2.4rem wide, so its middle is 1.2rem in from the
+   right edge, and the two 0.38rem squares straddle that. */
 .input--select {
-  padding-right: 2.2rem;
+  width: auto;
+  max-width: 20rem;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  box-shadow: var(--shadow-1);
+  transition: transform 0.06s ease-out, box-shadow 0.06s ease-out;
+  padding-right: 3rem;
   background-image:
-    linear-gradient(45deg, transparent 50%, var(--c-ink) 50%),
-    linear-gradient(135deg, var(--c-ink) 50%, transparent 50%);
+    linear-gradient(45deg, transparent 50%, var(--c-paper) 50%),
+    linear-gradient(135deg, var(--c-paper) 50%, transparent 50%),
+    linear-gradient(90deg, transparent calc(100% - 2.4rem), var(--c-ink) 0);
   background-position:
-    calc(100% - 1.15rem) calc(50% - 1px),
-    calc(100% - 0.8rem) calc(50% - 1px);
-  background-size: 0.38rem 0.38rem;
+    calc(100% - 1.37rem) calc(50% - 1px),
+    calc(100% - 1.02rem) calc(50% - 1px),
+    0 0;
+  background-size:
+    0.38rem 0.38rem,
+    0.38rem 0.38rem,
+    100% 100%;
   background-repeat: no-repeat;
+}
+
+/* The same 3px `.btn` moves, for the same reason. A control that is drawn raised and then does not
+   go down when a thumb lands on it is the one thing that would give the metaphor away. */
+.input--select:active {
+  transform: translate(3px, 3px);
+  box-shadow: none;
 }
 
 /* ---------------------------------- modal ---------------------------------- */
@@ -1959,13 +2035,10 @@ ol.stack {
   min-width: 0;
 }
 
-/* Long options still overrun the closed control on the narrowest phones — a
-   select cannot wrap. An ellipsis is what says "there is more of this" rather
-   than letting the text run under the arrow and stop mid-word. Opening it shows
-   every option in full, which is the browser's job and not ours. */
-.filters .input--select {
-  text-overflow: ellipsis;
-}
+/* The ellipsis that used to live here is on `.input--select` itself now (#104). It was written for
+   this block because `what it answers` holds prompts and a prompt is a sentence — but once every
+   select is snug and capped at 20rem, every select can truncate, and the rule belongs to the
+   component rather than to the one page that noticed first. */
 
 /* Three across on a 390 phone, and three is the number on purpose: at two the
    wall is four screens of enormous squares and stops reading as a pile, at four

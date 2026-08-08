@@ -409,10 +409,54 @@
         <p class="sect__note">
           The last one is a <strong>select</strong>, which Guess Who uses to name a person — it
           carries a member id and shows a name, so nobody loses a point because their partner typed
-          their pet name at the door. It draws its own arrow: <code>.input</code> sets
-          <code>-webkit-appearance: none</code>, and a select without an arrow is a text box that
-          refuses to be typed in.
+          their pet name at the door. It has to draw its own arrow, because <code>.input</code> sets
+          <code>-webkit-appearance: none</code> and takes the native one away.
         </p>
+
+        <h3 class="sect__sub">The three controls — sunk, raised, and which one a select is</h3>
+        <p class="sect__note">A box you type in, a box you pick from and a box you press are
+          <strong>three different objects</strong>, and here they are together, which is the only
+          way to tell. Until <strong>#104</strong> they were one shell wearing three fills: the same
+          <code>--edge-2</code> border, the same square corners, the same <code>--tap</code>, and a
+          hard shadow whose only difference was that a text box's fell <em>inside</em> at 12% black
+          — invisible on a page whose background is a gradient. <code>/shots</code> was the proof:
+          two selects and a button, all paper, three white slabs in a column.</p>
+
+        <div class="stack">
+          <!--@field label="A BOX YOU TYPE IN" name="k3-type" placeholder="type something, anything"-->
+          <!--@field label="A BOX YOU PICK FROM" name="k3-pick" value="2" options="=— pick one —|1=jug 1|2=jug 2|3=jug 3"-->
+          <button class="btn btn--primary" type="button">a box you press</button>
+        </div>
+
+        <p class="sect__note">One rule with two directions, and it needs no words:
+          <strong>sunk means you fill it, raised means you press it.</strong> The text box carries
+          <code>--c-gray</code> at <code>--edge-2</code> inside its own edge, so the paper reads as
+          cut. The button drops <code>--shadow-1</code> outside itself onto the page, so it reads as
+          sitting on top. Grey rather than black for the inside one: at 4px black reads as a second
+          border and the box gains a weight it should not have next to a primary.</p>
+
+        <p class="sect__note"><strong>A select is a button.</strong> That is the decision #104 was
+          asked for, and it is why the middle control above is snug, raised, and goes down under a
+          thumb like everything else you press. It keeps <code>.input</code> for the border, the tap
+          target and the serif, then undoes the one thing that class asserts. Two other treatments
+          were drawn at phone width first: a page-wide sunk box with a better arrow still read as
+          somewhere to type, and a snug box that stayed sunk went inert beside a raised
+          <code>look</code> and a raised <code>submit</code> — the only control on the page that did
+          nothing when you touched it.</p>
+
+        <p class="sect__note">The arrow is a <strong>slab of ink</strong> down the right edge with
+          the triangle knocked out in paper, not a 12px triangle floating in white. Still gradients
+          rather than an image — no asset to ship, and no blur anywhere ever (#5). Only the
+          <em>value</em> stays serif: a select shows content where a button shows a word the site
+          chose, and setting a guest's answer in Archivo Black would claim it was ours.</p>
+
+        <p class="sect__note"><strong>A select sizes itself to its widest option</strong>, which is
+          the one thing that makes snug dangerous: <code>what it answers</code> on <code>/shots</code>
+          holds prompts, a prompt is a sentence, and the page came out 454px wide on a 390px phone.
+          The cap is <code>calc(100vw - 3rem)</code> and it is deliberately <em>not</em>
+          <code>max-width: 100%</code> — a percentage is ignored while the browser works out how
+          wide the thing wants to be, so the page grows anyway and only the select ends up bounded.
+          <code>scripts/screenshot.js</code>' overflow check is what caught it.</p>
       </section>
 
       <!-- ============================== MODAL ============================== -->
@@ -538,7 +582,8 @@
         </p>
 
         <h3 class="sect__sub">The filter bar</h3>
-        <p class="sect__note">Two selects above the wall: whose camera, and which prompt. A plain GET form — pick, press, and the URL says what you are looking at. <strong>A full row each</strong>, because the second one holds prompts and a prompt is a sentence; side by side they clip mid-word, and a native select cannot wrap.</p>
+        <p class="sect__note">Two selects above the wall: whose camera, and which prompt. A plain GET form — pick, press, and the URL says what you are looking at. <strong>A row each</strong>, because the second one holds prompts and a prompt is a sentence; side by side they clip mid-word, and a native select cannot wrap.</p>
+        <p class="sect__note">Since <strong>#104</strong> the two are <em>snug</em> and no longer the same width as each other, which is a select sizing to its own widest option rather than to the page. <code>who took it</code> is as wide as the longest team name; <code>what it answers</code> is at the 20rem cap and ellipsises, because a prompt is longer than that. This is the page that made a snug select dangerous in the first place — its first shot came out 454px wide on a 390px phone.</p>
         <form class="filters" method="get" action="/kit">
           <!--@field label="who took it" name="team" options="every team|BADGER|FERRET|WOMBAT"-->
           <!--@field label="what it answers" name="prompt" options="every prompt|The most convincing fake laugh in the house|Portrait of a stranger"-->

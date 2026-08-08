@@ -1013,6 +1013,20 @@ badges ([#55](https://github.com/moeriki/tinker-lab/issues/55)), so there is not
 > **New design is drawn on the kit first, then built into a page.** A component that appears
 > directly on a page, having never been on `/kit`, is the drift this rule exists to stop.
 
+The three **controls** — a box you type in, a box you pick from and a box you press — are told
+apart by one rule with two directions, and no copy anywhere states it:
+
+> **Sunk means you fill it, raised means you press it.** `.input` takes the hard shadow *inside*
+> its own edge, so the paper reads as cut; `.btn` drops it *outside* onto the page and travels 3px
+> under a thumb. **A select is raised** — snug, pressable, with its arrow as a slab of ink down the
+> right edge — because pressing it is what it is for.
+> See [ADR-sunk-you-fill-it-raised-you-press-it](docs/adr/sunk-you-fill-it-raised-you-press-it.md).
+
+Its one trap is a sizing one: a `<select>` is as wide as its **widest option** and cannot wrap, so
+`.input--select` is capped at an absolute `20rem`. Neither `100%` nor `100vw` works — a percentage
+is ignored while the browser decides how wide the thing wants to be, and `100vw` is the very box
+being stretched. Both were measured, at 454px and 406px on a 390px phone.
+
 That rule reaches as far as the kit's contract does, so the **admin surface is not held to it**
 ([#66](https://github.com/moeriki/tinker-lab/issues/66)) — its markup is written inline in
 `src/app.js` and is allowed to stay there. What does **not** lapse with it is the naming rule
