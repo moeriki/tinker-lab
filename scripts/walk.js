@@ -295,7 +295,7 @@ const FLOWS = [
 
   {
     name: 'door-back',
-    what: 'press "actually, no" and check what you typed came back with you',
+    what: 'press "undo that" and check what you typed came back with you',
     async run({ page, shoot, check }) {
       // Back is a GET submission of the screen you are on, so what you typed rides in the query
       // string rather than being held anywhere. This is the check that it actually comes back --
@@ -313,7 +313,7 @@ const FLOWS = [
 
       // Forward to the dealt name, then straight back. Back is addressed by its `formaction` and
       // not by its class: the dealt-name screen carries a second quiet button -- `deal us another`
-      // sits beside `Actually, no` -- and a class selector picks whichever the box lists first,
+      // sits beside `undo that` -- and a class selector picks whichever the box lists first,
       // which is how this check first "passed" while rerolling the team name instead of going back.
       // Since #107 the two wear different classes, but addressing the action stays the right habit.
       await page.submit();
@@ -326,6 +326,66 @@ const FLOWS = [
       check('and so did the first', back.includes('Wilhelmina'));
 
       await shoot('door-back');
+
+      // --- all the way back out, which is the bug Dieter walked into (#116).
+      //
+      // Back used to fall through bare `/questions` on the way from question screen 1 to screen 0,
+      // and bare `/questions` is the GATE: for a team that has answered everything it spends the
+      // held code, fires a hunt step's webhook and redirects to the board. So a team pressing back
+      // one screen too many left the wizard entirely and arrived on their dashboard with onboarding
+      // silently finished -- no error, no way back in.
+      //
+      // The flow above never reached it because it only ever pressed back ONCE, on screen two of
+      // nine. This walks the whole door and then reverses out of it, which is the only shape that
+      // touches the screen the bug lived on.
+      await page.clearCookies();
+      await page.goto('/welcome');
+      await page.fillForm({ member: 'Wilhelmina' });
+      await page.submit();
+      await page.fillForm({ member: 'Bartholomew' });
+      await page.submit();
+      await page.submit();
+
+      let forward = 0;
+      while (!(await page.url()).startsWith('/questions/rules')) {
+        if (forward > 12) throw new Error('the door never reached the rules');
+        forward += 1;
+        await page.fillForm({});
+        await page.submit();
+      }
+      // On to the LAST rules screen, so the reverse below covers the whole run rather than the tail
+      // of it. The last screen is the one whose form points at the gate instead of another rule,
+      // which is how this knows where to stop without counting rules it would then have to keep in
+      // step with `content/rules.js`.
+      let rules = 1;
+      while (((await page.attr('form', 'action')) ?? '').startsWith('/questions/rules')) {
+        if (rules > 10) throw new Error('the rules screens never ended');
+        rules += 1;
+        await page.submit();
+      }
+      check(`the whole door leads to ${rules} rules screens`, rules >= 2);
+
+      // Every press is the secondary, and the loop ends where back does -- question screen zero,
+      // which is the first screen that has nothing behind it. Anything that leaves `/questions` on
+      // the way is the bug.
+      let backs = 0;
+      let stray = '';
+      while (await page.has('.door__actions .btn--secondary')) {
+        if (backs > 20) throw new Error('back never ran out of screens');
+        backs += 1;
+        await page.press('.door__actions .btn--secondary');
+        const at = await page.url();
+        if (!at.startsWith('/questions')) stray ||= `back ${backs} left the wizard for ${at}`;
+      }
+
+      check(`back walked ${backs} screens out of the rules`, backs === rules + 2);
+      check(`and never left the wizard${stray ? ` — ${stray}` : ''}`, stray === '');
+      check(
+        'and stopped on the first question screen',
+        (await page.url()).startsWith('/questions/0'),
+      );
+
+      await shoot('door-back-out');
     },
   },
 

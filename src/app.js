@@ -799,7 +799,7 @@ function showQuestions({ req, res, url, params = {} }) {
       if (index < slot.rungs.length - 1) {
         skips.push(
           `<button class="btn btn--tertiary" formmethod="get"
-                   formaction="${escape(questionPath(screenIndex))}" formnovalidate
+                   formaction="${escape(screenPath(screenIndex))}" formnovalidate
                    name="skip" value="${escape(subject)}">ask me something else</button>`,
         );
       }
@@ -840,7 +840,7 @@ function showQuestions({ req, res, url, params = {} }) {
         // Nothing to go back to from the first question screen: the team row exists by now, so
         // `/welcome/team` would only bounce them straight back here. Changing a name after the fact
         // is #9's deliberately-unbuilt recovery story, not a button on this screen.
-        back: screenIndex > 0 ? questionPath(screenIndex - 1) : '',
+        back: screenIndex > 0 ? screenPath(screenIndex - 1) : '',
         forward,
         extra: skips.join(''),
         body: `
@@ -854,6 +854,30 @@ function showQuestions({ req, res, url, params = {} }) {
 
 /** `/questions` for the first screen, `/questions/N` after it. Bare keeps the documented gate URL. */
 const questionPath = (index) => (index > 0 ? `/questions/${index}` : '/questions');
+
+/**
+ * Where a press that GETs a question screen has to point -- always the indexed URL, **never** bare
+ * `/questions`, even for screen zero.
+ *
+ * Bare `/questions` is the gate (see `showQuestions`): for a team that has answered everything it
+ * spends the held code, fires a hunt step's webhook and redirects to the board. That is right for
+ * the last press of the wizard and wrong for every press that means *show me this screen again*.
+ *
+ * The distinction was already half-known -- `showQuestions`' own comment explains that
+ * `/questions/:at` renders for a complete team so the FIRST RULES SCREEN can have a back button
+ * without spending the code. The two presses one screen further back were missed, and both reached
+ * bare `/questions` by way of `questionPath(0)`:
+ *
+ * - **back** on question screen 1, which is what a team walking backwards out of the rules hits;
+ * - **`ask me something else`** on question screen 0, reachable once that back press has landed.
+ *
+ * Either one dropped a team onto the dashboard mid-wizard with onboarding silently finished. Found
+ * by Dieter, walking the door backwards.
+ *
+ * POST is unaffected and still uses `questionPath()`: bare `/questions` is the documented save URL,
+ * and a POST never runs the gate.
+ */
+const screenPath = (index) => `/questions/${index}`;
 
 /**
  * Save one screen's answers and move to the next one.
@@ -996,7 +1020,7 @@ function showDoorRule({ req, res, params }) {
         intro: rule.text,
         action: isLast ? '/questions' : `/questions/rules/${number + 1}`,
         method: 'get',
-        back: number > 1 ? `/questions/rules/${number - 1}` : questionPath(screens.length - 1),
+        back: number > 1 ? `/questions/rules/${number - 1}` : screenPath(screens.length - 1),
         // The house `Okay?`, which the spine asked for by name. It is legal here because these are
         // page buttons rather than a modal's two answers -- see `doorStep()`.
         forward: 'Okay?',

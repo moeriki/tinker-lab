@@ -1205,7 +1205,14 @@ export const paper = (paragraphs = []) =>
  * drawn as a box, which is what the ticket asked for in those words. That distinction is load
  * bearing in one place -- the nav words. `No?` and `Okay?` are reserved for a real modal's two
  * answers (#90); these are page buttons, which is what lets the wizard have its own six forward
- * words and `actually, no` for back.
+ * words and `undo that` for back.
+ *
+ * **Back says `undo that`, and the word is about the typing rather than the screen** (#116). It used
+ * to say `actually, no`, which was picked for the screens with a box on them and read as a refusal
+ * everywhere else: on a rules screen the only proposition in front of you is the rule, so the
+ * negation attached to *that*, and sitting beside `Okay?` the pair came out looking like a yes/no
+ * vote on `Have fun. This is not a suggestion.` `undo that` points at what the press actually does
+ * -- back re-submits this screen as a GET, so the thing it undoes is your own last answer.
  *
  * **Everything is a `<button>` in one `<form>`, and back carries `formmethod="get"`.** That is the
  * same trick the team-name reroll and the ladder's skip already use, and it is why the wizard needs
@@ -1251,7 +1258,7 @@ export function doorStep({
   action,
   method = 'get',
   back = '',
-  backWord = 'actually, no',
+  backWord = 'undo that',
   forward,
   forwardAlt = '',
   extra = '',
