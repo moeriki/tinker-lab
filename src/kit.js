@@ -561,7 +561,9 @@ const OFF_REMIT = {
   reason:
     'the host’s judging table and photo gallery. This page is the contract for the pages GUESTS ' +
     'see, and an admin surface is not one of them: it is a working tool one person uses on one ' +
-    'night, already opted out of the party’s chrome by <code>layout({ still: true })</code>, and ' +
+    'night, opted out of the party’s <em>animation</em> by <code>layout({ still: true })</code> ' +
+    '— though not out of its frame, since #113 put the small print back under the menu on every ' +
+    'page — and ' +
     'nothing will ever be assembled out of its parts — which is the drift this page exists to ' +
     'catch. The cost is named rather than denied: these have no visual contract at all, so a ' +
     'break is caught only by the host looking at it, which is how the judging boxes rendered as ' +

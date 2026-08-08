@@ -25,6 +25,15 @@ import { escape } from './http.js';
  * and `/league` refresh themselves, and a page that re-animates every few seconds is unreadable.
  * Team-facing pages animate by default so a new one never has to remember to.
  *
+ * **It used to drop the small print too, and that was a third meaning it should never have had**
+ * (#113). The strip resamples per render, so on a page reloading every thirty seconds it rewrote
+ * itself under the host -- true when #79 wrote it, and untrue since #94 swapped the reload for a
+ * fragment poll that returns no footer. Nobody re-read the reason when its premise changed, so a
+ * host lost the bottom edge of the screen on nine pages to a hazard that no longer existed. The
+ * `<noscript>` reload does still resample it, which is the one place the old behaviour survives
+ * and is not worth a branch: it is two gag lines swapping on a page nobody is reading with
+ * JavaScript off. So `still` now means animation and the marquee, and nothing else.
+ *
  * `refresh` is that self-refresh, in seconds, and until #79 it did not exist. Three comments in
  * this repository stated that `/admin` polls -- including the one above, and the one explaining
  * why the admin board drops the marquee -- and no page ever carried a timer or a meta refresh.
@@ -100,7 +109,7 @@ export function layout({
   live = 0,
   heading = true,
 }) {
-  const foot = `${nav}${still ? '' : statusbar()}`;
+  const foot = `${nav}${statusbar()}`;
 
   return `<!doctype html>
 <html lang="en">
@@ -206,9 +215,15 @@ export function marquee(items = chrome.marquee) {
  * Sampled without replacement, so the two slots can never show the same line twice side by side --
  * the only repeat here that would look like a bug rather than a coincidence.
  *
- * `aria-hidden` for the marquee's reason, and dropped from `still` surfaces by `layout()` for one
- * more: `/admin` and `/league` refresh themselves (#79), so a resampling strip would rewrite
- * itself under a host who is trying to read the page.
+ * `aria-hidden` for the marquee's reason.
+ *
+ * **On every page, which it had stopped being** (#113). `layout()` dropped it from `still`
+ * surfaces because they reloaded whole every thirty seconds (#79) and the strip would resample
+ * under a host mid-sentence. #94 replaced that reload with a poll of `/admin/live` -- named
+ * fragments, no footer among them -- and left the exclusion standing, so the pages a host spends
+ * the night on were the pages missing the bottom edge of the screen. It is a gag, not a readout;
+ * the marquee is the poster on the wall and this is the frame under it, and the frame is the
+ * thing that has to be on all four sides of everything.
  */
 export function statusbar(items = sample(chrome.status, chrome.STATUS_SLOTS)) {
   return `<div class="statusbar" aria-hidden="true">
@@ -228,7 +243,8 @@ export function statusbar(items = sample(chrome.status, chrome.STATUS_SLOTS)) {
  *
  * **Bottom rather than top, and that is still the whole design.** The top of a guest page already
  * holds the marquee and a scorebar; the bottom was empty on every host surface -- `still: true`
- * drops the small print too -- and it is where a thumb already is at one in the morning. One of
+ * dropped the small print too, until #113 put it back on every page -- and it is where a thumb
+ * already is at one in the morning. One of
  * the original arguments has since expired: the top was also spoken for because Safari 26 sampled
  * the topmost sticky element to tint the phone's own status bar (#72), and #88 unstuck the marquee,
  * so nothing up there is load-bearing any more. The remaining reasons carried the decision on

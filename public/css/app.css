@@ -1242,9 +1242,10 @@ ol.stack {
 /*
  * The clearance the fixed foot owes the page. It goes on `.app` for the same reason the 3rem
  * already there does: the last thing a page says must stop above the frame rather than under it.
- * Generous rather than measured, since the foot is two strips for a guest and one for a host and
- * a page that ends slightly early reads as finished, while one that ends under the bar reads as
- * broken.
+ * Generous rather than measured, since a page that ends slightly early reads as finished while one
+ * that ends under the bar reads as broken. It was sized for the guest's two strips when a host's
+ * foot held one, which is why #113 -- giving the host the small print too -- needed nothing here:
+ * the clearance had already been paid for the taller of the two.
  */
 .shell--nav .app { padding-bottom: 8rem; }
 
