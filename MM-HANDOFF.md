@@ -18,9 +18,14 @@ the bottom.
 
 ## What you are deploying
 
-A single Node.js container. No database server, no Redis, no build step, **no runtime
-dependencies at all** — the entire `node_modules` is empty, on purpose. It is server-rendered
+A single Node.js container. No database server, no Redis, no build step. It is server-rendered
 HTML with plain form POSTs.
+
+**Two runtime dependencies**, `exifreader` and `mime`, installed by the Dockerfile with
+`pnpm install --frozen-lockfile --prod`. This used to say *none at all*, and the change is worth a
+sentence because it changes what a build needs from you: the build step now reaches an npm
+registry, so a rebuild on a box with no outbound network will fail where it used to succeed. Both
+packages are pure JavaScript — nothing compiles, so Alpine and musl are still not a question.
 
 | | |
 | --- | --- |

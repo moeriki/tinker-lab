@@ -32,8 +32,13 @@ as the answer. The flag visits `/admin/key/<secret>` first, the way a host does.
 [#79](https://github.com/moeriki/tinker-lab/issues/79), which built two admin pages nobody could
 look at.
 
-It prints the path of every PNG it writes. Nothing is installed, `node_modules` stays empty, and it
-needs no human at the keyboard — so it works in a background session and in a parallel worktree.
+It prints the path of every PNG it writes, drives a Chrome this machine already has, and needs no
+human at the keyboard — so it works in a background session and in a parallel worktree.
+
+It used to add *nothing is installed, `node_modules` stays empty*. Since
+[#102](https://github.com/moeriki/tinker-lab/issues/102) that is no longer true of the repo, so a
+fresh worktree owes one `pnpm install` before anything here runs. The scripts themselves still pull
+in nothing of their own: Node's `fetch` and `WebSocket` against a browser that is already on disk.
 
 ## Why the Chrome extension is not the answer
 
@@ -180,9 +185,12 @@ the first is measured rather than argued:
 - **Its browsers are not cached.** `playwright@1.62.1` pins chromium revision **1234**; this
   machine holds 1194, 1217 and 1228. `playwright install` would pull ~150MB. The ticket's premise
   came from a directory listing that was never checked against the pin.
-- **`node_modules` is gitignored and every session takes a fresh worktree.** A devDependency turns
-  *you can look at this site* into *you can look, once `pnpm install` succeeds against a registry*.
-  That guarantee is the whole of what #64 bought.
+- ~~**`node_modules` is gitignored and every session takes a fresh worktree.** A devDependency turns
+  *you can look at this site* into *you can look, once `pnpm install` succeeds against a registry*.~~
+  **Spent by [#102](https://github.com/moeriki/tinker-lab/issues/102)**, which gave this repo
+  dependencies: every worktree now owes that install whatever it does, so this no longer charges
+  Playwright anything. Struck through rather than deleted so nobody derives it a second time. The
+  other two reasons are untouched and still decide it.
 - **There is no client JS to drive.** Forms POST and redirect; nothing team-facing is wired to a
   listener. Becoming a team needs a cookie jar, a form submit and a file input — a browser already
   has the first two, and the third is one CDP call (`DOM.setFileInputFiles`).

@@ -5,6 +5,8 @@
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import ExifReader from 'exifreader';
+
 import { UPLOADS_DIR } from './config.js';
 
 /** Cap on a single upload. A modern phone photo is 3-12MB; this is headroom, not a target. */
@@ -33,6 +35,15 @@ const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 /**
  * What the bytes actually are -- never the filename, never the client's Content-Type. A phone
  * that lies about either still gets stored under the truth.
+ *
+ * #102 replaced the other two parsers in this repo with libraries and deliberately left this one
+ * alone, having measured `file-type` against it: identical answers on all six formats and on every
+ * garbage input the tests below throw at it, so the swap buys no correctness. What it costs is the
+ * part that decided it -- `file-type` is async-only, so `sniff`, `exifThumbnail` and `storePhoto`
+ * would all have to become async, and every assertion in `test/photos.test.js` would change shape
+ * to follow. Those tests exist to prove a swap changed nothing; a swap that rewrites them cannot.
+ * It also carries nine transitive packages into the runtime image, for twenty lines that compare
+ * magic bytes and have never been wrong.
  */
 export function sniff(buf) {
   if (buf.length > 3 && buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return 'image/jpeg';
@@ -59,65 +70,41 @@ export function sniff(buf) {
 
 /**
  * The embedded EXIF thumbnail, or null. Phone JPEGs carry a ~160x120 JPEG in the APP1 segment,
- * which is how the gallery shows a grid without downloading megabytes: pure byte-walking, so it
- * costs no dependency and no image decoding. Measured on a real photo: 1282KB -> 6.7KB.
+ * which is how the gallery shows a grid without downloading megabytes. Measured on a real photo:
+ * 1282KB -> 6.7KB.
+ *
+ * This was fifty-seven lines of TIFF offset arithmetic until #102, and it was the code with the
+ * worst risk profile in the repo: nothing had ever run it (the walk uploaded a PNG, and the line
+ * above returns null for those), and every guest uploads a phone JPEG, so it was going to execute
+ * for the first time in front of everybody. `exifreader` returns the same 7341 bytes,
+ * byte-identical, and is somebody else's problem to keep correct.
  */
 export function exifThumbnail(buf) {
   if (sniff(buf) !== 'image/jpeg') return null;
 
-  let offset = 2;
-  while (offset + 4 <= buf.length) {
-    if (buf[offset] !== 0xff) return null;
-    const marker = buf[offset + 1];
-    if (marker === 0xda) return null; // start of scan -- past every metadata segment
-    const length = buf.readUInt16BE(offset + 2);
-
-    if (marker === 0xe1 && buf.subarray(offset + 4, offset + 10).toString('latin1') === 'Exif\0\0') {
-      return thumbnailFromTiff(buf.subarray(offset + 10, offset + 2 + length));
-    }
-
-    offset += 2 + length;
+  let thumbnail;
+  try {
+    // Where the hand-rolled walker returned null, this throws -- RangeError on a file cut off
+    // inside the TIFF header, "Invalid image format" on an empty buffer. A photo arriving over
+    // patchy wifi is the ordinary case, not the exotic one, and a throw here is a 500 on the one
+    // form guests actually use.
+    thumbnail = ExifReader.load(buf, { expanded: true }).Thumbnail;
+  } catch {
+    return null;
   }
 
-  return null;
-}
+  if (!thumbnail?.image) return null;
 
-/** IFD0 is the image; IFD1, hanging off its tail, describes the thumbnail. */
-function thumbnailFromTiff(tiff) {
-  if (tiff.length < 8) return null;
+  // The other half of the same problem, and the quieter one: handed a JPEG that stops partway
+  // through its own thumbnail, `exifreader` returns the bytes it found rather than nothing -- 320
+  // bytes of a 7341-byte thumbnail, which still opens with the JPEG magic and so passes every
+  // cheap check. Written to disk that becomes a permanently half-drawn tile. The declared length
+  // is right there in the tag, so a short read is knowable: refuse it and let the gallery fall
+  // back to the full image, which is what the old walker did by refusing to read past its buffer.
+  if (thumbnail.JPEGInterchangeFormatLength?.value !== thumbnail.image.byteLength) return null;
 
-  const order = tiff.subarray(0, 2).toString('latin1');
-  if (order !== 'MM' && order !== 'II') return null;
-  const bigEndian = order === 'MM';
-  const u16 = (at) => (bigEndian ? tiff.readUInt16BE(at) : tiff.readUInt16LE(at));
-  const u32 = (at) => (bigEndian ? tiff.readUInt32BE(at) : tiff.readUInt32LE(at));
-
-  const ifd0 = u32(4);
-  if (ifd0 + 2 > tiff.length) return null;
-
-  const pointerToIfd1 = ifd0 + 2 + u16(ifd0) * 12; // entries are 12 bytes; the pointer follows
-  if (pointerToIfd1 + 4 > tiff.length) return null;
-
-  const ifd1 = u32(pointerToIfd1);
-  if (!ifd1 || ifd1 + 2 > tiff.length) return null;
-
-  let start = null;
-  let length = null;
-  const entries = u16(ifd1);
-
-  for (let index = 0; index < entries; index += 1) {
-    const entry = ifd1 + 2 + index * 12;
-    if (entry + 12 > tiff.length) break;
-    const tag = u16(entry);
-    if (tag === 0x0201) start = u32(entry + 8); // JPEGInterchangeFormat
-    if (tag === 0x0202) length = u32(entry + 8); // JPEGInterchangeFormatLength
-  }
-
-  if (start === null || length === null) return null;
-  if (start + length > tiff.length) return null;
-
-  const thumbnail = tiff.subarray(start, start + length);
-  return sniff(thumbnail) === 'image/jpeg' ? thumbnail : null; // trust nothing, check it too
+  const bytes = Buffer.from(thumbnail.image);
+  return sniff(bytes) === 'image/jpeg' ? bytes : null; // trust nothing, check it too
 }
 
 const pad = (value, width) => String(value).padStart(width, '0');

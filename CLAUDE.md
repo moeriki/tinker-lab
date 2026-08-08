@@ -56,8 +56,10 @@ Single-context — one `CONTEXT.md` and one `docs/adr/` at the repo root. See `d
 ### Screenshots
 
 **You can look at this site, including from inside a team.** Both scripts boot the server against a
-throwaway database and write phone-sized PNGs you can Read — no dependency, no browser extension,
-safe in a background session and in parallel worktrees.
+throwaway database and write phone-sized PNGs you can Read — no browser extension, safe in a
+background session and in parallel worktrees. They drive a Chrome this machine already has and add
+no package of their own, but **a fresh worktree owes one `pnpm install`** before anything runs:
+this repo has had dependencies since #102.
 
 - `node scripts/screenshot.js` — any route a URL can reach, cold.
 - `node scripts/walk.js` — arrives as a team: walks onboarding, scans, submits an answer and a real
@@ -78,7 +80,20 @@ It exists because those paths had no coverage at all and one of them had **never
 (#102). Fixtures live in `test/fixtures/` with their regeneration recipe in `test/photos.test.js`.
 The tests characterise *behaviour, not implementation*, because the code underneath is being
 replaced by libraries — an assertion that has to change during a swap is a swap that changed the
-site.
+site. That rule earned itself in #102: all 43 assertions survived three swaps untouched, and the
+one library that *would* have forced them to change shape was rejected for it.
+
+### Linting and formatting
+
+`pnpm lint` (oxlint) and `pnpm format` (prettier) exist as of #102. **The repo is deliberately not
+formatted yet** — `pnpm format:check` fails on ~51 files, and that is expected, not a bug to fix on
+your way past. The sweep touches `src/app.js`, `src/render.js`, `src/kit.js` and `public/css/`,
+which is exactly what the five open kit tickets are editing, so running it now hands every one of
+them a rebase conflict for no benefit. It has its own ticket, blocked until that batch lands.
+
+Prettier also has opinions this repo does not share — it explodes the eight-line mask table in
+`scripts/qr-encode.js` into sixteen. Expect the sweep to need a few `prettier-ignore` lines rather
+than to be a clean no-op.
 
 ### The local dev server
 

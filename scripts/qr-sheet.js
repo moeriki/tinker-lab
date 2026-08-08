@@ -230,6 +230,12 @@ function reportPreflight(rows, { problems, pending }) {
  * Every symbol this repo will ever print, encoded and then decoded straight back through the spec
  * -- format bits, mask, zigzag, de-interleave, Reed-Solomon syndromes, payload. Plus a sweep of
  * every version and level, so a table typo cannot hide in a version we happen not to use.
+ *
+ * That last sentence was a lie until #102. The encoder and the decoder were both written here and
+ * read the same tables, so a wrong block count produced a symbol this decoder de-interleaved
+ * perfectly -- and version 8 at level H had exactly that, from the day the file was written. The
+ * encoder is now `qrcode-generator`, so the two halves no longer share anything, and the sweep
+ * finally checks what it always claimed to.
  */
 function selftest(rows, level) {
   const cases = rows.map((row) => [row.url, level]);
@@ -247,7 +253,9 @@ function selftest(rows, level) {
       const back = decodeQr(symbol);
       if (back.text !== text) failures.push(`payload changed: ${text.slice(0, 24)}...`);
       if (back.level !== each) failures.push(`level ${each} read back as ${back.level}`);
-      if (back.mask !== symbol.mask) failures.push(`mask ${symbol.mask} read back as ${back.mask}`);
+      if (back.version !== symbol.version) {
+        failures.push(`version ${symbol.version} read back as ${back.version}`);
+      }
     } catch (error) {
       failures.push(`${text.slice(0, 24)}... (${each}): ${error.message}`);
     }

@@ -12,9 +12,12 @@
 //   1. Its browsers are NOT already cached. playwright@1.62.1 pins chromium revision 1234; this
 //      machine holds 1194, 1217 and 1228, so `playwright install` would pull ~150MB. The premise
 //      the ticket was filed on was checked against a directory listing and not against the pin.
-//   2. node_modules is gitignored and every session takes a fresh worktree, so a devDependency
-//      turns "you can look at this site" into "you can look, once pnpm install succeeds against a
-//      registry". That guarantee is eight days old and is the whole of what #64 bought.
+//   2. THIS REASON IS SPENT, and is kept here so nobody re-derives it. It read: node_modules is
+//      gitignored and every session takes a fresh worktree, so a devDependency turns "you can
+//      look at this site" into "you can look, once pnpm install succeeds against a registry".
+//      #102 added dependencies to this repo, so every worktree owes that install anyway and
+//      Playwright no longer costs anything this argument can charge it for. Reasons 1 and 3 are
+//      untouched and still decide it -- a 150MB browser download is the expensive one.
 //   3. This site has no client JS to drive. Forms POST and redirect (a locked constraint on the
 //      map); nothing on a team-facing page is wired to a listener. What is actually needed to
 //      become a team is a cookie jar, a form submit and a file input -- and a browser already has

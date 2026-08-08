@@ -11,20 +11,28 @@ ENV DATA_DIR=/data
 
 WORKDIR /app
 
-# This application has NO runtime dependencies, so there is no install step and no node_modules
-# in the image. That is a real property, not an oversight -- and this guard makes sure it stays
-# true. If a later ticket adds a dependency, the build fails here with instructions rather than
-# producing an image that is silently missing it.
-COPY package.json ./
-RUN node -e "const p = require('./package.json'); \
-  const deps = Object.keys(p.dependencies || {}); \
-  if (deps.length) { \
-    console.error('\\nBUILD STOPPED: package.json now declares dependencies: ' + deps.join(', ')); \
-    console.error('The Dockerfile has no install step because there were none.'); \
-    console.error('Add one (corepack enable && pnpm install --frozen-lockfile --prod)'); \
-    console.error('and delete this guard.\\n'); \
-    process.exit(1); \
-  }"
+# Until #102 this repo had NO runtime dependencies and a guard here failed the build if that ever
+# stopped being true. It stopped being true on purpose: two parsers that were hand-rolled to keep
+# the count at zero -- EXIF thumbnail extraction and the content-type table -- are now `exifreader`
+# and `mime`, because a library handles the edge cases better than we do. The EXIF one had never
+# executed in this repository at all.
+#
+# Both are chosen to keep this step boring: `mime` has no dependencies, `exifreader` has one
+# optional. Nothing compiles, so Alpine and musl stay out of it exactly as they did before.
+#
+# `--prod` leaves the dev tools out of the image: `qrcode-generator` prints the cards from a
+# checkout on the day, and never runs on the server.
+#
+# The lockfile is copied separately from the source so this layer caches on the dependency set
+# rather than on every edit -- otherwise `COPY . .` below would reinstall on each commit.
+# `corepack enable` alone does not work here: Node 26 no longer ships corepack, so the base image
+# has npm and nothing else, and the build died with a bare `exit status 127` -- measured, not
+# guessed. Installing it first is what lets the pinned `packageManager` field in package.json stay
+# the single place the pnpm version is written down, integrity hash and all.
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+RUN npm install --global corepack@latest \
+  && corepack enable \
+  && pnpm install --frozen-lockfile --prod
 
 COPY . .
 

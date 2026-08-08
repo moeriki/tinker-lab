@@ -1,7 +1,8 @@
 // Small helpers over node:http. No framework: forms POST and redirect, pages render fresh.
 
-import { extname } from 'node:path';
 import { Readable } from 'node:stream';
+
+import mime from 'mime';
 
 export function noCache(res) {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
@@ -118,32 +119,29 @@ export async function readMultipart(req, { limit } = {}) {
 /**
  * What to put in `Content-Type` for a file on disk. Two directories are served through this:
  * `public/` (css, html, jpg, js, woff2) and `data/uploads/`, which is where the six image formats
- * come from -- so the table is longer than a listing of `public/` suggests, and deliberately so.
+ * come from -- so this answers for more than a listing of `public/` suggests.
  *
  * It lives here rather than beside the static handler in app.js because app.js opens the database
- * on import: a test that wanted to check this table would have had to create a database to read
- * it, which is why it went untested for as long as it did.
+ * on import: a test that wanted to check this would have had to create a database to read it,
+ * which is why it went untested for as long as it did.
  *
- * Unknown extensions get `application/octet-stream` -- a download rather than a guess.
+ * This was a hand-written table of thirteen extensions until #102. The failure mode was never a
+ * wrong answer for something in it -- it was somebody adding a font or an image to `public/` in a
+ * format nobody thought to add, and the browser quietly downloading it. `mime` knows every
+ * extension either directory can hold and carries no dependencies of its own.
+ *
+ * Two things the library does not do for us. It answers `text/css`, not `text/css; charset=utf-8`,
+ * and a stylesheet served without a charset is a stylesheet a browser may decode wrongly -- so
+ * every `text/*` gets one appended. And it answers `null` rather than guessing, which is exactly
+ * the behaviour wanted: an unknown extension downloads.
+ *
+ * One answer legitimately changed: `.ico` is now `image/vnd.microsoft.icon` rather than
+ * `image/x-icon`. Both work everywhere, and nothing in `public/` is an .ico today.
  */
-const CONTENT_TYPES = {
-  '.html': 'text/html; charset=utf-8',
-  '.css': 'text/css; charset=utf-8',
-  '.js': 'text/javascript; charset=utf-8',
-  '.png': 'image/png',
-  '.jpg': 'image/jpeg',
-  '.jpeg': 'image/jpeg',
-  '.gif': 'image/gif',
-  '.svg': 'image/svg+xml',
-  '.woff2': 'font/woff2',
-  '.ico': 'image/x-icon',
-  '.webp': 'image/webp',
-  '.heic': 'image/heic',
-  '.avif': 'image/avif',
+export const contentTypeFor = (file) => {
+  const type = mime.getType(file) ?? 'application/octet-stream';
+  return type.startsWith('text/') ? `${type}; charset=utf-8` : type;
 };
-
-export const contentTypeFor = (file) =>
-  CONTENT_TYPES[extname(file).toLowerCase()] ?? 'application/octet-stream';
 
 export function redirect(res, location, status = 303) {
   noCache(res);

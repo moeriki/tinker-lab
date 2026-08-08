@@ -1,4 +1,4 @@
-# Codes are printed from the inventory, by a script with no dependencies
+# Codes are printed from the inventory, by a script that decodes what it prints
 
 **Status:** accepted · **Date:** 2026-08-04 · **Ticket:** [QR inventory and generator script](https://github.com/moeriki/tinker-lab/issues/12)
 
@@ -19,16 +19,30 @@ printable before the game behind it is written, or the printing waits on the slo
 
 Four things follow.
 
-**The QR encoder is written in this repo** (`scripts/qr-encode.js`, byte mode, versions 1–10, all
-four correction levels). Not a runtime dependency — the Dockerfile's build guard forbids those —
-but not a devDependency either. `pnpm install` on the morning of the party means a lockfile, a
-registry, a network and a package manager all working on the one day they must not be a question.
-`node scripts/qr-sheet.js` runs from a bare checkout, offline.
+**The QR encoder is `qrcode-generator`; the decoder is written in this repo**
+(`scripts/qr-encode.js`, byte mode, versions 1–10, all four correction levels).
+
+This originally read *the encoder is written in this repo*, and gave the reason: printing happens
+on the morning of the party, and `pnpm install` that morning means a lockfile, a registry, a
+network and a package manager all working on the one day they must not be a question.
+[#102](https://github.com/moeriki/tinker-lab/issues/102) overturned it. Libraries handle edge
+cases better than we do, and this one is zero-dependency, so what the printed card depends on is
+one package deep. The offline guarantee survives in a weaker form — the packages are in the
+lockfile and the pnpm store, and `--frozen-lockfile` needs no network once they have been fetched
+even once — and the swap paid for itself immediately, below.
 
 **The encoder is trusted because it is decoded, not because it is short.** `--selftest` encodes
-and decodes 95 symbols — every payload in the inventory, plus a full sweep of every version and
+and decodes 98 symbols — every payload in the inventory, plus a full sweep of every version and
 level — back through the spec: format bits, mask, zigzag, de-interleave, Reed-Solomon syndromes,
 payload. It corrects nothing, so a single wrong module fails it.
+
+**And that check only became real when the encoder left.** While both halves were written here
+they read the same tables, so a wrong table produced a symbol that decoded perfectly against the
+same wrong number — the sweep could not catch the one thing it was built to catch. Version 8 at
+level H said five blocks where the spec says six, from the day the file was written until #102
+swapped the encoder and the decoder could no longer read it. The inventory prints at version 4, so
+no card was ever affected. The lesson is the general one: a self-test is only a test where the two
+sides are independent.
 
 **A code may point at content that does not exist yet, if it says so.** `pending: true` in the
 inventory turns a dangling target from a boot error into a loud boot warning; scanning one shows

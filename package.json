@@ -9,6 +9,9 @@
     "dev": "NODE_ENV=development node --watch server.js",
     "dev:prod": "node --watch server.js",
     "test": "node --test \"test/**/*.test.js\"",
+    "lint": "oxlint src scripts test content server.js",
+    "format": "prettier --write . --ignore-path .gitignore",
+    "format:check": "prettier --check . --ignore-path .gitignore",
     "backup": "node scripts/backup.js",
     "qr": "node scripts/qr-sheet.js",
     "migrate-check": "node scripts/migrate-check.js"
@@ -16,5 +19,14 @@
   "engines": {
     "node": ">=22"
   },
-  "packageManager": "pnpm@11.20.0+sha512.9a6f330a95b66446ea088faf1521405a8a01f07fde7124cc9958dfed52d4bb436737e65b08f85f37b46fcba375092558ac51262b816844b22f63406ed166bfee"
+  "packageManager": "pnpm@11.20.0+sha512.9a6f330a95b66446ea088faf1521405a8a01f07fde7124cc9958dfed52d4bb436737e65b08f85f37b46fcba375092558ac51262b816844b22f63406ed166bfee",
+  "devDependencies": {
+    "oxlint": "^1.77.0",
+    "prettier": "^3.9.6",
+    "qrcode-generator": "^2.0.4"
+  },
+  "dependencies": {
+    "exifreader": "^4.42.0",
+    "mime": "^4.1.0"
+  }
 }

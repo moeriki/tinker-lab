@@ -24,9 +24,9 @@
 // and the regression check is what you get on the way past.
 //
 // WHY NOT PLAYWRIGHT: see the header of scripts/lib/browser.js. Short version -- its browsers are
-// not actually cached at the pinned revision, node_modules is gitignored so every fresh worktree
-// would owe a `pnpm install` before it could look at anything, and this site has no client JS to
-// drive anyway.
+// not actually cached at the pinned revision, and this site has no client JS to drive anyway. The
+// third reason used to be that a devDependency would cost every fresh worktree a `pnpm install`;
+// #102 spent that one, since this repo now has dependencies and every worktree owes it regardless.
 
 import { existsSync, mkdirSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';

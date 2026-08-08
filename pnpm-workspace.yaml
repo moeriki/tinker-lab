@@ -1,0 +1,6 @@
+# exifreader ships a `postinstall` that runs `bin/build.js --only-with-config`: it rebuilds the
+# bundle only when the project supplies an `.exifreaderrc`. This repo has none, so the script is a
+# no-op -- but pnpm refuses to install quietly until somebody says so out loud, including inside
+# the container build, where nothing is there to answer. Saying `false` here is that answer.
+allowBuilds:
+  exifreader: false

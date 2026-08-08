@@ -1,21 +1,30 @@
-// A QR Code encoder, byte mode, versions 1-10, all four error-correction levels.
+// QR codes: `qrcode-generator` draws them, and everything else in this file reads them back.
 //
-// WHY THIS IS HERE INSTEAD OF `npm i qrcode`
-// ------------------------------------------
-// The app has zero runtime dependencies and the Dockerfile fails the build if `dependencies` ever
-// stops being empty (see the guard in Dockerfile). A QR library would be a *dev* dependency, so it
-// would technically slip past that guard -- and that is exactly why it is the wrong answer here.
-// The codes are printed on the day of the party. `pnpm install` on that morning means a lockfile,
-// a registry, a network and a package manager all working on the one day they must not be a
-// question. `node scripts/qr-sheet.js` works from a bare checkout, offline, on any Node 22+.
+// WHY A LIBRARY ENCODES AND THIS FILE STILL DECODES
+// ------------------------------------------------
+// The encoder used to live here too -- 350 lines of Reed-Solomon, interleaving, mask selection and
+// penalty scoring, written because the app carried zero dependencies. #102 replaced it: a library
+// handles the edge cases better than we do, and this one is zero-dependency itself, so the
+// dependency tree that reaches the printed card is one package deep.
 //
-// The counter-argument -- that a hand-rolled encoder might emit a symbol no phone can read -- is
-// answered by `--selftest`: it decodes every symbol back through the spec (format bits, mask,
-// zigzag, de-interleave, Reed-Solomon syndromes, payload) and compares. See
+// The decoder stayed, and it is the reason the swap is safe. It walks the spec backwards --
+// format bits, mask, zigzag, de-interleave, Reed-Solomon syndromes, payload -- and it corrects
+// nothing, so a single wrong module fails it. `qr-sheet.js --selftest` runs every payload this
+// repo will ever print through both, which now means an INDEPENDENT check rather than one piece
+// of code agreeing with itself. That distinction is not theoretical: the swap immediately found a
+// wrong block count at version 8 level H that had been in the table since the file was written,
+// and had been invisible precisely because both halves read it. See NUM_BLOCKS below, and
 // ADR-codes-are-printed-from-the-inventory.
 //
-// Structure follows the reference decomposition in ISO/IEC 18004: encode -> codewords -> error
-// correction -> interleave -> place -> mask -> format bits.
+// Printing still happens on the day of the party, so it still has to work from a checkout with no
+// network. That is now a `node_modules` question rather than a no-dependencies one: the packages
+// are in the lockfile and the pnpm store, and `pnpm install --frozen-lockfile` is offline once
+// they have been fetched even once.
+//
+// What remains here follows the reference decomposition in ISO/IEC 18004, read in reverse:
+// format bits -> unmask -> zigzag -> de-interleave -> syndromes -> payload.
+
+import qrcode from 'qrcode-generator';
 
 // --- GF(256), the field the Reed-Solomon codes live in ------------------------------------------
 // Primitive polynomial x^8 + x^4 + x^3 + x^2 + 1 = 0x11d, as the spec requires.
@@ -47,11 +56,18 @@ const ECC_CODEWORDS_PER_BLOCK = {
   H: [0, 17, 28, 22, 16, 22, 28, 26, 26, 24, 28],
 };
 
+// Version 8 at level H is SIX blocks, not five. It read five until #102 swapped the encoder for
+// `qrcode-generator` and this decoder could no longer read what the encoder produced. Nothing
+// caught it before because the encoder and this decoder read the same wrong number: a symbol built
+// on 5x26 error-correction codewords de-interleaves perfectly against a table that also says 5.
+// That is the whole weakness of a self-test -- `--selftest` swept every version and level and
+// claimed a table typo could not hide in one we do not use, and one had been hiding there since
+// the file was written. The printed inventory is version 4, so no card was ever affected.
 const NUM_BLOCKS = {
   L: [0, 1, 1, 1, 1, 1, 2, 2, 2, 2, 4],
   M: [0, 1, 1, 1, 2, 2, 4, 4, 4, 5, 5],
   Q: [0, 1, 1, 2, 2, 4, 4, 6, 6, 8, 8],
-  H: [0, 1, 1, 2, 4, 4, 4, 5, 5, 8, 8],
+  H: [0, 1, 1, 2, 4, 4, 4, 5, 6, 8, 8],
 };
 
 /** The five-bit format field: L and M are deliberately not in numeric order. */
@@ -112,75 +128,6 @@ function rsRemainder(data, divisor) {
 // --- bit plumbing ---------------------------------------------------------------------------------
 
 const bit = (value, index) => ((value >>> index) & 1) !== 0;
-
-class Bits {
-  constructor() {
-    this.values = [];
-  }
-
-  push(value, length) {
-    for (let i = length - 1; i >= 0; i -= 1) this.values.push((value >>> i) & 1);
-  }
-
-  get length() {
-    return this.values.length;
-  }
-
-  toBytes() {
-    const bytes = new Uint8Array(this.values.length / 8);
-    this.values.forEach((value, index) => {
-      if (value) bytes[index >>> 3] |= 0x80 >>> index % 8;
-    });
-    return bytes;
-  }
-}
-
-/** Payload -> data codewords, including the terminator and the 0xEC/0x11 alternating pad. */
-function toDataCodewords(bytes, version, level) {
-  const bits = new Bits();
-  bits.push(0b0100, 4); // byte mode
-  bits.push(bytes.length, countBits(version));
-  for (const byte of bytes) bits.push(byte, 8);
-
-  const capacity = dataCodewords(version, level) * 8;
-  bits.push(0, Math.min(4, capacity - bits.length));
-  bits.push(0, (8 - (bits.length % 8)) % 8);
-  for (let pad = 0xec; bits.length < capacity; pad ^= 0xec ^ 0x11) bits.push(pad, 8);
-
-  return bits.toBytes();
-}
-
-/**
- * Split into blocks, append each block's error-correction codewords, then interleave. The
- * interleave is what makes a smudge survivable: a physically contiguous blot lands one or two
- * codewords in each block rather than wiping a single block out.
- */
-function addEccAndInterleave(data, version, level) {
-  const blockCount = NUM_BLOCKS[level][version];
-  const eccLength = ECC_CODEWORDS_PER_BLOCK[level][version];
-  const raw = totalCodewords(version);
-  const shortBlockCount = blockCount - (raw % blockCount);
-  const shortBlockLength = Math.floor(raw / blockCount);
-  const divisor = rsDivisor(eccLength);
-
-  const blocks = [];
-  for (let i = 0, offset = 0; i < blockCount; i += 1) {
-    const length = shortBlockLength - eccLength + (i < shortBlockCount ? 0 : 1);
-    const block = Array.from(data.slice(offset, offset + length));
-    offset += length;
-    const ecc = Array.from(rsRemainder(block, divisor));
-    if (i < shortBlockCount) block.push(0); // padding, skipped on the way out
-    blocks.push(block.concat(ecc));
-  }
-
-  const result = [];
-  for (let i = 0; i < blocks[0].length; i += 1) {
-    for (let j = 0; j < blocks.length; j += 1) {
-      if (i !== shortBlockLength - eccLength || j >= shortBlockCount) result.push(blocks[j][i]);
-    }
-  }
-  return Uint8Array.from(result);
-}
 
 // --- the symbol ------------------------------------------------------------------------------------
 
@@ -302,31 +249,6 @@ class Symbol_ {
       }
     }
   }
-
-  drawCodewords(codewords) {
-    this.eachDataModule((x, y, index) => {
-      if (index < codewords.length * 8) {
-        this.modules[y][x] = bit(codewords[index >>> 3], 7 - (index % 8));
-      }
-    });
-  }
-
-  applyMask(mask) {
-    for (let y = 0; y < this.size; y += 1) {
-      for (let x = 0; x < this.size; x += 1) {
-        if (this.reserved[y][x]) continue;
-        if (maskAt(mask, x, y)) this.modules[y][x] = !this.modules[y][x];
-      }
-    }
-  }
-
-  row(y) {
-    return this.modules[y].map((dark) => (dark ? '1' : '0')).join('');
-  }
-
-  column(x) {
-    return this.modules.map((row) => (row[x] ? '1' : '0')).join('');
-  }
 }
 
 function maskAt(mask, x, y) {
@@ -342,65 +264,24 @@ function maskAt(mask, x, y) {
   }
 }
 
-/** The four penalty rules of the spec, used only to pick the least-ugly of the eight masks. */
-function penalty(symbol) {
-  const { size } = symbol;
-  let score = 0;
-  let dark = 0;
-
-  const lines = [];
-  for (let i = 0; i < size; i += 1) {
-    lines.push(symbol.row(i));
-    lines.push(symbol.column(i));
-  }
-
-  for (const line of lines) {
-    // Rule 1: runs of five or more.
-    let run = 1;
-    for (let i = 1; i <= line.length; i += 1) {
-      if (i < line.length && line[i] === line[i - 1]) {
-        run += 1;
-      } else {
-        if (run >= 5) score += 3 + (run - 5);
-        run = 1;
-      }
-    }
-    // Rule 3: a finder-lookalike, 1:1:3:1:1 with four light modules beside it.
-    const padded = `0000${line}0000`;
-    for (let i = 0; i + 11 <= padded.length; i += 1) {
-      const window = padded.slice(i, i + 11);
-      if (window === '10111010000' || window === '00001011101') score += 40;
-    }
-  }
-
-  // Rule 2: any 2x2 block of one colour.
-  for (let y = 0; y + 1 < size; y += 1) {
-    for (let x = 0; x + 1 < size; x += 1) {
-      const value = symbol.modules[y][x];
-      if (
-        value === symbol.modules[y][x + 1] &&
-        value === symbol.modules[y + 1][x] &&
-        value === symbol.modules[y + 1][x + 1]
-      ) {
-        score += 3;
-      }
-    }
-  }
-
-  for (let y = 0; y < size; y += 1) {
-    for (let x = 0; x < size; x += 1) if (symbol.modules[y][x]) dark += 1;
-  }
-
-  // Rule 4: how far the dark/light balance strays from even.
-  const total = size * size;
-  score += Math.max(0, Math.ceil(Math.abs(dark * 20 - total * 10) / total) - 1) * 10;
-  return score;
-}
-
 /**
- * Encode `text` and return `{ version, size, modules }`, where `modules[y][x]` is true for dark.
- * The quiet zone is NOT included -- whoever draws the symbol owns it, and the sheet generator
- * draws four modules on every side.
+ * Encode `text` and return `{ version, level, size, modules }`, where `modules[y][x]` is true for
+ * dark. The quiet zone is NOT included -- whoever draws the symbol owns it, and the sheet
+ * generator draws four modules on every side.
+ *
+ * The version is chosen here rather than by the library, because this repo caps at version 10 and
+ * wants the refusal to say so. `qrcode-generator` would happily grow to version 40 instead, and a
+ * symbol that big is one nobody measured a card for.
+ *
+ * Byte mode is forced. The library would otherwise pick the tightest mode for the payload, and an
+ * all-uppercase or all-digit string would come back alphanumeric or numeric -- valid QR that this
+ * file's decoder, which reads byte mode only, rejects. Every payload here is a URL, so byte mode
+ * is what the inventory has always used; making it explicit is what keeps `--selftest` honest for
+ * the synthetic payloads it sweeps.
+ *
+ * The mask is the library's choice and is deliberately not reported: it is written into the
+ * format bits, and `decodeQr` reads it back from there, which is the only claim about it worth
+ * making.
  */
 export function encodeQr(text, level = 'H', { minVersion = 1 } = {}) {
   if (!LEVELS.includes(level)) throw new Error(`unknown error-correction level "${level}"`);
@@ -415,25 +296,16 @@ export function encodeQr(text, level = 'H', { minVersion = 1 } = {}) {
     );
   }
 
-  const codewords = addEccAndInterleave(toDataCodewords(bytes, version, level), version, level);
+  const symbol = qrcode(version, level);
+  symbol.addData(text, 'Byte');
+  symbol.make();
 
-  const symbol = new Symbol_(version);
-  symbol.drawFunctionPatterns(level);
-  symbol.drawCodewords(codewords);
+  const size = symbol.getModuleCount();
+  const modules = Array.from({ length: size }, (_, y) =>
+    Array.from({ length: size }, (_, x) => symbol.isDark(y, x)),
+  );
 
-  let best = null;
-  for (let mask = 0; mask < 8; mask += 1) {
-    symbol.applyMask(mask);
-    symbol.drawFormat(level, mask);
-    const score = penalty(symbol);
-    if (best === null || score < best.score) best = { mask, score };
-    symbol.applyMask(mask); // masking is its own inverse
-  }
-
-  symbol.applyMask(best.mask);
-  symbol.drawFormat(level, best.mask);
-
-  return { version, level, mask: best.mask, size: symbol.size, modules: symbol.modules };
+  return { version, level, size, modules };
 }
 
 // --- reading one back, which is the only honest way to trust the one above ------------------------

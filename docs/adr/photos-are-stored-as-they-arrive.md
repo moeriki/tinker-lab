@@ -31,9 +31,15 @@ Three things follow:
 - **Type comes from magic bytes**, never the filename and never the client's `Content-Type`. It
   is recorded on the submission as `photo_mime`.
 - **The thumbnail is the camera's own.** Phone JPEGs embed a ~160×120 JPEG in the EXIF APP1
-  segment; extracting it is byte-walking, not decoding, so it costs no dependency. Measured on a
-  real photo: 1282KB → 6.5KB, a 190× saving. Recorded as `photo_thumb`, and **null is normal** —
-  HEIC and PNG carry none.
+  segment; extracting it is metadata reading, not decoding, so it stays cheap. Measured on a real
+  photo: 1282KB → 6.5KB, a 190× saving. Recorded as `photo_thumb`, and **null is normal** — HEIC
+  and PNG carry none.
+
+  This originally read *so it costs no dependency*, and it was true: the extraction was
+  fifty-seven hand-written lines of TIFF offset arithmetic. [#102](https://github.com/moeriki/tinker-lab/issues/102)
+  replaced them with `exifreader`, which returns the same bytes and is somebody else's problem to
+  keep correct. The decision this ADR actually makes — the camera's own thumbnail, no decoding, no
+  resizing — is untouched; only the sentence about what it cost.
 - **A format the browser may refuse gets a download tile**, not a broken `<img>`. This is the
   entire mitigation for HEIC, and it is a degrade rather than a failure.
 
