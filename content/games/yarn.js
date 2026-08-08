@@ -100,9 +100,12 @@ export default {
   // everything else in this house is found, and never announced.
   form: { placeholder: 'how long, in centimetres', inputmode: 'decimal' },
 
-  // No hints, deliberately. A hint here could only name a hiding place, and the hiding places do
-  // not exist until the 14th -- so any hint written today would be a lie sold for three points.
-  // If spot-hints are wanted, they are a day-of content edit alongside the two numbers above.
+  // No hints, and as of #101 that is SETTLED rather than deferred. It used to read "if spot-hints
+  // are wanted, they are a day-of content edit alongside the two numbers above", which quietly
+  // left an open task on the 14th; there is no such task. A hint is a safety valve against being
+  // STUCK, and this tile has nothing to be stuck on: there is no chain, no gate and no step that
+  // has to be solved before the next one exists. A team that finds less string scores less, which
+  // is the game working. Only the two treasure hunts can strand anybody, so only they sell hints.
 
   /** Loud at boot while the day-of numbers are missing. */
   unfinished() {

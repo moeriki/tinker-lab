@@ -43,9 +43,17 @@ export default {
           'Arms without hands, a back without bone, dressed by the crowd and standing alone.',
       },
 
-      // NO HINTS. The riddle names a coat rack in a house full of coats; anything genuinely
-      // useful here IS the answer, sold at 3 points. Same arithmetic that left the Triangle Test
-      // and Longest yarn hintless.
+      // TWO HINTS, ON THE STEP THAT PAYS NOTHING, and #101 is where that inversion was argued.
+      // This step used to have none, refused on the grounds that anything useful here IS the
+      // answer sold at 3 points -- which borrowed the Triangle Test's arithmetic and does not
+      // survive being applied to a hunt. The step pays 0; solving its riddle opens a chain worth
+      // 10. A team stuck on the card we handed them at eye level does not lose nothing, it loses
+      // the tile. So this is the highest-stakes hint on the roster and it was the one that did
+      // not exist.
+      hints: [
+        'It was empty when the first guests arrived. It is not empty now.',
+        'It is holding something of yours right now.',
+      ],
     },
 
     // --- 2. the coat rack -> the piano ---------------------------------------------------------
@@ -60,7 +68,15 @@ export default {
 
       // Narrows the room without naming the object. "Furniture that makes a noise" is worth the
       // three points; "the piano" would not be a hint, it would be a sale.
-      hints: ['You are looking for a piece of furniture that makes a noise.'],
+      //
+      // The second attacks the LID half of the riddle rather than being the first one turned up
+      // louder, which is the shape every pair on this hunt uses: two angles on the same object,
+      // never a name. It also rules out the creaky chair that "furniture that makes a noise"
+      // leaves standing.
+      hints: [
+        'You are looking for a piece of furniture that makes a noise.',
+        'It has a lid, and what is under the lid is the noise.',
+      ],
     },
 
     // --- 3. the piano -> the garden shed --------------------------------------------------------
@@ -75,7 +91,11 @@ export default {
 
       // The one piece of information that actually unsticks this riddle is that the answer is
       // outdoors, and this says so without saying "shed".
-      hints: ['You are going to need shoes.'],
+      //
+      // The second names the KIND of thing once they are out there, and stops deliberately short
+      // of "shed" -- a garage or an outhouse would satisfy it, which is fine, because a team
+      // standing in the garden with this much has already been unstuck.
+      hints: ['You are going to need shoes.', 'It is a building, and nobody lives in it.'],
     },
 
     // --- 4. the garden shed -> the technical cabinet ---------------------------------------------
@@ -93,7 +113,15 @@ export default {
       },
 
       // Names the posture rather than the room, which is the same clue told sideways.
-      hints: ['You have been in the right room several times tonight, and you were sitting down at the time.'],
+      //
+      // The pair splits room from object here, which no other step needs to: the first lands the
+      // room and leaves a team standing in it with nothing found, because "not locked but
+      // concealed" is the actual difficulty. The second says where to look without saying what is
+      // behind it -- and it is the only hint on the hunt that tells a team to stop searching.
+      hints: [
+        'You have been in the right room several times tonight, and you were sitting down at the time.',
+        'You are not looking for the room any more. You are looking at a wall in it.',
+      ],
     },
 
     // --- 5. the technical cabinet -- the end -----------------------------------------------------

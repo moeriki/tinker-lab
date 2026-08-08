@@ -537,6 +537,24 @@ const FLOWS = [
         const first = await page.text('.bubble');
         check(`the hint sequence starts at the beginning — "${first}"`, /something did happen/i.test(first ?? ''));
         await shoot('hunt-hint');
+
+        // BOTH OF THEM, because both are about card one (#101) and the pair only works read in
+        // order: the first says the house did something, the second says which property of it to
+        // watch. A team that bought one and got the other would be told a fact about colour
+        // before being told anything happened at all.
+        await page.press('.btn--hint');
+        const list = (await page.text('ul.stack--tight')) ?? '';
+        check(
+          `and the whole mechanic is two hints, not one — "${list}"`,
+          /something did happen/i.test(list) && /mind the colour/i.test(list),
+        );
+        check('a spent sequence stops offering', !(await page.has('.btn--hint')));
+
+        // Without the `?hint=` param, so the modal is not sitting over the thing being shot. The
+        // shot above is the moment of paying; this one is what a team reads afterwards, which is
+        // the pair in order with no Hint button left under it.
+        await page.goto('/g/lights');
+        await shoot('hunt-hints-spent');
       } else {
         check('the hunt offers a hint to buy', false);
       }
@@ -672,6 +690,49 @@ const FLOWS = [
       check('a finished hunt turns the tile green', await page.has('.tile--correct'));
 
       await shoot('hunt-finished');
+
+      // STEP 1 SELLS TWO HINTS (#101), and this is bought LAST on purpose -- twice over.
+      //
+      // A hint is the only debit on this site, so buying one mid-walk silently poisons both
+      // arithmetic checks above: the score they read is no longer the hunt's payout. That is the
+      // "wrong pair of numbers" shape this map has been bitten by before, and the fix is ordering
+      // rather than cleverness.
+      //
+      // It also buys a second check for free. Standing on the LAST step and asking for step 1's
+      // hints is the per-step model's mirror of what the lights flow proves about the shared one:
+      // there, the first press on the final step must still hand over hint one. Between the two
+      // flows both shapes `hintsFor` supports are walked, which is what stops a step-keyed
+      // sequence from quietly re-selling hint one forever.
+      await page.goto(`/g/${HUNT}?step=1`);
+      for (const press of [1, 2]) {
+        if (!(await page.has('.btn--hint'))) {
+          check(`step 1 offers hint ${press} to buy`, false);
+          break;
+        }
+        await page.press('.btn--hint');
+      }
+
+      // Read the whole list rather than the last bubble: the ORDER is the thing under test, and a
+      // sequence that re-sold hint one twice would leave a perfectly plausible page behind.
+      const list = (await page.text('ul.stack--tight')) ?? '';
+      const opener = list.search(/not empty now/i);
+      const closer = list.search(/something of yours/i);
+
+      check(`step 1 sells two hints (${await page.count('.bubble')} on the page)`, (await page.count('.bubble')) === 2);
+      check(`the sequence walks forwards, not in place — "${list}"`, opener >= 0 && closer > opener);
+      check('a spent sequence stops offering', !(await page.has('.btn--hint')));
+      await shoot('hunt-step-1-hints');
+
+      // The first reveal of a team's night is free and the next one is not, so a finished hunt
+      // that bought both comes out one hint under the tile budget. This is the only place the
+      // walk ever sees the score go DOWN, which is what "your score can go below zero" is
+      // promising on /rules.
+      await page.goto('/');
+      const spent = Number(await page.text('.scorebar__num'));
+      check(
+        `the second hint is the night's only debit (${previous} -> ${spent})`,
+        spent === previous - economy.hintCost,
+      );
     },
   },
 

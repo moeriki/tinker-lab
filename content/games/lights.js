@@ -32,7 +32,20 @@ export default {
   // ONE list for the whole hunt, not one per step: pressing Hint on step 2 gives the SECOND hint,
   // not the first one again. Neither names a fixture or a room -- they sell the mechanic once and
   // then there is nothing left to buy, which is why there are two of them and not four.
-  hints: ['Something did happen.', 'The colour reveals everything.'],
+  //
+  // BOTH OF THEM ARE ABOUT CARD ONE, and #101 is where that stopped being an accident of the
+  // shared list and became the reason there are only two. A hint here is a safety valve against
+  // being stuck, and the only thing a team is ever stuck ON in this hunt is working out that the
+  // house is the clue at all. Once they have that, every remaining step is the same move again
+  // and there is nothing a hint could add that would not be naming a fixture.
+  //
+  // Which is also why a third one was written and thrown away. A team that understands the
+  // mechanic perfectly and simply MISSED the flash is stuck too -- and the fix already exists in
+  // the building rather than in this file: `applyCode` fires a step's webhook on every scan, and
+  // `scanIsInOrder` admits any step already reached, so walking back and scanning the same card
+  // again rolls it again, as many times as they like. Selling that for three points would be
+  // charging a team to be told to try again.
+  hints: ['Something did happen.', 'Mind the colour.'],
 
   // Escalating, summing to exactly the 10-point tile budget (boot checks the arithmetic). Steps
   // bank as they are reached rather than at the finish, so a team that stalls on step 3 still
