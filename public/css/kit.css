@@ -160,6 +160,27 @@
   outline-offset: 0.35rem;
 }
 
+/* -------------------------- the party backdrop ----------------------------- */
+
+/* A patch of the real page background, for demos whose whole point is what they are drawn ON
+   (#105). Every `.sect` is `--c-paper`, so the prose sheet and the same words with no sheet were
+   BOTH being shown on white -- the sheet looked fine, the counter-example looked fine, and the
+   thing the component exists to fix was invisible on the one page that is supposed to show it.
+   That is #102's trap exactly: a demo only in its working shape, and a check the failure also
+   passes.
+
+   `fixed` is not decoration and must not be dropped: it is the whole defect. The gradient belongs
+   to the SCREEN, so scrolling moves the words across it while the colours stay put, which is why
+   the same sentence is on lime for one team and on orange for another. A scrolling copy of the
+   gradient would draw a pretty box that demonstrates nothing.
+
+   Kit chrome, like .sect__h and .gapdemo: no page renders one. */
+.demo-party {
+  background: var(--grad-party) fixed;
+  border: var(--edge-2) solid var(--c-ink);
+  padding: 0.85rem;
+}
+
 /* ------------------------------- owed badges ------------------------------- */
 
 /* A demo the site does not render yet. Red because it is a debt, not a feature.

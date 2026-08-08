@@ -1172,7 +1172,33 @@ export const rulesList = (rules = []) =>
   `<ol class="rules">${rules.map((rule) => `<li>${escape(rule)}</li>`).join('')}</ol>`;
 
 /**
+ * A sheet of paper with a run of prose on it (#105).
+ *
+ * The site had three answers to "does a paragraph get a box" and no rule: the door's paper, a game
+ * page's tile-gradient blurb, and -- on `/rules`, under the longest read in the house -- nothing at
+ * all. This is the answer. **Two or more paragraphs the page exists to have read sit on paper**, and
+ * it is the passage that decides rather than the page, so a one-line joke or a `<small>` sign-off
+ * under a hero still sits on the gradient where it always did.
+ *
+ * Takes the paragraphs as STRINGS and escapes them, because every caller so far is handing it copy
+ * out of `content/` and the one thing a prose surface must never become is a hole markup falls
+ * through. A caller that genuinely needs markup inside a sheet writes `<div class="paper">` itself
+ * and takes the escaping on -- `content/pages/` already does exactly that for `.hero`.
+ *
+ * A heading is deliberately NOT part of it. On `/rules` the `HOW POINTS WORK` shout stays outside on
+ * the gradient, so the page still reads as a loud page with a quiet passage in it rather than
+ * turning into a document -- and the window frame above it already relates to its heading the same
+ * way. Dieter's call, off four rendered versions of the page.
+ */
+export const paper = (paragraphs = []) =>
+  `<div class="paper">${paragraphs.map((para) => `<p>${escape(para)}</p>`).join('')}</div>`;
+
+/**
  * One screen of the onboarding wizard (#97) -- the door, taken one question at a time.
+ *
+ * It is a `.paper` sheet with a form on it (#105). The surface used to be `.door`'s own and is now
+ * shared with every long read on the site, which is why the class list starts with `paper`; nothing
+ * about this screen changed on the way.
  *
  * It wears the **look** of the house alert box and is deliberately not one: no `.modal` overlay, no
  * `role`, nothing fixed, nothing to dismiss. It is a page with a form in it that happens to be
@@ -1230,7 +1256,7 @@ export function doorStep({
   forwardAlt = '',
   extra = '',
 }) {
-  return `<form class="door stack" method="${escape(method)}" action="${escape(action)}">
+  return `<form class="paper door stack" method="${escape(method)}" action="${escape(action)}">
     <p class="door__count">step ${Number(step)} of ${Number(of)}</p>
     <h1 class="door__title">${escape(title)}</h1>
     ${intro ? `<p class="door__intro">${escape(intro)}</p>` : ''}

@@ -134,6 +134,29 @@ An asset is a path under `public/`, served by the existing `/img/` static route.
 broken image, and never a refusal to boot. A path that could never resolve is a typo, and stays
 fatal.
 
+### Paper
+
+A sheet of white with the heavy edge and the offset shadow, for **a run of prose read against
+something flat and still**. `paper()` in `src/render.js`, `.paper` in `app.css`,
+[ADR-prose-longer-than-a-line-sits-on-paper](docs/adr/prose-longer-than-a-line-sits-on-paper.md).
+
+**Two or more paragraphs the page exists to have read sit on paper**, and it is the *passage* that
+decides rather than the page it is on. So the points block on `/rules`, `/p/hidden` and the
+no-such-code page get one; a one-line joke, a `<small>` sign-off under a hero, and every game page's
+own blurb stay bare on the gradient exactly as before.
+
+The reason is the gradient, not the colour: `--grad-party` is `background-attachment: fixed`, so it
+belongs to the **screen** rather than to the page. Where a paragraph falls on it therefore depends
+on how far that team has scrolled, and the same sentence is on lime for one team and on orange for
+another. Fine under a headline; not fine under the longest read in the house.
+
+A **heading does not go inside** — `/rules` keeps `HOW POINTS WORK` outside on the colour, so the
+page still reads as a loud page with a quiet passage in it rather than as a document.
+
+> The **door** is the same sheet: `.door` is `.paper` with a form on it, and the surface is declared
+> once. A change to the paper is a change to the front door, which is the point — one paper and one
+> edge, or there is no rule and merely two boxes that happen to match today.
+
 ### Unfinished content
 
 A game may export `unfinished()`, returning the reasons it is not done. Boot warns loudly for

@@ -1041,22 +1041,58 @@ ol.stack {
 
 .modal__actions .btn { flex: 0 0 auto; font-size: 0.85rem; }
 
-/* ---------------------------------- door ----------------------------------- */
+/* ---------------------------------- paper ---------------------------------- */
 
-/* The onboarding wizard's screen (#97). It wears the alert box's LOOK -- same paper, same heavy
-   edge, same shadow -- and is a form in the page rather than a modal: nothing fixed, no scrim,
-   nothing to dismiss. The distinction is in `doorStep()`'s comment and it matters for the words on
-   the buttons, not for the pixels.
+/* A sheet of the site's paper: somewhere a run of words is read against something flat and still.
+   The party gradient is `background-attachment: fixed`, so it belongs to the SCREEN rather than to
+   the page -- a paragraph's background therefore depends on how far the team has scrolled, and the
+   same sentence lands on lime for one team and on orange for another. Fine under a headline. Not
+   fine under the longest read on the site, which is `/rules` (#105).
 
-   No `modal-pop` here. The box is the whole page, `anim-page` is already animating the transition
-   between screens, and a box that springs on every one of eight or nine steps stops reading as
-   arrival and starts reading as a tic. */
-.door {
+   THE RULE THIS SETTLES: a run of prose gets paper when it is TWO OR MORE PARAGRAPHS THE PAGE
+   EXISTS TO HAVE READ. The passage decides, not the page it is on -- so the points block on
+   `/rules` and the two gag pages that actually say something get a sheet, while a lone `<small>`
+   sign-off under a hero does not, and neither does a one-line joke. One paragraph on the gradient
+   was never the complaint; five of them were.
+
+   Named for the material rather than for a place, which is the whole reason this exists as its own
+   class: `.door` was the only paper surface on the site and it is named for where it lives, and a
+   class named for where it lives is one nobody reuses (see **Component** in CONTEXT.md). `.sheet`
+   was the obvious word and is already taken by the house -- the QR cutting sheet -- so `paper` it
+   is, after `--c-paper`, which is the colour it is made of.
+
+   `.door` COMPOSES THIS, it does not copy it. So a change here is a change to the front door too,
+   and that is intended rather than tolerated: this site has one paper and one edge, and the moment
+   there are two of them there is no rule, only two boxes that happen to match today. What is NOT
+   promoted is anything about a form -- the wizard's title, count, intro and button row are all
+   `.door__*` and stay there. */
+.paper {
   background: var(--c-paper);
   border: var(--edge-3) solid var(--c-ink);
   box-shadow: var(--shadow-3);
   padding: 1.2rem 1rem;
 }
+
+/* A sheet is a surface, not a spacer: it owns the gap between its own edge and the words, and the
+   words own the gaps between each other. Without these two the first paragraph's top margin pushes
+   a white band above the text that no other box on this site has. */
+.paper > :first-child { margin-top: 0; }
+.paper > :last-child { margin-bottom: 0; }
+
+/* ---------------------------------- door ----------------------------------- */
+
+/* The onboarding wizard's screen (#97). It is a `.paper` sheet with a form on it, so it wears the
+   alert box's LOOK -- same paper, same heavy edge, same shadow -- and is a form in the page rather
+   than a modal: nothing fixed, no scrim, nothing to dismiss. The distinction is in `doorStep()`'s
+   comment and it matters for the words on the buttons, not for the pixels.
+
+   The surface used to be declared here and is now `.paper`'s (#105). Nothing about the door
+   changed on screen; what changed is that it is no longer the only thing on this site allowed to
+   put words on paper.
+
+   No `modal-pop` here. The box is the whole page, `anim-page` is already animating the transition
+   between screens, and a box that springs on every one of eight or nine steps stops reading as
+   arrival and starts reading as a tic. */
 
 /* Honest, not equal -- a solo captain sees a smaller total than a pair. Mono and quiet, because it
    is the one thing on the screen nobody came to read. */
@@ -2045,3 +2081,4 @@ ol.stack {
     transform: none !important;
   }
 }
+

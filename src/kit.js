@@ -42,6 +42,7 @@ import {
   hintModal,
   league,
   openedBox,
+  paper,
   rulesList,
   scorebar,
   marquee,
@@ -328,6 +329,13 @@ const RENDERERS = {
   // render.js in the same change -- the rule this file's header states. The body is a rules list
   // because that is the only thing wearing the frame so far; `rules` is pipe-separated because a
   // marker attribute is one flat string and a list has to survive being flattened into one.
+  // The prose surface (#105). Pipe-separated for the same reason `win`'s rules are: a marker
+  // attribute is one flat string and a run of paragraphs has to survive being flattened into one.
+  // The demo below it on `/kit` is the counter-example -- the same words with no sheet -- because
+  // the rule this component settles is about WHEN prose gets one, and a surface shown alone always
+  // looks fine (#102's lesson: demo the shape that fails too).
+  paper: (a) => paper((a.paragraphs ?? '').split('|').filter(Boolean)),
+
   win: (a) =>
     win({
       title: a.title ?? 'the_rules.txt',
@@ -443,6 +451,7 @@ const BUILT_NAMES = {
   shot: 'the shots',
   shots: 'the shots',
   win: 'the window frame',
+  paper: 'the prose sheet',
   door: 'the door wizard',
   opened: 'the door wizard',
   marquee: 'the marquee',

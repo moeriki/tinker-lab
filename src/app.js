@@ -135,6 +135,7 @@ import {
   navbar,
   notFound,
   openedBox,
+  paper,
   rulesList,
   scorebar,
   shoot,
@@ -2215,6 +2216,12 @@ async function revealHint({ req, res, params }) {
  * MISSION.md asks for a rule that "should only appear once they actually stumbled upon it", and
  * announcing the arrival would undo the stumble.
  *
+ * The points block sits on a `paper()` sheet (#105). It is the longest continuous read on the site
+ * and it used to be the only one with nothing behind it -- five paragraphs of black Georgia on a
+ * gradient pinned to the screen, so where a sentence fell on it depended on how far the page had
+ * scrolled. The `HOW POINTS WORK` shout stays OUTSIDE the sheet, on the gradient, which is the same
+ * relationship the window frame above it already has to the page's own heading.
+ *
  * This page is also the far end of onboarding's rules screens: every rule the door shows is one of
  * `rulesCopy.rules`, so a team who taps `the rules` later finds the same words plus the ones the
  * door left out. The hint rule is the only thing here that the door never shows.
@@ -2246,7 +2253,7 @@ function showRules({ req, res }) {
       body: `
         ${win({ title: rulesCopy.filename, body: rulesList(rules), status })}
         <h2 class="shout">${escape(rulesCopy.pointsTitle)}</h2>
-        ${rulesCopy.points.map((para) => `<p>${escape(para)}</p>`).join('')}
+        ${paper(rulesCopy.points)}
         ${starburst(chrome.starburst)}
       `,
     }),

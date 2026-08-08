@@ -48,16 +48,25 @@ export default {
   // `finderRank` is frozen at the moment of their first scan, so this sentence reads the same at
   // midnight as it did when they found it. A visitor with no team gets 0 and no line at all,
   // rather than a claim about an order they were never in.
+  //
+  // The two paragraphs are on a `.paper` sheet (#105): two or more paragraphs the page exists to
+  // have read get one, and this page exists for nothing else. The rank line above it keeps its own
+  // hero and the sign-off below stays bare on the gradient, both for the same reason -- neither is
+  // the read, and a sheet around one line is a box for its own sake. Markup is written out here
+  // rather than calling `paper()` because content hands the app HTML and already does this for
+  // `.hero`; the em dash and the `<small>` are why it cannot be a list of escaped strings.
   body: ({ finderRank }) => `
     ${finderRank ? `<p class="hero hero--text">You are the ${place(finderRank)} team to find this.</p>` : ''}
-    <p>
-      I hid this one properly. I wanted at least one thing tonight to be worth genuinely
-      looking for, and this is it.
-    </p>
-    <p>
-      There is no game here and no points. Just — thank you for coming. Getting everyone I like
-      into one house on one night is the whole present, and you are part of it.
-    </p>
+    <div class="paper">
+      <p>
+        I hid this one properly. I wanted at least one thing tonight to be worth genuinely
+        looking for, and this is it.
+      </p>
+      <p>
+        There is no game here and no points. Just — thank you for coming. Getting everyone I like
+        into one house on one night is the whole present, and you are part of it.
+      </p>
+    </div>
     <p><small>Now go back and talk to someone.</small></p>
   `,
 
