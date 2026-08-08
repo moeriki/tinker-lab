@@ -34,7 +34,7 @@ export const marquee = [
   'HAVE FUN',
   'GOT ICE?',
   'EVERY PARTY ENDS',
-  'NO REFUNDS',
+  'WE PUT THE FUN IN NO REFUNDS',
   'TWO PER TEAM',
   'WHOSE COAT IS THIS',
   'THE POINTS DO NOT MEAN ANYTHING',
